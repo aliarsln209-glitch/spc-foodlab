@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
-from constants import SHIFT_OPTIONS, SUBGROUP_SIZE
+from constants import PRODUCT_PH_RANGES, SHIFT_OPTIONS, SUBGROUP_SIZE
 from demo_data import generate_demo_subgroups
 from spc_core import compute_cpk, compute_xbar_r_limits
 
@@ -120,11 +120,39 @@ with tab_chart:
         st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
         st.subheader("Spesifikasyon limitleri (Cpk icin)")
+
+        products = list(PRODUCT_PH_RANGES.keys())
+        default_index = products.index("Ozel/Manuel gir")
+        selected_product = st.selectbox("Urun", products, index=default_index, key="product_select")
+
+        if "prev_product" not in st.session_state:
+            st.session_state.prev_product = None
+            st.session_state.lsl_input = 6.8
+            st.session_state.usl_input = 7.2
+
+        if selected_product != st.session_state.prev_product:
+            product_range = PRODUCT_PH_RANGES[selected_product]
+            if product_range is not None:
+                st.session_state.lsl_input, st.session_state.usl_input = product_range
+            st.session_state.prev_product = selected_product
+
+        st.caption(
+            "Bu degerler literatur/sektor pratiginden alinan gosterge "
+            "degerlerdir. Turk Gida Kodeksi cogu urunde sayisal bir pH "
+            "limiti belirlemez; bu tablo TGK uyumlulugu icin degil, kalite "
+            "kontrol referansi olarak kullanilir. LSL/USL degerlerini "
+            "kendi urun/spesifikasyonuna gore elle degistirebilirsin."
+        )
+
         col1, col2 = st.columns(2)
         with col1:
-            lsl = st.number_input("Alt spesifikasyon limiti (LSL)", value=6.8, step=0.01, format="%.2f")
+            lsl = st.number_input(
+                "Alt spesifikasyon limiti (LSL)", step=0.01, format="%.2f", key="lsl_input"
+            )
         with col2:
-            usl = st.number_input("Ust spesifikasyon limiti (USL)", value=7.2, step=0.01, format="%.2f")
+            usl = st.number_input(
+                "Ust spesifikasyon limiti (USL)", step=0.01, format="%.2f", key="usl_input"
+            )
 
         means = [sum(sg["values"]) / len(sg["values"]) for sg in st.session_state.subgroups]
         ranges = [max(sg["values"]) - min(sg["values"]) for sg in st.session_state.subgroups]
@@ -197,7 +225,7 @@ with tab_chart:
         dark = chart_theme == "Koyu"
         out_of_control_x = [i for i, m in enumerate(means) if m > limits.ucl_x or m < limits.lcl_x]
 
-        fig, ax = plt.subplots(figsize=(10, 4))
+        fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
         ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
         ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
         ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
@@ -210,15 +238,15 @@ with tab_chart:
             )
         ax.set_xlabel("Alt grup no")
         ax.set_ylabel("pH")
-        ax.legend(loc="upper left", fontsize=8)
+        ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
         style_chart(fig, ax, dark)
-        st.pyplot(fig)
+        st.pyplot(fig, use_container_width=True)
         plt.close(fig)
 
         st.subheader("R Kontrol Grafigi")
         out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
 
-        fig2, ax2 = plt.subplots(figsize=(10, 3))
+        fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
         ax2.plot(indices, ranges, marker="o", color="steelblue", linewidth=1, label="Alt grup range")
         ax2.axhline(r_bar, color="green", linestyle="-", label="R̄")
         ax2.axhline(limits.ucl_r, color="red", linestyle="--", label="UCL_R")
@@ -231,9 +259,9 @@ with tab_chart:
             )
         ax2.set_xlabel("Alt grup no")
         ax2.set_ylabel("Range")
-        ax2.legend(loc="upper left", fontsize=8)
+        ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
         style_chart(fig2, ax2, dark)
-        st.pyplot(fig2)
+        st.pyplot(fig2, use_container_width=True)
         plt.close(fig2)
 
         if out_of_control_x or out_of_control_r:

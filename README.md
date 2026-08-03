@@ -120,6 +120,25 @@ Test çalıştırmak için:
 pytest tests/
 ```
 
+## Ürün pH referans tablosu
+
+Arayüzdeki "Ürün" seçimi, LSL/USL alanlarını literatürden alınan
+gösterge pH aralıklarıyla otomatik doldurur (kullanıcı bu değerleri
+elle değiştirebilir — override).
+
+**Önemli:** Türk Gıda Kodeksi (TGK), çoğu gıda ürünü için sayısal bir
+pH limiti belirlemez. Bu yüzden tablo, TGK uyumluluğu iddiasıyla değil,
+**kalite kontrol referansı** olarak uluslararası literatürden derlendi:
+
+- **Oklahoma State University Extension** — FDA *Bacteriological
+  Analytical Manual* verilerine dayanan gıda pH değerleri derlemesi
+- **Dairy Food Safety Victoria** — süt ürünleri (süt, yoğurt, peynir,
+  tereyağı) için teknik bilgi notu
+
+Kullanıcı, kendi ürününün gerçek spesifikasyonuna sahipse LSL/USL
+alanlarını doğrudan elle güncelleyebilir; tablo sadece başlangıç
+noktası sağlar.
+
 ## Nasıl çalıştırılır (local)
 
 ```bash
