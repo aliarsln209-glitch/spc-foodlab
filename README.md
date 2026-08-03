@@ -3,75 +3,83 @@
 Gıda üretiminde pH, Brix, aw (su aktivitesi), viskozite, nem/rutubet,
 tuz/NaCl, titrasyon asitliği, peroksit değeri veya HMF ölçümlerinden
 **istatistiksel proses kontrolü (SPC)** grafiği ve **süreç yeterlilik
-analizi (Cpk)** üreten bir Streamlit uygulaması.
+analizi (Cpk/Cpu)** üreten bir Streamlit uygulaması.
 
-## Ne yapar
+🔗 **Demo:** [spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app](https://spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app/)
+
+## English summary
+
+SPC FoodLab turns routine food-quality lab measurements into proper
+**Statistical Process Control (SPC)** charts and **process capability
+(Cpk/Cpu)** analysis, instead of just logging numbers.
+
+- **Two chart engines:** X-bar/R for subgroup-based parameters (pH,
+  Brix, aw, moisture, salt, titratable acidity), and Individual-Moving
+  Range (I-MR) for parameters measured one value at a time (viscosity,
+  peroxide value, HMF).
+- **One- or two-sided Cpk**, resolved automatically per *product* —
+  e.g. honey's moisture spec only has an upper limit (per Turkish Food
+  Codex), so it gets a one-sided Cpu automatically while other products
+  under the same parameter stay two-sided.
+- Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
+  Cpk/Cpu, including the R̄=0 edge case) is validated against a
+  textbook or industry worked example before being trusted — see
+  `tests/` (10 automated tests across 3 files).
+- Built with Python + Streamlit, deployed on Streamlit Community
+  Cloud. Independent, individually-developed project (built to apply
+  SPC/quality-engineering coursework to a real, deployed tool).
+
+## Ne yapar ve neden yaptım
 
 Gıda üretim hatlarında laboratuvar analiz sonuçları (pH, Brix, nem, aw,
 viskozite vb.) genelde sadece kaydedilir, istatistiksel olarak
 yorumlanmaz. Bu araç, seçilen parametreye göre **alt grup bazlı**
-(pH/Brix/aw/nem/tuz/asitlik — vardiya başına birden çok ölçüm) veya
-**tek tek ölçülen** (viskozite, peroksit, HMF — I-MR chart, bkz.
-aşağıda) verilerden otomatik olarak:
+(vardiya başına birden çok ölçüm) veya **tek tek ölçülen** (I-MR
+chart, bkz. aşağıda) verilerden otomatik olarak ortalama, standart
+sapma, kontrol limitlerini (UCL/LCL) ve süreç yeterlilik indeksini
+(Cpk/Cpu) hesaplar; spesifikasyon dışı noktaları grafikte işaretler.
 
-- Ortalama, standart sapma, kontrol limitlerini (UCL/LCL),
-- X-bar/R veya I-MR kontrol grafiğini,
-- Süreç yeterlilik indeksini (Cpk/Cpu),
+Gıda mühendisliği eğitimimde gördüğüm istatistiksel proses kontrolü
+(SPC) / kalite mühendisliği konusunu, gerçek bir araç olarak
+uygulamaya döktüğüm bireysel bir projedir. Amaç, ders içeriğindeki
+formülleri literatür/sektör kaynaklarıyla doğrulayarak çalışan, deploy
+edilmiş bir ürüne dönüştürmek.
 
-hesaplar ve spesifikasyon dışı noktaları grafikte görsel olarak işaretler.
+## Desteklenen parametreler
 
-**Neden yaptım:** Gıda mühendisliği eğitimimde gördüğüm istatistiksel
-proses kontrolü (SPC) / kalite mühendisliği konusunu, gerçek bir araç
-olarak uygulamaya döktüğüm bireysel bir proje. Amaç, ders içeriğindeki
-formülleri (X-bar/R kontrol grafiği, Cpk) literatür kaynaklarıyla
-doğrulayarak çalışan, deploy edilmiş bir ürüne dönüştürmek.
+| Parametre | Chart | Taraflılık | Birim |
+|---|---|---|---|
+| pH | X-bar/R | İki taraflı | pH |
+| Brix | X-bar/R | İki taraflı | °Bx |
+| Aw (su aktivitesi) | X-bar/R | Tek taraflı (Cpu) | aw (0–1) |
+| Nem/Rutubet | X-bar/R | Ürüne göre (Bal: tek taraflı) | % |
+| Tuz/NaCl | X-bar/R | İki taraflı | % |
+| Titrasyon Asitliği | X-bar/R | İki taraflı | % |
+| Viskozite | I-MR | İki taraflı | cP |
+| Peroksit Değeri | I-MR | Tek taraflı (Cpu) | meq O2/kg |
+| HMF | I-MR | Tek taraflı (Cpu) | mg/kg |
 
-## Kapsam (v1 / MVP)
+Sidebar'dan tek bir parametre aktif olacak şekilde seçilir; parametre
+değiştirmek mevcut veriyi ve baseline'ı siler (onay istenir) — farklı
+parametrelerin verisi aynı oturumda karışmasın diye.
 
-**Dahil:**
-- Dokuz parametre: pH, Brix, Aw, Viskozite, Nem/Rutubet, Tuz/NaCl,
-  Titrasyon Asitliği, Peroksit Değeri, HMF (sidebar'dan seçilir, aynı
-  anda tek parametre aktif)
-- X-bar/R altyapısı: pH, Brix, Aw, Nem/Rutubet, Tuz/NaCl, Titrasyon
-  Asitliği — yapılandırılmış form ile alt grup veri girişi (vardiya
-  başına 4 ölçüm)
-- I-MR altyapısı: Viskozite, Peroksit Değeri, HMF — tek tek ölçüm
-  girişi (alt grup yok, bkz. aşağıda)
-- Tek/iki taraflı Cpk seçimi **ürün bazında** otomatik belirlenir
-  (örn. Nem/Rutubet'te "Bal" tek taraflı, diğer ürünler iki taraflı)
-- Otomatik ortalama, standart sapma, UCL/LCL hesaplama
-- X-bar/R kontrol grafiği veya I-MR kontrol grafiği (parametreye göre)
-- Cpk / Cpu (süreç yeterlilik indeksi), sıfır-varyasyon edge case'i
-  (∞/-∞) dahil
-- Spesifikasyon dışı noktaların görsel işaretlenmesi (tek taraflı
-  durumlarda LSL/LCL çizgisi gizlenir)
-- Totox hesaplayıcı (izole, tek seferlik — "Hızlı Hesaplayıcılar" sekmesi)
+**Kapsam dışı (v1'de yok):** çoklu parametre karşılaştırma, Western
+Electric kuralları, kullanıcı hesabı/çoklu kullanıcı sistemi, veritabanı
+entegrasyonu (session-state + CSV export yeterli), değişken alt grup
+büyüklüğü (n=4 sabit).
 
-**Kapsam dışı (v1'de yok):**
-- Çoklu parametre karşılaştırma
-- Western Electric kuralları
-- Kullanıcı hesabı / çoklu kullanıcı sistemi
-- Veritabanı entegrasyonu (session-state + CSV export yeterli)
-- Değişken alt grup büyüklüğü (n v1'de sabit kod içinde tutuluyor;
-  kullanıcı tarafından değiştirilemiyor — ileride genişletme fikri)
+## Yöntem ve formüller
 
-## Kullanılan formüller ve kaynaklar
+### X-bar/R (alt grup bazlı parametreler)
 
-### X-bar kontrol grafiği
 ```
-UCL = x̄̄ + A2 · R̄
-LCL = x̄̄ - A2 · R̄
+UCL_x = x̄̄ + A2 · R̄          LCL_x = x̄̄ - A2 · R̄
+UCL_R = D4 · R̄               LCL_R = D3 · R̄
 ```
 
-### R kontrol grafiği
-```
-UCL_R = D4 · R̄
-LCL_R = D3 · R̄
-```
-
-A2, D3, D4 alt grup büyüklüğüne (n) bağlı standart tablo sabitleridir.
-**Kaynak:** Montgomery, D.C., *Introduction to Statistical Quality
-Control* — standart SPC sabit tablosu.
+A2, D3, D4, d2 alt grup büyüklüğüne (n) bağlı standart tablo
+sabitleridir. **Kaynak:** Montgomery, D.C., *Introduction to
+Statistical Quality Control*.
 
 | n | A2 | D3 | D4 | d2 |
 |---|-----|-----|------|-------|
@@ -85,308 +93,125 @@ Control* — standart SPC sabit tablosu.
 | 9 | 0.337 | 0.184 | 1.816 | 2.970 |
 | 10 | 0.308 | 0.223 | 1.777 | 3.078 |
 
-### Cpk (Süreç Yeterlilik İndeksi)
-```
-σ̂  = R̄ / d2
-Cpk = min[ (USL - x̄̄) / (3σ̂),  (x̄̄ - LSL) / (3σ̂) ]
-```
-σ̂, subgrup-içi (kısa vadeli) varyasyondan R̄/d2 ile tahmin edilir —
-ham veri standart sapmasından değil, çünkü subgrup-arası kayma Cpk'yi
-yanlış yönde etkilemesin diye SPC'de standart yaklaşım budur.
+### I-MR (tek tek ölçülen parametreler — Viskozite, Peroksit, HMF)
 
-**Kaynak:** NIST/SEMATECH e-Handbook of Statistical Methods, Ch. 2 —
-[Process Capability (Cpk)](https://itl.nist.gov/div898/software/dataplot/refman2/ch2/cpk.pdf);
-standart referans: Montgomery, *Introduction to Statistical Quality Control*.
-
-## Doğrulama
-
-Formüllerin doğruluğu, kodlamadan önce elle çözülmüş bir literatür
-örneğiyle test edildi.
-
-**Kaynak:** LibreTexts Engineering, *Chemical Process Dynamics and
-Controls* (Woolf), [13.2: SPC - Basic Control Charts](https://eng.libretexts.org/Bookshelves/Industrial_and_Systems_Engineering/Chemical_Process_Dynamics_and_Controls_(Woolf)/13:_Statistics_and_Probability_Background/13.02:_SPC-_Basic_Control_Charts-_Theory_and_Construction_Sample_Size_X-Bar_R_charts_S_charts)
-— pH X-bar/R örneği (n=4, k=24 alt grup).
-
-Test girdisi: x̄̄ = 7.01, R̄ = 0.12, A2 = 0.729 (n=4).
-
-| | Hesaplanan | Kaynaktaki beklenen | Fark |
-|---|---|---|---|
-| UCL | 7.0975 | 7.0982 | 0.00072 |
-| LCL | 6.9225 | 6.9251 | 0.00258 |
-
-**Tolerans ve LCL kararı:** Kaynakta gösterilen x̄̄ (7.01) ve R̄ (0.12)
-değerleri 2 ondalığa yuvarlanmış görüntü değerleridir; kaynağın kendi
-UCL/LCL sonuçları orijinal 24 alt grubun tam hassasiyetli (yuvarlanmamış)
-verisinden hesaplanmıştır. Bu yüzden tam eşitlik yerine **±0.001
-tolerans** ile test edildi ve UCL bu toleransın içinde kaldı.
-
-LCL için ayrıca bir tutarsızlık bulundu: kaynaktaki UCL (7.0982) ve LCL
-(6.9251) değerleri x̄̄=7.01 etrafında **simetrik değil** (UCL ofseti
-0.0882, LCL ofseti 0.0849 — birbirine eşit olması gerekirken farklı).
-Formül gereği UCL ve LCL matematiksel olarak simetrik olmak zorunda
-olduğundan (ikisi de x̄̄ ± A2·R̄), bu kaynaktaki bir transkripsiyon/yuvarlama
-hatası olarak değerlendirildi. Bu nedenle test, LCL'i kaynaktaki rakamla
-değil, **UCL ile matematiksel simetrisiyle** doğruluyor
-(`tests/test_validation.py`).
-
-Test çalıştırmak için:
-```bash
-pytest tests/
-```
-
-## Ürün pH referans tablosu
-
-Arayüzdeki "Ürün" seçimi, LSL/USL alanlarını literatürden alınan
-gösterge pH aralıklarıyla otomatik doldurur (kullanıcı bu değerleri
-elle değiştirebilir — override).
-
-**Önemli:** Türk Gıda Kodeksi (TGK), çoğu gıda ürünü için sayısal bir
-pH limiti belirlemez. Bu yüzden tablo, TGK uyumluluğu iddiasıyla değil,
-**kalite kontrol referansı** olarak uluslararası literatürden derlendi:
-
-- **Oklahoma State University Extension** — FDA *Bacteriological
-  Analytical Manual* verilerine dayanan gıda pH değerleri derlemesi
-- **Dairy Food Safety Victoria** — süt ürünleri (süt, yoğurt, peynir,
-  tereyağı) için teknik bilgi notu
-
-Kullanıcı, kendi ürününün gerçek spesifikasyonuna sahipse LSL/USL
-alanlarını doğrudan elle güncelleyebilir; tablo sadece başlangıç
-noktası sağlar.
-
-## Brix referans tablosu
-
-pH'a ek olarak, ikinci parametre olarak **Brix (°Bx)** desteklenir.
-Sidebar'daki "Parametre" seçiciyle pH/Brix arasında geçiş yapılabilir;
-X-bar/R ve Cpk formülleri parametreden bağımsız olduğu için
-(`spc_core.py` değişmedi) aynı matematiksel çekirdek kullanılır — değişen
-sadece ölçüm birimi ve ürün spesifikasyon tablosudur.
-
-**Kaynak:** 19 CFR 151.91 — ABD federal regülasyonu, meyve suyu
-ithalatı için resmi ortalama Brix değerleri tablosu, + sektör pratiği.
-19 CFR 151.91 her ürün için **tek nokta ortalama değer** verir (aralık
-değil); LSL/USL için bir aralık gerektiğinden, bu ortalamaya **±0.5
-tolerans** eklenerek aralık haline getirildi.
-
-**Ölçüm notu:** Brix ölçümü genellikle **refraktometre** ile yapılır ve
-**sıcaklığa duyarlıdır** — çoğu refraktometre 20°C referans sıcaklığına
-göre kalibre edilmiştir; farklı sıcaklıkta ölçüm yapılıyorsa sonuçlar
-sıcaklık kompanzasyonu (ATC — Automatic Temperature Compensation) olan
-bir cihazla veya manuel düzeltme tablosuyla doğrulanmalıdır.
-
-**Önemli:** pH tablosunda olduğu gibi, bu değerler de Türk Gıda
-Kodeksi'nin yerini tutmaz — TGK bu konuda sayısal bir limit
-belirlemediği için uluslararası literatür kaynağı kullanıldı. Tablo
-kalite kontrol referansıdır, zorunlu bir uyumluluk şartı değildir.
-
-**Parametre değişimi ve veri izolasyonu:** pH ve Brix verileri aynı
-oturumda karışmasın diye, sidebar'dan parametre değiştirmek mevcut
-alt grup verisini ve baseline'ı siler — bu işlem geri alınamaz olduğu
-için onay istenir.
-
-## Aw (su aktivitesi) referans tablosu ve tek taraflı Cpk
-
-Üçüncü parametre olarak **aw (su aktivitesi, birimsiz, 0–1 arası)**
-desteklenir. X-bar/R formülleri ve A2/D3/D4/d2 sabit tablosu burada da
-değişmez; değişen, Cpk hesabının **tek taraflı** yapılmasıdır (aşağıya
-bakınız).
-
-**Kaynak:** DRINC (Davis Region Innovation Corridor) / UC Davis ve
-Virginia Tech Cooperative Extension aw referans tabloları. Ayrıca FDA,
-düşük asitli/asitlendirilmiş konserve gıda regülasyonunda (21 CFR
-113/114) **aw = 0.85 eşiğini** "potansiyel olarak tehlikeli gıda"
-sınırı olarak kullanır — bu, aw'nin gıda güvenliğinde neden tek yönlü
-bir risk eşiği olarak ele alındığının regülasyon örneğidir.
-
-**Neden tek taraflı Cpk (Cpu):** aw'de yalnızca **üst limit (USL)**
-mikrobiyal güvenlik açısından anlamlıdır — "aw belirli bir değeri
-geçmesin" (düşük aw'de bakteri/küf üremesi durur, dolayısıyla "aşağıda
-kalmak" bir risk değil, hedeftir). Alt limit çoğu ürün için
-tanımsızdır/anlamsızdır. Standart iki taraflı Cpk formülü
-`min(Cpu, Cpl)` kullanılırsa, anlamsız bir LSL için hesaplanan Cpl,
-gerçek süreç yeterliliğini yanlış yansıtabilir (örn. yapay olarak
-düşük bir Cpk göstererek süreci olduğundan daha kötü gösterebilir).
-Bu yüzden aw seçildiğinde arayüz LSL alanını devre dışı bırakır ve
-sadece `Cpu = (USL - x̄̄) / (3σ̂)` hesaplanıp gösterilir.
-
-`compute_cpk()` fonksiyonu bunun için opsiyonel bir `one_sided`
-parametresi alır; `False` (varsayılan) durumda pH/Brix için mevcut iki
-taraflı davranış aynen korunur — bu değişiklik pH/Brix hesaplamalarını
-etkilemez (bkz. `tests/test_validation.py`, hâlâ geçiyor).
-
-## Ürün bazında tek/iki taraflı Cpk
-
-Başlangıçta tek/iki taraflı Cpk seçimi **parametre** düzeyinde sabitti
-(örn. tüm aw her zaman tek taraflı). Nem/Rutubet parametresiyle birlikte
-bu esnekleştirildi: artık seçim **ürün** düzeyinde de değişebilir. Örnek:
-Nem/Rutubet parametresinde çoğu ürün (Ekmek, Kaşar peyniri, Makarna vb.)
-iki taraflıyken, **Bal** ürünü seçildiğinde otomatik olarak tek taraflı
-Cpu'ya geçilir — çünkü TGK Bal Tebliği'nde nem için sadece bir üst limit
-tanımlıdır, alt limit yoktur.
-
-Bu, ürün referans tablolarındaki `(LSL, USL)` ikilisinde `LSL = None`
-olan girdilerle ifade edilir (aynı `AW_PRODUCT_RANGES`'te kullanılan
-`(None, USL)` deseni). Uygulama, seçilen ürünün LSL'i `None` ise o ürün
-için tek taraflı Cpu hesaplar; "Özel/Manuel gir" seçildiğinde ise
-parametrenin kendi varsayılanına (`PARAMETER_CONFIG["one_sided"]`)
-geri döner. Bu sayede aynı parametre içinde bazı ürünler iki taraflı,
-bazıları tek taraflı olabilir.
-
-**Grafik sadeleştirmesi:** Tek taraflı analiz aktifken (parametre veya
-ürün kaynaklı fark etmez) X-bar/I chart'ta **LSL/LCL çizgisi ve etiketi
-çizilmez** — sadece USL/UCL gösterilir. Bu, önceki oturumda yalnızca
-Aw için değil, artık tüm tek taraflı durumlar için tutarlı şekilde
-uygulanır (istatistiksel kontrol-dışı tespiti, yani bir noktanın LCL
-altında kalıp kalmadığı kontrolü, buna rağmen aynen çalışmaya devam
-eder — sadece çizgi görsel olarak gizlenir).
-
-## Sıfıra bölme koruması (Cpk/Cpu edge case)
-
-Eğer bir seri/alt grupta hiç varyasyon yoksa (R̄ veya MR̄ tam 0 — örn.
-Peroksit/HMF'de ardışık ölçümler birebir aynıysa), `σ̂ = R̄/d2` formülü
-de 0 çıkar ve normal Cpk formülü sıfıra bölme hatası verirdi.
-`compute_cpk()` artık bu durumu özel olarak ele alır:
-
-- Varyasyon yok VE ortalama spesifikasyon içindeyse → Cpk/Cpu = **∞**
-  (süreç kusursuz)
-- Varyasyon yok AMA ortalama zaten spesifikasyon dışındaysa → Cpk/Cpu =
-  **-∞** (varyasyon olmasa da süreç yetersiz)
-
-Bu davranış hem X-bar/R hem I-MR yolları için geçerlidir (ikisi de aynı
-`compute_cpk()` fonksiyonunu kullanır) ve `tests/test_cpk_edge_cases.py`
-ile doğrulanmıştır — mevcut pH/Brix/Aw/Viskozite testlerinden bağımsız,
-onları etkilemez.
-
-## I-MR (Individual-Moving Range) Chart — Viskozite
-
-Dördüncü parametre olan **Viskozite (cP)**, X-bar/R yerine **I-MR
-(Individual-Moving Range) chart** kullanır. Bu, yapısal olarak farklı
-bir chart tipidir — X-bar/R değil.
-
-### Neden farklı: alt grup yok
-
-X-bar/R'de bir **alt grup** kavramı vardır (örn. vardiya başına 4
-ölçüm) — kontrol limitleri alt grup *ortalamalarının* ve alt grup
-*aralıklarının* (range) varyasyonuna dayanır. Viskozite gibi bazı
-parametreler pratikte her seferinde **tek bir değer** olarak ölçülür;
-"vardiya başına 4 ölçüm" gibi bir yapı gıda mühendisliği pratiğinde
-zorlama olur. I-MR'de bu yüzden alt grup yoktur: **her ölçüm kendi
-başına bir nokta**dır, ve "range" yerine **ardışık iki ölçüm arasındaki
-fark (moving range)** kullanılır:
+X-bar/R'de bir **alt grup** kavramı vardır (vardiya başına 4 ölçüm) —
+kontrol limitleri alt grup *ortalamalarının* ve *aralıklarının*
+varyasyonuna dayanır. Viskozite, peroksit değeri, HMF gibi parametreler
+pratikte her seferinde **tek bir değer** olarak ölçülür (her ölçüm bir
+parti/batch sonucudur); bu yüzden alt grup yerine ardışık iki ölçüm
+arasındaki fark (**moving range**) kullanılır:
 
 ```
-MR_i = |x_i - x_(i-1)|
-MR̄   = ortalama moving range
-```
+MR_i = |x_i - x_(i-1)|                MR̄ = ortalama moving range
+σ̂ = MR̄ / d2  (d2 = 1.128, n=2 sabiti)
 
-### Formüller
-
-```
-σ̂ = MR̄ / d2                    (d2 = 1.128, n=2 sabiti)
 I chart:  UCL/LCL = x̄ ± 2.66 × MR̄
 MR chart: UCL = 3.267 × MR̄, LCL = 0
 ```
 
-**Önemli:** I chart'ın merkez sabiti (**2.66**) X-bar chart'ın A2
-sabitinden (n=2 için 1.880) **farklıdır** — bunlar karıştırılmamalıdır.
-A2, alt grup *ortalamalarının* varyasyonundan türetilir; 2.66 ise
-ardışık *bireysel* değerler arasındaki farktan türetilir (yaklaşık
-3/d2). Farklı bir varyasyon kaynağını modelledikleri için farklı
-sabitlerdir. MR chart'ın D4 sabiti (3.267) ise X-bar/R'nin n=2 için D4
-sabitiyle aynıdır, bu bir tesadüf değil — MR de aslında n=2'lik bir
-"alt grubun" range'i olarak yorumlanabilir (iki ardışık nokta).
+**Önemli:** I chart'ın merkez sabiti (**2.66**) X-bar'ın A2'sinden
+(n=2 için 1.880) **farklıdır** — A2 alt grup *ortalamalarının*
+varyasyonundan türetilirken, 2.66 ardışık *bireysel* değerler
+arasındaki farktan türetilir (≈3/d2). MR chart'ın D4 sabiti (3.267)
+X-bar/R'nin n=2 D4'üyle aynıdır — bu tesadüf değil, MR de n=2'lik bir
+"alt grubun" range'i olarak yorumlanabilir.
+
+### Cpk / Cpu (süreç yeterlilik indeksi)
+
+```
+İki taraflı:  Cpk = min[ (USL - x̄̄)/(3σ̂), (x̄̄ - LSL)/(3σ̂) ]
+Tek taraflı:  Cpu = (USL - x̄̄)/(3σ̂)                          (LSL yok sayılır)
+```
+
+**Kaynak:** NIST/SEMATECH e-Handbook of Statistical Methods, Ch. 2 —
+[Process Capability (Cpk)](https://itl.nist.gov/div898/software/dataplot/refman2/ch2/cpk.pdf).
+σ̂, X-bar/R'de R̄/d2, I-MR'de MR̄/d2 ile tahmin edilir — `compute_cpk(n, ...)`
+fonksiyonu n=4 (X-bar/R) veya n=2 (I-MR) ile çağrılarak aynı formül
+her iki chart tipi için de yeniden kullanılır.
+
+**Tek/iki taraflı seçimi ürün bazındadır**, parametre bazında değil:
+ürün referans tablosundaki `(LSL, USL)` çiftinde `LSL = None` ise o
+ürün için Cpu hesaplanır (örn. Nem/Rutubet'te "Bal" — TGK Bal
+Tebliği'nde nem için sadece üst limit tanımlı); "Özel/Manuel gir"
+seçildiğinde parametrenin kendi varsayılanına dönülür. Tek taraflı
+analizde arayüz LSL alanını devre dışı bırakır ve X-bar/I chart'ta
+LSL/LCL çizgisini çizmez (sadece USL/UCL gösterilir) — istatistiksel
+kontrol-dışı tespiti (bir noktanın LCL altında kalması) buna rağmen
+aynen çalışmaya devam eder, sadece çizgi görsel olarak gizlenir.
+
+**Sıfıra bölme koruması:** Bir seri/alt grupta hiç varyasyon yoksa
+(R̄ veya MR̄ = 0 — örn. Peroksit/HMF'de ardışık ölçümler birebir
+aynıysa), `σ̂ = R̄/d2` de 0 çıkar. `compute_cpk()` bu durumu
+ZeroDivisionError yerine matematiksel olarak anlamlı bir sonuçla ele
+alır: ortalama spesifikasyon içindeyse Cpk/Cpu = **∞** (süreç
+kusursuz), dışındaysa **-∞** (varyasyon olmasa da yetersiz).
 
 ### Doğrulama
 
-**Kaynak:** 6Sigma Toolkit, I-MR Chart örneği (kahve sıcaklığı verisi).
+Her formül, kodlamadan önce elle çözülmüş literatür örnekleriyle test
+edildi (`pytest tests/` — 10 test, 3 dosya).
 
-Test girdisi: x̄ = 87.2, MR̄ = 2.889, d2 = 1.128.
+**X-bar/R** — Kaynak: LibreTexts Engineering, *Chemical Process
+Dynamics and Controls* (Woolf), [13.2: SPC Basic Control Charts](https://eng.libretexts.org/Bookshelves/Industrial_and_Systems_Engineering/Chemical_Process_Dynamics_and_Controls_(Woolf)/13:_Statistics_and_Probability_Background/13.02:_SPC-_Basic_Control_Charts-_Theory_and_Construction_Sample_Size_X-Bar_R_charts_S_charts)
+— pH örneği (n=4, k=24 alt grup, x̄̄=7.01, R̄=0.12, A2=0.729).
 
-| | Hesaplanan | Kaynaktaki beklenen | Fark |
+| | Hesaplanan | Kaynak | Fark |
+|---|---|---|---|
+| UCL | 7.0975 | 7.0982 | 0.00072 |
+| LCL | 6.9225 | 6.9251 | 0.00258 |
+
+Kaynaktaki x̄̄/R̄ değerleri 2 ondalığa yuvarlanmış görüntü değerleri
+olduğu için tam eşitlik yerine **±0.001 tolerans** kullanıldı (UCL bu
+toleransın içinde). Ayrıca kaynaktaki UCL/LCL'in x̄̄ etrafında
+**simetrik olmadığı** tespit edildi (bir transkripsiyon hatası olarak
+değerlendirildi); bu yüzden test LCL'i kaynaktaki rakamla değil, UCL
+ile matematiksel simetrisiyle doğruluyor (`tests/test_validation.py`).
+
+**I-MR** — Kaynak: 6Sigma Toolkit, I-MR Chart örneği (kahve sıcaklığı
+verisi, x̄=87.2, MR̄=2.889).
+
+| | Hesaplanan | Kaynak | Fark |
 |---|---|---|---|
 | UCL | 94.88474 | 94.88 | 0.00474 |
 | LCL | 79.51526 | 79.52 | 0.00474 |
 
-±0.01 tolerans ile test edildi (bkz. `tests/test_imr_validation.py` —
-mevcut pH/Brix/Aw doğrulama testinden (`test_validation.py`) tamamen
-ayrı, birbirini etkilemez).
+±0.01 tolerans ile test edildi (`tests/test_imr_validation.py`) —
+X-bar/R testinden tamamen bağımsız.
 
-### Arayüz farkları (Viskozite seçildiğinde)
+**Cpk edge case'leri** (R̄/MR̄=0 → ∞/-∞) `tests/test_cpk_edge_cases.py`
+ile ayrıca doğrulandı.
 
-- Veri girişi formu **tek ölçüm** alır (vardiya/alt grup seçimi yok);
-  ölçümlerin girildiği **sıra** korunur ve moving range hesabında
-  kullanılır.
-- Grafik sekmesinde X-bar/R yerine **I chart** (üstte) ve **MR chart**
-  (altta) gösterilir.
-- Cpk hesaplaması `compute_cpk(x̄, MR̄, n=2, ...)` ile yapılır — n=2
-  sabit tablosundaki d2=1.128 değeri I-MR'nin kendi σ̂ formülüyle
-  birebir örtüştüğü için `compute_cpk()`'ye dokunmadan yeniden
-  kullanılabildi.
-- Sayı girişi aralığı 0–300.000 cP olarak genişletildi (viskozite
-  ürüne göre çok geniş bir aralıkta olabilir — sütten fıstık ezmesine
-  kadar). Logaritmik ölçekli bir giriş arayüzü değerlendirildi ancak
-  v1 kapsamında karmaşıklığı gerekçelendirmediği için doğrusal (linear)
-  bir sayı girişiyle bırakıldı; kullanıcı değeri doğrudan yazabilir.
+## Ürün referans tabloları ve kaynaklar
 
-## Viskozite referans tablosu
+Her parametredeki "Ürün" seçimi, LSL/USL alanlarını literatür/sektör
+kaynaklı gösterge değerleriyle otomatik doldurur (kullanıcı elle
+değiştirebilir — override). **Türk Gıda Kodeksi (TGK) çoğu üründe
+sayısal limit belirlemez**; bu tablolar TGK uyumluluğu iddiası değil,
+kalite kontrol referansıdır — TGK'nin doğrudan sayısal limit verdiği
+istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 
-**Kaynak:** Prime Resins ve Sculpture Supply teknik viskozite tabloları
-— gerçek marka ölçümlerine dayanan sektör referansları, resmi/zorunlu
-bir standart değildir.
-
-**Tiksotropi uyarısı:** Ketçap, hardal gibi ürünler **tiksotropiktir**
-— karıştırma/basınç arttıkça viskoziteleri azalır. Ölçüm koşulları
-(karıştırma hızı, bekleme süresi) standardize edilmeden yapılan
-ölçümler tutarsız olabilir; bu tablodaki değerler yalnızca gösterge
-niteliğindedir, hassas kalite kontrol kararları için ölçüm protokolü
-sabitlenmelidir.
-
-## Nem/Rutubet, Tuz/NaCl ve Titrasyon Asitliği referans tabloları
-
-Bu üç parametre, X-bar/R altyapısını (pH/Brix ile aynı) kullanır —
-yapılandırılmış alt grup veri girişi, iki taraflı Cpk (Bal istisnası
-hariç, bkz. yukarıda). Değerler sektör pratiğine dayanan gösterge
-değerleridir, TGK'nin yerini tutmaz (Bal'ın nem üst limiti hariç — o
-doğrudan TGK Bal Tebliği'nden alınmıştır).
-
-| Parametre | Birim | Örnek ürün aralığı |
+| Parametre | Kaynak | Not |
 |---|---|---|
-| Nem/Rutubet | % | Ekmek: 35-40, Bal: ≤20 (TGK Bal Tebliği, tek taraflı) |
-| Tuz/NaCl | % | Ekmek: 1.5-2.0, Turşu salamurası: 5.0-10.0 |
-| Titrasyon Asitliği | % | Süt (taze): 0.14-0.16, Yoğurt: 0.6-1.0 |
-
-## Peroksit Değeri ve HMF referans tabloları (I-MR + tek taraflı)
-
-Bu iki parametre, Viskozite gibi **I-MR chart** kullanır (her ölçüm tek
-bir parti/batch sonucu olduğundan alt grup kavramı pratik değildir) ve
-aw gibi **tek taraflı Cpu** hesaplar (sadece üst limit anlamlıdır).
-
-**Peroksit Değeri (meq O2/kg):** Yağlarda oksidasyon derecesinin
-göstergesi. **Kaynak:** Codex Alimentarius / IOC (International Olive
-Council) standardı — natürel sızma zeytinyağı için ≤20 meq O2/kg.
-
-**HMF — Hidroksimetilfurfural (mg/kg):** Isıl işlem/depolama sırasında
-şekerlerin bozunmasının göstergesi. **Kaynak:** TGK Bal Tebliği (bal,
-≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (pekmez sıvı ≤75, katı ≤100
-mg/kg), genel sektör pratiği (meyve suyu konsantresi, ≤20 mg/kg).
-
-Her iki parametre de `PARAMETER_CONFIG` içinde `is_individual: True` ve
-`one_sided: True` bayraklarını birlikte taşır — bu, I-MR ve tek taraflı
-Cpk mekanizmalarının birbirinden bağımsız olarak tasarlandığını ve
-istenildiği gibi birleştirilebildiğini gösterir.
+| pH | Oklahoma State University Extension (FDA *Bacteriological Analytical Manual*), Dairy Food Safety Victoria | — |
+| Brix | 19 CFR 151.91 (ABD federal regülasyonu, resmi ortalama Brix tablosu) + sektör pratiği | Kaynak tek nokta ortalama verir; ±0.5 tolerans eklenerek aralığa çevrildi. Ölçüm refraktometreyle yapılır ve sıcaklığa duyarlıdır (20°C referans, ATC gerekebilir) |
+| Aw | DRINC/UC Davis, Virginia Tech Cooperative Extension | FDA 21 CFR 113/114, aw=0.85'i "potansiyel olarak tehlikeli gıda" eşiği olarak kullanır |
+| Nem/Rutubet, Tuz/NaCl, Titrasyon Asitliği | Sektör pratiği | Bal'ın nem üst limiti (≤20) TGK Bal Tebliği'nden |
+| Viskozite | Prime Resins, Sculpture Supply (teknik viskozite tabloları) | **Tiksotropi uyarısı:** Ketçap, hardal gibi ürünler karıştırma/basınç arttıkça viskozite kaybeder; standardize edilmemiş ölçüm koşulları tutarsız sonuç verebilir |
+| Peroksit Değeri | Codex Alimentarius / IOC (International Olive Council) | Natürel sızma zeytinyağı için ≤20 meq O2/kg |
+| HMF | TGK Bal Tebliği (≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (sıvı ≤75, katı ≤100 mg/kg), sektör pratiği (meyve suyu konsantresi ≤20 mg/kg) | — |
 
 ## Hızlı Hesaplayıcılar — Totox
 
 Ayrı bir sekmede ("🧮 Hızlı Hesaplayıcılar"), SPC kontrol grafiği
-akışından tamamen izole, tek seferlik bir **Totox hesaplayıcısı**
-bulunur:
+akışından tamamen izole, tek seferlik bir hesaplayıcı:
 
 ```
 Totox = 2 × Peroksit Değeri + Anisidin Değeri
 ```
 
-Bu bir kontrol grafiği değildir — kullanıcı iki değeri elle girer,
-sonuç anında hesaplanır. `session_state.subgroups` veya baseline
-mekanizmasına hiçbir şekilde dokunmaz.
+Kullanıcı iki değeri elle girer, sonuç anında hesaplanır;
+`session_state.subgroups` veya baseline mekanizmasına dokunmaz.
 
 ## Nasıl çalıştırılır (local)
 
@@ -397,10 +222,6 @@ streamlit run app.py
 ```
 
 Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
-
-## Demo
-
-🔗 [spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app](https://spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app/)
 
 ## Teknik yığın
 
@@ -417,10 +238,10 @@ spc-foodlab/
 │   ├── app.py          # Streamlit arayüzü (4 sekme)
 │   ├── spc_core.py     # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
 │   ├── demo_data.py    # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
-│   └── constants.py    # Sabit yapılandırma (n=4, parametre/ürün tablolari)
+│   └── constants.py    # Sabit yapılandırma (n=4, parametre/ürün tabloları)
 ├── tests/
-│   ├── test_validation.py      # pH/Brix/Aw/Nem/Tuz/Asitlik (X-bar/R) formül doğrulama testi
-│   ├── test_imr_validation.py  # Viskozite/Peroksit/HMF (I-MR) formül doğrulama testi
+│   ├── test_validation.py      # X-bar/R formül doğrulama testi (pH örneği)
+│   ├── test_imr_validation.py  # I-MR formül doğrulama testi (kahve sıcaklığı örneği)
 │   └── test_cpk_edge_cases.py  # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
 └── requirements.txt
 ```
