@@ -114,6 +114,7 @@ PARAMETER_CONFIG = {
         "default_measurement": 7.0,
         "demo_target_mean": 7.01,
         "demo_target_r_bar": 0.12,
+        "demo_shift_amount": 0.35,
         "one_sided": False,
     },
     "Brix": {
@@ -126,6 +127,7 @@ PARAMETER_CONFIG = {
         "default_measurement": 12.0,
         "demo_target_mean": 12.0,
         "demo_target_r_bar": 0.3,
+        "demo_shift_amount": 0.35,
         "one_sided": False,
     },
     "Aw": {
@@ -138,6 +140,12 @@ PARAMETER_CONFIG = {
         "default_measurement": 0.85,
         "demo_target_mean": 0.85,
         "demo_target_r_bar": 0.015,
+        # NOT: aw 0-1 arasi bir olcektir; pH/Brix'te kullanilan 0.35'lik
+        # kaydirma burada 0.85+0.35=1.2 gibi FIZIKSEL OLARAK IMKANSIZ (aw>1)
+        # bir demo degeri uretiyordu - bu hatanin kok nedeniydi. 0.05, tipik
+        # sigma'ya (~0.007) gore hala belirgin sekilde kontrol disi ama 1.0'i
+        # asmayan bir kaydirma sagliyor (0.85+0.05=0.90).
+        "demo_shift_amount": 0.05,
         "one_sided": True,
     },
     "Viskozite": {

@@ -259,6 +259,9 @@ with tab_data:
                     demo = generate_demo_subgroups(
                         target_mean=param_config["demo_target_mean"],
                         target_r_bar=param_config["demo_target_r_bar"],
+                        shift_amount=param_config.get("demo_shift_amount", 0.35),
+                        clip_min=param_config["min_value"],
+                        clip_max=param_config["max_value"],
                     )
                     st.session_state.subgroups = [
                         {"shift": SHIFT_OPTIONS[i % len(SHIFT_OPTIONS)], "values": vals}
