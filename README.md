@@ -1,15 +1,15 @@
 # 📊 SPC FoodLab
 
-Gıda üretiminde pH ölçümlerinden **istatistiksel proses kontrolü (SPC)**
-grafiği ve **süreç yeterlilik analizi (Cpk)** üreten bir Streamlit
-uygulaması.
+Gıda üretiminde pH veya Brix ölçümlerinden **istatistiksel proses
+kontrolü (SPC)** grafiği ve **süreç yeterlilik analizi (Cpk)** üreten
+bir Streamlit uygulaması.
 
 ## Ne yapar
 
 Gıda üretim hatlarında laboratuvar analiz sonuçları (pH, Brix, nem, aw,
 viskozite vb.) genelde sadece kaydedilir, istatistiksel olarak
-yorumlanmaz. Bu araç, vardiya bazlı alt gruplar halinde girilen pH
-ölçümlerinden otomatik olarak:
+yorumlanmaz. Bu araç, vardiya bazlı alt gruplar halinde girilen pH veya
+Brix ölçümlerinden otomatik olarak:
 
 - Ortalama, standart sapma, kontrol limitlerini (UCL/LCL),
 - X-bar ve R kontrol grafiğini,
@@ -26,7 +26,7 @@ doğrulayarak çalışan, deploy edilmiş bir ürüne dönüştürmek.
 ## Kapsam (v1 / MVP)
 
 **Dahil:**
-- Tek parametre: pH
+- İki parametre: pH ve Brix (sidebar'dan seçilir, aynı anda tek parametre aktif)
 - Yapılandırılmış form ile alt grup veri girişi (vardiya başına 4 ölçüm)
 - Otomatik ortalama, standart sapma, UCL/LCL hesaplama
 - X-bar ve R kontrol grafiği
@@ -138,6 +138,36 @@ pH limiti belirlemez. Bu yüzden tablo, TGK uyumluluğu iddiasıyla değil,
 Kullanıcı, kendi ürününün gerçek spesifikasyonuna sahipse LSL/USL
 alanlarını doğrudan elle güncelleyebilir; tablo sadece başlangıç
 noktası sağlar.
+
+## Brix referans tablosu
+
+pH'a ek olarak, ikinci parametre olarak **Brix (°Bx)** desteklenir.
+Sidebar'daki "Parametre" seçiciyle pH/Brix arasında geçiş yapılabilir;
+X-bar/R ve Cpk formülleri parametreden bağımsız olduğu için
+(`spc_core.py` değişmedi) aynı matematiksel çekirdek kullanılır — değişen
+sadece ölçüm birimi ve ürün spesifikasyon tablosudur.
+
+**Kaynak:** 19 CFR 151.91 — ABD federal regülasyonu, meyve suyu
+ithalatı için resmi ortalama Brix değerleri tablosu, + sektör pratiği.
+19 CFR 151.91 her ürün için **tek nokta ortalama değer** verir (aralık
+değil); LSL/USL için bir aralık gerektiğinden, bu ortalamaya **±0.5
+tolerans** eklenerek aralık haline getirildi.
+
+**Ölçüm notu:** Brix ölçümü genellikle **refraktometre** ile yapılır ve
+**sıcaklığa duyarlıdır** — çoğu refraktometre 20°C referans sıcaklığına
+göre kalibre edilmiştir; farklı sıcaklıkta ölçüm yapılıyorsa sonuçlar
+sıcaklık kompanzasyonu (ATC — Automatic Temperature Compensation) olan
+bir cihazla veya manuel düzeltme tablosuyla doğrulanmalıdır.
+
+**Önemli:** pH tablosunda olduğu gibi, bu değerler de Türk Gıda
+Kodeksi'nin yerini tutmaz — TGK bu konuda sayısal bir limit
+belirlemediği için uluslararası literatür kaynağı kullanıldı. Tablo
+kalite kontrol referansıdır, zorunlu bir uyumluluk şartı değildir.
+
+**Parametre değişimi ve veri izolasyonu:** pH ve Brix verileri aynı
+oturumda karışmasın diye, sidebar'dan parametre değiştirmek mevcut
+alt grup verisini ve baseline'ı siler — bu işlem geri alınamaz olduğu
+için onay istenir.
 
 ## Nasıl çalıştırılır (local)
 
