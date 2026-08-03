@@ -163,10 +163,6 @@ with tab_about:
 Gida uretim hatlarinda pH olcumlerinden **istatistiksel proses kontrolu (SPC)**
 grafigi ve **surec yeterlilik analizi (Cpk)** ureten bir arac.
 
-NAR ve EtiketAI'daki ekip calismalarimdan bagimsiz, farkli bir gida
-muhendisligi alt alaninda (istatistiksel proses kontrolu / kalite
-muhendisligi) bireysel gelistirdigim projedir.
-
 **Kullanilan formuller:**
 - X-bar UCL/LCL: `x̄̄ ± A2 × R̄`
 - R chart UCL/LCL: `D4 × R̄` / `D3 × R̄`
