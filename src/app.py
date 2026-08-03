@@ -1,12 +1,12 @@
-"""SPC FoodLab - pH/Brix Istatistiksel Proses Kontrolu (Streamlit MVP)."""
+"""SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 
 from constants import PARAMETER_CONFIG, SHIFT_OPTIONS, SUBGROUP_SIZE
-from demo_data import generate_demo_subgroups
-from spc_core import compute_cpk, compute_xbar_r_limits
+from demo_data import generate_demo_individual, generate_demo_subgroups
+from spc_core import compute_cpk, compute_imr_limits, compute_moving_ranges, compute_xbar_r_limits
 
 MIN_RECOMMENDED_BASELINE = 20
 CPK_SANITY_THRESHOLD = 10  # |Cpk| bu esigi asarsa LSL/USL-veri uyumsuzlugu uyarisi goster
@@ -84,6 +84,7 @@ with st.sidebar:
 dark = chart_theme == "Koyu"
 param_config = PARAMETER_CONFIG[st.session_state.active_parameter]
 unit = param_config["unit"]
+is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
 
 
 def inject_theme_css(dark: bool) -> None:
@@ -141,6 +142,18 @@ def compute_stats(subgroups):
     return means, ranges, x_double_bar, r_bar
 
 
+def compute_individual_stats(subgroups):
+    """I-MR (alt grup olmayan) parametreler icin: her 'subgroup' tek bir olcum
+    degeri icerir (values listesi uzunlugu 1). Ardisik degerler arasindaki
+    moving range'i ve ozet istatistikleri hesaplar. compute_stats'a benzer
+    sekilde her kullanim yerinde taze cagrilir."""
+    values = [sg["values"][0] for sg in subgroups]
+    moving_ranges = compute_moving_ranges(values)
+    x_bar = sum(values) / len(values) if values else None
+    mr_bar = sum(moving_ranges) / len(moving_ranges) if moving_ranges else None
+    return values, moving_ranges, x_bar, mr_bar
+
+
 def style_chart(fig, ax, dark: bool) -> None:
     """Grafigi secilen acik/koyu temaya uyarlar (arka plan, yazi, izgara, legend renkleri)."""
     bg = "#0e1117" if dark else "#ffffff"
@@ -166,7 +179,7 @@ def style_chart(fig, ax, dark: bool) -> None:
 
 
 st.title("\U0001F4CA SPC FoodLab")
-st.caption("Gida uretiminde pH/Brix olcumlerinden istatistiksel proses kontrolu (SPC)")
+st.caption("Gida uretiminde pH/Brix/Aw/Viskozite olcumlerinden istatistiksel proses kontrolu (SPC)")
 
 tab_data, tab_chart, tab_about = st.tabs(["\U0001F4DD Veri Girisi", "\U0001F4C8 X-bar/R Chart & Cpk", "ℹ️ Hakkinda"])
 
@@ -188,44 +201,69 @@ tab_data, tab_chart, tab_about = st.tabs(["\U0001F4DD Veri Girisi", "\U0001F4C8 
 # ---------------------------------------------------------------------------
 with tab_data:
     with st.container(border=True):
-        st.subheader("Yeni alt grup ekle")
-        st.write(f"Her alt grup icin {SUBGROUP_SIZE} {unit} olcumu girilir. (Parametre: {st.session_state.active_parameter})")
+        if is_individual:
+            st.subheader("Yeni olcum ekle")
+            st.write(
+                f"I-MR chart icin alt grup/vardiya kavrami yok - her satir tek bir {unit} "
+                f"olcumudur. Olcum SIRASI onemlidir (ardisik olcumler arasindaki fark - "
+                f"moving range - hesaba katilir). (Parametre: {st.session_state.active_parameter})"
+            )
+        else:
+            st.subheader("Yeni alt grup ekle")
+            st.write(f"Her alt grup icin {SUBGROUP_SIZE} {unit} olcumu girilir. (Parametre: {st.session_state.active_parameter})")
 
         with st.form("subgroup_form", clear_on_submit=True):
-            shift = st.selectbox("Vardiya", SHIFT_OPTIONS)
-            cols = st.columns(SUBGROUP_SIZE)
-            measurements = []
             default_measurement = param_config["default_measurement"]
-            for i, col in enumerate(cols):
-                with col:
-                    # key'e parametre adi dahil edildi: Streamlit, ayni key'e sahip bir
-                    # number_input'un onceki gosterilen degerini frontend'de tutar - session_state
-                    # taraftan silinse bile "value=" ile verilen yeni varsayilani yoksayip eski
-                    # degeri gostermeye devam eder. Parametre degisince key de degisince widget
-                    # gercekten yeniden olusturulur ve dogru varsayilanla baslar.
-                    val = st.number_input(
-                        f"Olcum {i + 1} ({unit})", min_value=param_config["min_value"],
-                        max_value=param_config["max_value"],
-                        value=default_measurement, step=0.01, format="%.2f",
-                        key=f"m_{i}_{st.session_state.active_parameter}",
-                    )
-                    measurements.append(val)
-            submitted = st.form_submit_button("Alt grubu kaydet")
+            if is_individual:
+                # key'e parametre adi dahil edildi: Streamlit, ayni key'e sahip bir
+                # number_input'un onceki gosterilen degerini frontend'de tutar - session_state
+                # taraftan silinse bile "value=" ile verilen yeni varsayilani yoksayip eski
+                # degeri gostermeye devam eder. Parametre degisince key de degisince widget
+                # gercekten yeniden olusturulur ve dogru varsayilanla baslar.
+                val = st.number_input(
+                    f"Olcum ({unit})", min_value=param_config["min_value"],
+                    max_value=param_config["max_value"],
+                    value=default_measurement, step=1.0, format="%.1f",
+                    key=f"m_0_{st.session_state.active_parameter}",
+                )
+                measurements = [val]
+                shift = "-"
+            else:
+                shift = st.selectbox("Vardiya", SHIFT_OPTIONS)
+                cols = st.columns(SUBGROUP_SIZE)
+                measurements = []
+                for i, col in enumerate(cols):
+                    with col:
+                        val = st.number_input(
+                            f"Olcum {i + 1} ({unit})", min_value=param_config["min_value"],
+                            max_value=param_config["max_value"],
+                            value=default_measurement, step=0.01, format="%.2f",
+                            key=f"m_{i}_{st.session_state.active_parameter}",
+                        )
+                        measurements.append(val)
+            submitted = st.form_submit_button("Olcumu kaydet" if is_individual else "Alt grubu kaydet")
             if submitted:
                 st.session_state.subgroups.append({"shift": shift, "values": measurements})
-                st.success("Alt grup eklendi.")
+                st.success("Olcum eklendi." if is_individual else "Alt grup eklendi.")
 
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
-                demo = generate_demo_subgroups(
-                    target_mean=param_config["demo_target_mean"],
-                    target_r_bar=param_config["demo_target_r_bar"],
-                )
-                st.session_state.subgroups = [
-                    {"shift": SHIFT_OPTIONS[i % len(SHIFT_OPTIONS)], "values": vals}
-                    for i, vals in enumerate(demo)
-                ]
+            if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
+                if is_individual:
+                    demo_values = generate_demo_individual(
+                        target_mean=param_config["demo_target_mean"],
+                        target_sigma=param_config["demo_target_sigma"],
+                    )
+                    st.session_state.subgroups = [{"shift": "-", "values": [v]} for v in demo_values]
+                else:
+                    demo = generate_demo_subgroups(
+                        target_mean=param_config["demo_target_mean"],
+                        target_r_bar=param_config["demo_target_r_bar"],
+                    )
+                    st.session_state.subgroups = [
+                        {"shift": SHIFT_OPTIONS[i % len(SHIFT_OPTIONS)], "values": vals}
+                        for i, vals in enumerate(demo)
+                    ]
                 st.session_state.baseline = None
                 st.session_state.confirm_clear = False
                 st.success("Demo veri yuklendi.")
@@ -251,28 +289,43 @@ with tab_data:
     st.write("")
 
     with st.container(border=True):
-        st.subheader("Kayitli alt gruplar")
+        st.subheader("Kayitli olculer" if is_individual else "Kayitli alt gruplar")
 
         if not st.session_state.subgroups:
             st.info("Henuz veri yok. Yukaridan manuel ekleyin veya demo veri yukleyin.")
         else:
-            _, _, summary_x_double_bar, summary_r_bar = compute_stats(st.session_state.subgroups)
-            sm1, sm2 = st.columns(2)
-            sm1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{summary_x_double_bar:.4f}")
-            sm2.metric(f"Ortalama Range (R̄, {unit})", f"{summary_r_bar:.4f}")
+            if is_individual:
+                _, _, summary_x_bar, summary_mr_bar = compute_individual_stats(st.session_state.subgroups)
+                sm1, sm2 = st.columns(2)
+                sm1.metric(f"Genel Ortalama (x̄, {unit})", f"{summary_x_bar:.4f}")
+                sm2.metric(
+                    f"Ortalama Moving Range (MR̄, {unit})",
+                    f"{summary_mr_bar:.4f}" if summary_mr_bar is not None else "—",
+                )
+            else:
+                _, _, summary_x_double_bar, summary_r_bar = compute_stats(st.session_state.subgroups)
+                sm1, sm2 = st.columns(2)
+                sm1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{summary_x_double_bar:.4f}")
+                sm2.metric(f"Ortalama Range (R̄, {unit})", f"{summary_r_bar:.4f}")
 
             st.divider()
 
             rows = []
             for i, sg in enumerate(st.session_state.subgroups, start=1):
                 vals = sg["values"]
-                rows.append({
-                    "Grup": i,
-                    "Vardiya": sg["shift"],
-                    **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
-                    "Ortalama": sum(vals) / len(vals),
-                    "Range": max(vals) - min(vals),
-                })
+                if is_individual:
+                    rows.append({
+                        "Sira": i,
+                        **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
+                    })
+                else:
+                    rows.append({
+                        "Grup": i,
+                        "Vardiya": sg["shift"],
+                        **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
+                        "Ortalama": sum(vals) / len(vals),
+                        "Range": max(vals) - min(vals),
+                    })
             df = pd.DataFrame(rows)
             st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -289,7 +342,6 @@ with tab_chart:
     if len(st.session_state.subgroups) < 2:
         st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
-        means, ranges, live_x_double_bar, live_r_bar = compute_stats(st.session_state.subgroups)
         one_sided = param_config.get("one_sided", False)
         cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
 
@@ -338,6 +390,17 @@ with tab_chart:
                     "kalite kontrol referansidir. LSL/USL degerlerini kendi "
                     "urun/spesifikasyonuna gore elle degistirebilirsin."
                 )
+            elif unit == "cP":
+                st.caption(
+                    "Bu degerler Prime Resins ve Sculpture Supply teknik "
+                    "viskozite tablolarina (gercek marka olcumlerine dayanan "
+                    "sektor referanslari) dayanir - resmi bir standart degil, "
+                    "kalite kontrol referansidir. **Ketcap, hardal gibi bazi "
+                    "urunler tiksotropiktir** - karistirma/basinc arttikca "
+                    "viskoziteleri azalir; olcum kosullari (karistirma hizi, "
+                    "bekleme suresi) standardize edilmeden yapilan olcumler "
+                    "tutarsiz olabilir."
+                )
             else:
                 st.caption(
                     "Bu degerler DRINC/UC Davis ve Virginia Tech Cooperative "
@@ -362,164 +425,335 @@ with tab_chart:
 
         st.write("")
 
-        with st.container(border=True):
-            st.subheader("Kontrol limitleri (Baseline)")
+        if is_individual:
+            with st.container(border=True):
+                st.subheader("Kontrol limitleri (Baseline)")
 
-            baseline = st.session_state.baseline
-            n_current = len(st.session_state.subgroups)
-
-            if baseline is None:
-                st.info(
-                    "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM alt "
-                    "gruplardan canli hesaplaniyor; yeni veri eklendikce degisir. "
-                    "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
-                    "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
-                )
-                if n_current < MIN_RECOMMENDED_BASELINE:
-                    st.warning(
-                        f"Su an {n_current} alt grup var. Guvenilir kontrol limitleri "
-                        f"icin en az {MIN_RECOMMENDED_BASELINE} alt grup onerilir "
-                        "(Montgomery, Introduction to Statistical Quality Control)."
-                    )
-
-                if not st.session_state.confirm_freeze:
-                    if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
-                        st.session_state.confirm_freeze = True
-                        st.rerun()
-                else:
-                    st.warning(
-                        "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                        "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                        "sonradan 'Baseline'i sifirla' kullanman gerekir."
-                    )
-                    fc1, fc2 = st.columns(2)
-                    with fc1:
-                        if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                            st.session_state.baseline = {
-                                "x_double_bar": live_x_double_bar,
-                                "r_bar": live_r_bar,
-                                "n_baseline": n_current,
-                            }
-                            st.session_state.confirm_freeze = False
-                            st.rerun()
-                    with fc2:
-                        if st.button("Vazgec", key="confirm_freeze_no"):
-                            st.session_state.confirm_freeze = False
-                            st.rerun()
-
-                x_double_bar = live_x_double_bar
-                r_bar = live_r_bar
-            else:
-                st.success(
-                    f"Baseline donduruldu: ilk {baseline['n_baseline']} alt grup ile "
-                    "hesaplandi. UCL/LCL artik sabit; yeni eklenen alt gruplar bu "
-                    "limitlerle karsilastirilir, limitleri degistirmez."
+                baseline = st.session_state.baseline
+                n_current = len(st.session_state.subgroups)
+                values, moving_ranges, live_x_bar, live_mr_bar = compute_individual_stats(
+                    st.session_state.subgroups
                 )
 
-                if not st.session_state.confirm_reset_baseline:
-                    if st.button("\U0001F513 Baseline'i sifirla"):
-                        st.session_state.confirm_reset_baseline = True
-                        st.rerun()
-                else:
-                    st.warning(
-                        "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                        "mevcut TUM veriden canli hesaplanmaya baslar."
+                if baseline is None:
+                    st.info(
+                        "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM "
+                        "olculerden canli hesaplaniyor; yeni veri eklendikce degisir. "
+                        "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
+                        "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
                     )
-                    rc1, rc2 = st.columns(2)
-                    with rc1:
-                        if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                            st.session_state.baseline = None
-                            st.session_state.confirm_reset_baseline = False
+                    if n_current < MIN_RECOMMENDED_BASELINE:
+                        st.warning(
+                            f"Su an {n_current} olcum var. Guvenilir kontrol limitleri "
+                            f"icin en az {MIN_RECOMMENDED_BASELINE} olcum onerilir "
+                            "(Montgomery, Introduction to Statistical Quality Control)."
+                        )
+
+                    if not st.session_state.confirm_freeze:
+                        if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
+                            st.session_state.confirm_freeze = True
                             st.rerun()
-                    with rc2:
-                        if st.button("Vazgec", key="confirm_reset_no"):
-                            st.session_state.confirm_reset_baseline = False
+                    else:
+                        st.warning(
+                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                        )
+                        fc1, fc2 = st.columns(2)
+                        with fc1:
+                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                st.session_state.baseline = {
+                                    "x_bar": live_x_bar,
+                                    "mr_bar": live_mr_bar,
+                                    "n_baseline": n_current,
+                                }
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
+                        with fc2:
+                            if st.button("Vazgec", key="confirm_freeze_no"):
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
+
+                    x_bar = live_x_bar
+                    mr_bar = live_mr_bar
+                else:
+                    st.success(
+                        f"Baseline donduruldu: ilk {baseline['n_baseline']} olcum ile "
+                        "hesaplandi. UCL/LCL artik sabit; yeni eklenen olcumler bu "
+                        "limitlerle karsilastirilir, limitleri degistirmez."
+                    )
+
+                    if not st.session_state.confirm_reset_baseline:
+                        if st.button("\U0001F513 Baseline'i sifirla"):
+                            st.session_state.confirm_reset_baseline = True
                             st.rerun()
+                    else:
+                        st.warning(
+                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                            "mevcut TUM veriden canli hesaplanmaya baslar."
+                        )
+                        rc1, rc2 = st.columns(2)
+                        with rc1:
+                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                st.session_state.baseline = None
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
+                        with rc2:
+                            if st.button("Vazgec", key="confirm_reset_no"):
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
 
-                x_double_bar = baseline["x_double_bar"]
-                r_bar = baseline["r_bar"]
+                    x_bar = baseline["x_bar"]
+                    mr_bar = baseline["mr_bar"]
 
-        limits = compute_xbar_r_limits(x_double_bar, r_bar, SUBGROUP_SIZE)
-        cpk = compute_cpk(x_double_bar, r_bar, SUBGROUP_SIZE, lsl, usl, one_sided=one_sided)
+            limits = compute_imr_limits(x_bar, mr_bar)
+            cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=one_sided)
 
-        st.write("")
+            st.write("")
 
-        with st.container(border=True):
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.4f}")
-            m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.4f}")
-            m3.metric("UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}")
-            m4.metric(cpk_label, f"{cpk:.3f}")
+            with st.container(border=True):
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.4f}")
+                m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.4f}")
+                m3.metric("UCL / LCL (I chart)", f"{limits.ucl_i:.4f} / {limits.lcl_i:.4f}")
+                m4.metric(cpk_label, f"{cpk:.3f}")
 
-            if abs(cpk) > CPK_SANITY_THRESHOLD:
+                if abs(cpk) > CPK_SANITY_THRESHOLD:
+                    st.warning(
+                        f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
+                        "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
+                        "olabilir - LSL/USL degerlerini kontrol et."
+                    )
+                elif cpk < 1.0:
+                    st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
+                elif cpk < 1.33:
+                    st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
+                else:
+                    st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+
+            st.write("")
+
+            indices_i = list(range(1, len(values) + 1))
+            indices_mr = list(range(2, len(values) + 1))
+            out_of_control_i = [i for i, v in enumerate(values) if v > limits.ucl_i or v < limits.lcl_i]
+            out_of_control_mr = [
+                i for i, mr in enumerate(moving_ranges) if mr > limits.ucl_mr or mr < limits.lcl_mr
+            ]
+
+            with st.container(border=True):
+                st.subheader("I (Individual) Kontrol Grafigi")
+
+                fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
+                ax.plot(indices_i, values, marker="o", color="steelblue", linewidth=1, label="Olcum")
+                ax.axhline(x_bar, color="green", linestyle="-", label="Genel ortalama (x̄)")
+                ax.axhline(limits.ucl_i, color="red", linestyle="--", label="UCL")
+                ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
+                if out_of_control_i:
+                    ax.scatter(
+                        [indices_i[i] for i in out_of_control_i],
+                        [values[i] for i in out_of_control_i],
+                        color="red", s=100, zorder=5, label="Kontrol disi",
+                    )
+                ax.set_xlabel("Olcum no")
+                ax.set_ylabel(unit)
+                ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                style_chart(fig, ax, dark)
+                st.pyplot(fig, use_container_width=True)
+                plt.close(fig)
+
+            st.write("")
+
+            with st.container(border=True):
+                st.subheader("MR (Moving Range) Kontrol Grafigi")
+
+                fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
+                ax2.plot(
+                    indices_mr, moving_ranges, marker="o", color="steelblue", linewidth=1,
+                    label="Moving range",
+                )
+                ax2.axhline(mr_bar, color="green", linestyle="-", label="MR̄")
+                ax2.axhline(limits.ucl_mr, color="red", linestyle="--", label="UCL_MR")
+                ax2.axhline(limits.lcl_mr, color="red", linestyle="--", label="LCL_MR")
+                if out_of_control_mr:
+                    ax2.scatter(
+                        [indices_mr[i] for i in out_of_control_mr],
+                        [moving_ranges[i] for i in out_of_control_mr],
+                        color="red", s=100, zorder=5, label="Kontrol disi",
+                    )
+                ax2.set_xlabel("Olcum no")
+                ax2.set_ylabel("Moving Range")
+                ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                style_chart(fig2, ax2, dark)
+                st.pyplot(fig2, use_container_width=True)
+                plt.close(fig2)
+
+            if out_of_control_i or out_of_control_mr:
+                points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
                 st.warning(
-                    f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
-                    "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
-                    "olabilir - LSL/USL degerlerini kontrol et."
+                    f"Kontrol disi olcumler: {points} "
+                    "- surec bu noktalarda 'kontrol disi' kabul edilir."
                 )
-            elif cpk < 1.0:
-                st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
-            elif cpk < 1.33:
-                st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
-            else:
-                st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+        else:
+            means, ranges, live_x_double_bar, live_r_bar = compute_stats(st.session_state.subgroups)
 
-        st.write("")
+            with st.container(border=True):
+                st.subheader("Kontrol limitleri (Baseline)")
 
-        indices = list(range(1, len(means) + 1))
-        out_of_control_x = [i for i, m in enumerate(means) if m > limits.ucl_x or m < limits.lcl_x]
-        out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
+                baseline = st.session_state.baseline
+                n_current = len(st.session_state.subgroups)
 
-        with st.container(border=True):
-            st.subheader("X-bar Kontrol Grafigi")
+                if baseline is None:
+                    st.info(
+                        "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM alt "
+                        "gruplardan canli hesaplaniyor; yeni veri eklendikce degisir. "
+                        "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
+                        "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
+                    )
+                    if n_current < MIN_RECOMMENDED_BASELINE:
+                        st.warning(
+                            f"Su an {n_current} alt grup var. Guvenilir kontrol limitleri "
+                            f"icin en az {MIN_RECOMMENDED_BASELINE} alt grup onerilir "
+                            "(Montgomery, Introduction to Statistical Quality Control)."
+                        )
 
-            fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
-            ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
-            ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
-            ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
-            ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
-            if out_of_control_x:
-                ax.scatter(
-                    [indices[i] for i in out_of_control_x],
-                    [means[i] for i in out_of_control_x],
-                    color="red", s=100, zorder=5, label="Kontrol disi",
+                    if not st.session_state.confirm_freeze:
+                        if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
+                            st.session_state.confirm_freeze = True
+                            st.rerun()
+                    else:
+                        st.warning(
+                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                        )
+                        fc1, fc2 = st.columns(2)
+                        with fc1:
+                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                st.session_state.baseline = {
+                                    "x_double_bar": live_x_double_bar,
+                                    "r_bar": live_r_bar,
+                                    "n_baseline": n_current,
+                                }
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
+                        with fc2:
+                            if st.button("Vazgec", key="confirm_freeze_no"):
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
+
+                    x_double_bar = live_x_double_bar
+                    r_bar = live_r_bar
+                else:
+                    st.success(
+                        f"Baseline donduruldu: ilk {baseline['n_baseline']} alt grup ile "
+                        "hesaplandi. UCL/LCL artik sabit; yeni eklenen alt gruplar bu "
+                        "limitlerle karsilastirilir, limitleri degistirmez."
+                    )
+
+                    if not st.session_state.confirm_reset_baseline:
+                        if st.button("\U0001F513 Baseline'i sifirla"):
+                            st.session_state.confirm_reset_baseline = True
+                            st.rerun()
+                    else:
+                        st.warning(
+                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                            "mevcut TUM veriden canli hesaplanmaya baslar."
+                        )
+                        rc1, rc2 = st.columns(2)
+                        with rc1:
+                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                st.session_state.baseline = None
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
+                        with rc2:
+                            if st.button("Vazgec", key="confirm_reset_no"):
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
+
+                    x_double_bar = baseline["x_double_bar"]
+                    r_bar = baseline["r_bar"]
+
+            limits = compute_xbar_r_limits(x_double_bar, r_bar, SUBGROUP_SIZE)
+            cpk = compute_cpk(x_double_bar, r_bar, SUBGROUP_SIZE, lsl, usl, one_sided=one_sided)
+
+            st.write("")
+
+            with st.container(border=True):
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.4f}")
+                m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.4f}")
+                m3.metric("UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}")
+                m4.metric(cpk_label, f"{cpk:.3f}")
+
+                if abs(cpk) > CPK_SANITY_THRESHOLD:
+                    st.warning(
+                        f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
+                        "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
+                        "olabilir - LSL/USL degerlerini kontrol et."
+                    )
+                elif cpk < 1.0:
+                    st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
+                elif cpk < 1.33:
+                    st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
+                else:
+                    st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+
+            st.write("")
+
+            indices = list(range(1, len(means) + 1))
+            out_of_control_x = [i for i, m in enumerate(means) if m > limits.ucl_x or m < limits.lcl_x]
+            out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
+
+            with st.container(border=True):
+                st.subheader("X-bar Kontrol Grafigi")
+
+                fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
+                ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
+                ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
+                ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
+                ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
+                if out_of_control_x:
+                    ax.scatter(
+                        [indices[i] for i in out_of_control_x],
+                        [means[i] for i in out_of_control_x],
+                        color="red", s=100, zorder=5, label="Kontrol disi",
+                    )
+                ax.set_xlabel("Alt grup no")
+                ax.set_ylabel(unit)
+                ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                style_chart(fig, ax, dark)
+                st.pyplot(fig, use_container_width=True)
+                plt.close(fig)
+
+            st.write("")
+
+            with st.container(border=True):
+                st.subheader("R Kontrol Grafigi")
+
+                fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
+                ax2.plot(indices, ranges, marker="o", color="steelblue", linewidth=1, label="Alt grup range")
+                ax2.axhline(r_bar, color="green", linestyle="-", label="R̄")
+                ax2.axhline(limits.ucl_r, color="red", linestyle="--", label="UCL_R")
+                ax2.axhline(limits.lcl_r, color="red", linestyle="--", label="LCL_R")
+                if out_of_control_r:
+                    ax2.scatter(
+                        [indices[i] for i in out_of_control_r],
+                        [ranges[i] for i in out_of_control_r],
+                        color="red", s=100, zorder=5, label="Kontrol disi",
+                    )
+                ax2.set_xlabel("Alt grup no")
+                ax2.set_ylabel("Range")
+                ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                style_chart(fig2, ax2, dark)
+                st.pyplot(fig2, use_container_width=True)
+                plt.close(fig2)
+
+            if out_of_control_x or out_of_control_r:
+                groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
+                st.warning(
+                    f"Kontrol disi alt gruplar: {groups} "
+                    "- surec bu noktalarda 'kontrol disi' kabul edilir."
                 )
-            ax.set_xlabel("Alt grup no")
-            ax.set_ylabel(unit)
-            ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
-            style_chart(fig, ax, dark)
-            st.pyplot(fig, use_container_width=True)
-            plt.close(fig)
-
-        st.write("")
-
-        with st.container(border=True):
-            st.subheader("R Kontrol Grafigi")
-
-            fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
-            ax2.plot(indices, ranges, marker="o", color="steelblue", linewidth=1, label="Alt grup range")
-            ax2.axhline(r_bar, color="green", linestyle="-", label="R̄")
-            ax2.axhline(limits.ucl_r, color="red", linestyle="--", label="UCL_R")
-            ax2.axhline(limits.lcl_r, color="red", linestyle="--", label="LCL_R")
-            if out_of_control_r:
-                ax2.scatter(
-                    [indices[i] for i in out_of_control_r],
-                    [ranges[i] for i in out_of_control_r],
-                    color="red", s=100, zorder=5, label="Kontrol disi",
-                )
-            ax2.set_xlabel("Alt grup no")
-            ax2.set_ylabel("Range")
-            ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
-            style_chart(fig2, ax2, dark)
-            st.pyplot(fig2, use_container_width=True)
-            plt.close(fig2)
-
-        if out_of_control_x or out_of_control_r:
-            groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
-            st.warning(
-                f"Kontrol disi alt gruplar: {groups} "
-                "- surec bu noktalarda 'kontrol disi' kabul edilir."
-            )
 
 # ---------------------------------------------------------------------------
 # SEKME 3: Hakkinda
@@ -529,19 +763,34 @@ with tab_about:
         st.subheader("SPC FoodLab hakkinda")
         st.markdown(
             """
-Gida uretim hatlarinda pH, Brix veya aw (su aktivitesi) olcumlerinden
-**istatistiksel proses kontrolu (SPC)** grafigi ve **surec yeterlilik
-analizi (Cpk)** ureten bir arac.
+Gida uretim hatlarinda pH, Brix, aw (su aktivitesi) veya viskozite
+olcumlerinden **istatistiksel proses kontrolu (SPC)** grafigi ve **surec
+yeterlilik analizi (Cpk)** ureten bir arac.
 
-**Kullanilan formuller:**
+**Kullanilan formuller (X-bar/R - pH, Brix, aw):**
 - X-bar UCL/LCL: `x̄̄ ± A2 × R̄`
 - R chart UCL/LCL: `D4 × R̄` / `D3 × R̄`
 - Cpk (iki tarafli, pH/Brix): `min[(USL - x̄̄)/(3σ̂), (x̄̄ - LSL)/(3σ̂)]`, `σ̂ = R̄/d2`
 - Cpu (tek tarafli, aw): `(USL - x̄̄)/(3σ̂)` - LSL yok sayilir
 
+**Kullanilan formuller (I-MR - Viskozite):**
+- I chart UCL/LCL: `x̄ ± 2.66 × MR̄`
+- MR chart UCL/LCL: `3.267 × MR̄` / `0`
+- σ̂ = MR̄/d2 (d2=1.128, n=2 sabiti) - Cpk/Cpu ayni formulle, sadece σ̂ farkli hesaplanir
+
 Bu formuller ve A2/D3/D4/d2 sabit tablosu parametreden bagimsizdir (n=4 icin
 ayni sabitler pH'da, Brix'te ve aw'de de gecerlidir) - degisen sadece olcum
 birimi, urun spesifikasyon tablosu ve aw icin tek/iki tarafli Cpk secimidir.
+
+**X-bar/R ile I-MR arasindaki temel fark:** X-bar/R'de bir **alt grup**
+kavrami vardir (orn. vardiya basina 4 olcum) - kontrol limitleri alt grup
+ORTALAMALARININ ve alt grup ARALIKLARININ (range) varyasyonuna dayanir. I-MR'de
+alt grup YOKTUR; viskozite gibi bazi parametreler her seferinde tek bir deger
+olarak olculur. Bu durumda "range" yerine ardisik iki olcum arasindaki fark
+(**moving range**, MR_i = |x_i - x_(i-1)|) kullanilir ve kontrol limitleri
+buna gore hesaplanir. I chart'in merkez sabiti (2.66) bu yuzden X-bar
+chart'in A2 sabitinden (n=2 icin 1.880) farklidir - farkli bir varyasyon
+kaynagini (ardisik fark vs alt grup ortalamasi) modelledigi icin.
 
 **Neden aw'de tek tarafli Cpk:** aw'de yalnizca ust limit (USL) mikrobiyal
 guvenlik acisindan anlamlidir ("aw belirli bir degeri gecmesin"); alt limit
@@ -555,8 +804,9 @@ Bu sayede sonradan eklenen (ozellikle kontrol disi) noktalar limitleri
 kendine dogru cekmez - SPC'de limitlerin bir baseline donemden turetilip
 sabit tutulmasi gerektigi icin bu mekanizma eklendi.
 
-**Parametre degisimi:** pH ve Brix verileri ayni oturumda karismasin diye,
-sidebar'dan parametre degistirmek mevcut veriyi siler (onay istenir).
+**Parametre degisimi:** Farkli parametrelerin (pH, Brix, aw, viskozite)
+verileri ayni oturumda karismasin diye, sidebar'dan parametre degistirmek
+mevcut veriyi siler (onay istenir).
 
 Detayli kaynak ve dogrulama notlari icin bkz. README.
             """

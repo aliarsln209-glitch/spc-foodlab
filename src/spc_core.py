@@ -1,11 +1,15 @@
 """
-X-bar/R kontrol grafiği ve Cpk hesaplama çekirdeği.
+X-bar/R ve I-MR kontrol grafiği ve Cpk hesaplama çekirdeği.
 
 Kaynak (A2/D3/D4/d2 sabit tablosu ve formüller):
 Montgomery, D.C., "Introduction to Statistical Quality Control" — standart SPC sabit tablosu.
 Formüllerin çalıştığı örnek: LibreTexts Engineering, Chemical Process Dynamics and
 Controls (Woolf), 13.2: SPC - Basic Control Charts (pH X-bar/R örneği, n=4).
 Cpk formülü kaynağı: NIST/SEMATECH e-Handbook of Statistical Methods, Ch. 2 (Cpk).
+
+I-MR (Individual-Moving Range) formülleri ve sabitleri de ayni Montgomery
+kaynagindandir; dogrulama ornegi 6Sigma Toolkit I-MR Chart ornegi (kahve
+sicakligi verisi) - bkz. tests/test_imr_validation.py.
 
 NOT: subgroup_size (n) bu projede v1 kapsamında SABİTTİR (bkz. constants.py).
 Kullanıcının n'yi değiştirebilmesi MVP'de desteklenmiyor.
@@ -95,3 +99,56 @@ def compute_cpk(
         return cpu
     cpl = (x_double_bar - lsl) / (3 * sigma_hat)
     return min(cpu, cpl)
+
+
+# I-MR (Individual-Moving Range) chart sabitleri - n=2 icin standart Montgomery
+# sabitleriyle tutarlidir (bkz. CONTROL_CHART_CONSTANTS[2] = D4=3.267, d2=1.128),
+# ancak I chart'in merkez-cizgi sabiti (2.66) X-bar/R'nin A2'sinden (n=2 icin 1.880)
+# FARKLIDIR: A2, alt grup ORTALAMALARININ varyasyonuna gore turetilir; I-MR'de
+# alt grup yoktur, tek tek olculen degerlerin kendisi noktadir - bu yuzden ayri,
+# I-MR'ye ozgu bir sabit kullanilir (3/d2 ≈ 2.6596, pratikte 2.66 olarak yuvarlanir).
+I_CHART_CONSTANT = 2.66
+MR_CHART_D4 = 3.267  # CONTROL_CHART_CONSTANTS[2] ile ayni D4
+MR_CHART_D2 = 1.128  # CONTROL_CHART_CONSTANTS[2] ile ayni d2 - Cpk icin compute_cpk(n=2) kullanilabilir
+
+
+@dataclass
+class IMRLimits:
+    x_bar: float
+    mr_bar: float
+    ucl_i: float
+    lcl_i: float
+    ucl_mr: float
+    lcl_mr: float
+
+
+def compute_moving_ranges(values: list[float]) -> list[float]:
+    """MR_i = |x_i - x_(i-1)| - ardisik olcumler arasindaki mutlak fark.
+
+    Alt grup kavrami olmayan (I-MR) veriler icin kullanilir; en az 2 deger
+    gerektirir, sonuc listesi girdi listesinden 1 eksik uzunluktadir.
+    """
+    return [abs(values[i] - values[i - 1]) for i in range(1, len(values))]
+
+
+def compute_imr_limits(x_bar: float, mr_bar: float) -> IMRLimits:
+    """I-MR kontrol grafigi limitlerini hesaplar.
+
+    I chart:  UCL/LCL = x_bar ± 2.66 * mr_bar
+    MR chart: UCL = 3.267 * mr_bar, LCL = 0
+
+    Dogrulama: 6Sigma Toolkit I-MR ornegi (kahve sicakligi), x_bar=87.2,
+    mr_bar=2.889 -> UCL=94.88, LCL=79.52 (bkz. tests/test_imr_validation.py).
+    """
+    ucl_i = x_bar + I_CHART_CONSTANT * mr_bar
+    lcl_i = x_bar - I_CHART_CONSTANT * mr_bar
+    ucl_mr = MR_CHART_D4 * mr_bar
+    lcl_mr = 0.0
+    return IMRLimits(
+        x_bar=x_bar,
+        mr_bar=mr_bar,
+        ucl_i=ucl_i,
+        lcl_i=lcl_i,
+        ucl_mr=ucl_mr,
+        lcl_mr=lcl_mr,
+    )

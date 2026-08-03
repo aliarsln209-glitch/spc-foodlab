@@ -80,6 +80,28 @@ AW_PRODUCT_RANGES = {
     "Ozel/Manuel gir": None,
 }
 
+# Gosterge amacli viskozite (cP - santipoaz) araligi (LSL, USL). Kaynak: Prime
+# Resins ve Sculpture Supply teknik viskozite tablolari (gercek marka
+# olcumlerine dayanan sektor referanslari) - resmi/zorunlu bir standart degil,
+# kalite kontrol referansidir. Detay icin bkz. README.md "Viskozite referans
+# tablosu". NOT: Ketcap, hardal gibi urunler tiksotropiktir - karistirma/
+# basinc arttikca viskoziteleri azalir; olcum kosullari (karistirma hizi,
+# bekleme suresi) standardize edilmeden yapilan olcumler tutarsiz olabilir.
+VISCOSITY_PRODUCT_RANGES = {
+    "Sut": (3, 4),
+    "Meyve suyu": (40, 60),
+    "Akcaagac surubu": (150, 200),
+    "Bal": (2000, 3000),
+    "Melas": (5000, 10000),
+    "Cikolata surubu": (10000, 25000),
+    "Ketcap": (45000, 55000),
+    "Hardal": (65000, 75000),
+    "Misir surubu (yogun)": (100000, 120000),
+    "Domates salcasi": (180000, 200000),
+    "Fistik ezmesi": (240000, 260000),
+    "Ozel/Manuel gir": None,
+}
+
 # Parametre bazli yapilandirma - Sekme 2'deki urun/birim/aralik mantigi buna gore dallanir.
 PARAMETER_CONFIG = {
     "pH": {
@@ -117,5 +139,18 @@ PARAMETER_CONFIG = {
         "demo_target_mean": 0.85,
         "demo_target_r_bar": 0.015,
         "one_sided": True,
+    },
+    "Viskozite": {
+        "unit": "cP",
+        "min_value": 0.0,
+        "max_value": 300000.0,
+        "products": VISCOSITY_PRODUCT_RANGES,
+        "default_lsl": 40000.0,
+        "default_usl": 60000.0,
+        "default_measurement": 50000.0,
+        "demo_target_mean": 50000.0,
+        "demo_target_sigma": 3000.0,  # I-MR demo icin dogrudan std sapma (R_bar/d2 degil)
+        "one_sided": False,
+        "is_individual": True,  # X-bar/R degil, I-MR chart kullanilir (alt grup yok)
     },
 }

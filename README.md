@@ -1,19 +1,20 @@
 # 📊 SPC FoodLab
 
-Gıda üretiminde pH veya Brix ölçümlerinden **istatistiksel proses
-kontrolü (SPC)** grafiği ve **süreç yeterlilik analizi (Cpk)** üreten
-bir Streamlit uygulaması.
+Gıda üretiminde pH, Brix, aw (su aktivitesi) veya viskozite
+ölçümlerinden **istatistiksel proses kontrolü (SPC)** grafiği ve
+**süreç yeterlilik analizi (Cpk)** üreten bir Streamlit uygulaması.
 
 ## Ne yapar
 
 Gıda üretim hatlarında laboratuvar analiz sonuçları (pH, Brix, nem, aw,
 viskozite vb.) genelde sadece kaydedilir, istatistiksel olarak
-yorumlanmaz. Bu araç, vardiya bazlı alt gruplar halinde girilen pH veya
-Brix ölçümlerinden otomatik olarak:
+yorumlanmaz. Bu araç, seçilen parametreye göre **alt grup bazlı**
+(pH/Brix/aw — vardiya başına birden çok ölçüm) veya **tek tek ölçülen**
+(viskozite — I-MR chart, bkz. aşağıda) verilerden otomatik olarak:
 
 - Ortalama, standart sapma, kontrol limitlerini (UCL/LCL),
-- X-bar ve R kontrol grafiğini,
-- Süreç yeterlilik indeksini (Cpk),
+- X-bar/R veya I-MR kontrol grafiğini,
+- Süreç yeterlilik indeksini (Cpk/Cpu),
 
 hesaplar ve spesifikasyon dışı noktaları grafikte görsel olarak işaretler.
 
@@ -26,11 +27,12 @@ doğrulayarak çalışan, deploy edilmiş bir ürüne dönüştürmek.
 ## Kapsam (v1 / MVP)
 
 **Dahil:**
-- Üç parametre: pH, Brix ve Aw (sidebar'dan seçilir, aynı anda tek parametre aktif)
-- Yapılandırılmış form ile alt grup veri girişi (vardiya başına 4 ölçüm)
+- Dört parametre: pH, Brix, Aw ve Viskozite (sidebar'dan seçilir, aynı anda tek parametre aktif)
+- pH/Brix/Aw için yapılandırılmış form ile alt grup veri girişi (vardiya başına 4 ölçüm)
+- Viskozite için tek tek ölçüm girişi (alt grup yok, I-MR chart — bkz. aşağıda)
 - Otomatik ortalama, standart sapma, UCL/LCL hesaplama
-- X-bar ve R kontrol grafiği
-- Cpk (süreç yeterlilik indeksi)
+- X-bar/R kontrol grafiği (pH/Brix/Aw) veya I-MR kontrol grafiği (Viskozite)
+- Cpk / Cpu (süreç yeterlilik indeksi)
 - Spesifikasyon dışı noktaların görsel işaretlenmesi
 
 **Kapsam dışı (v1'de yok):**
@@ -199,6 +201,90 @@ parametresi alır; `False` (varsayılan) durumda pH/Brix için mevcut iki
 taraflı davranış aynen korunur — bu değişiklik pH/Brix hesaplamalarını
 etkilemez (bkz. `tests/test_validation.py`, hâlâ geçiyor).
 
+## I-MR (Individual-Moving Range) Chart — Viskozite
+
+Dördüncü parametre olan **Viskozite (cP)**, X-bar/R yerine **I-MR
+(Individual-Moving Range) chart** kullanır. Bu, yapısal olarak farklı
+bir chart tipidir — X-bar/R değil.
+
+### Neden farklı: alt grup yok
+
+X-bar/R'de bir **alt grup** kavramı vardır (örn. vardiya başına 4
+ölçüm) — kontrol limitleri alt grup *ortalamalarının* ve alt grup
+*aralıklarının* (range) varyasyonuna dayanır. Viskozite gibi bazı
+parametreler pratikte her seferinde **tek bir değer** olarak ölçülür;
+"vardiya başına 4 ölçüm" gibi bir yapı gıda mühendisliği pratiğinde
+zorlama olur. I-MR'de bu yüzden alt grup yoktur: **her ölçüm kendi
+başına bir nokta**dır, ve "range" yerine **ardışık iki ölçüm arasındaki
+fark (moving range)** kullanılır:
+
+```
+MR_i = |x_i - x_(i-1)|
+MR̄   = ortalama moving range
+```
+
+### Formüller
+
+```
+σ̂ = MR̄ / d2                    (d2 = 1.128, n=2 sabiti)
+I chart:  UCL/LCL = x̄ ± 2.66 × MR̄
+MR chart: UCL = 3.267 × MR̄, LCL = 0
+```
+
+**Önemli:** I chart'ın merkez sabiti (**2.66**) X-bar chart'ın A2
+sabitinden (n=2 için 1.880) **farklıdır** — bunlar karıştırılmamalıdır.
+A2, alt grup *ortalamalarının* varyasyonundan türetilir; 2.66 ise
+ardışık *bireysel* değerler arasındaki farktan türetilir (yaklaşık
+3/d2). Farklı bir varyasyon kaynağını modelledikleri için farklı
+sabitlerdir. MR chart'ın D4 sabiti (3.267) ise X-bar/R'nin n=2 için D4
+sabitiyle aynıdır, bu bir tesadüf değil — MR de aslında n=2'lik bir
+"alt grubun" range'i olarak yorumlanabilir (iki ardışık nokta).
+
+### Doğrulama
+
+**Kaynak:** 6Sigma Toolkit, I-MR Chart örneği (kahve sıcaklığı verisi).
+
+Test girdisi: x̄ = 87.2, MR̄ = 2.889, d2 = 1.128.
+
+| | Hesaplanan | Kaynaktaki beklenen | Fark |
+|---|---|---|---|
+| UCL | 94.88474 | 94.88 | 0.00474 |
+| LCL | 79.51526 | 79.52 | 0.00474 |
+
+±0.01 tolerans ile test edildi (bkz. `tests/test_imr_validation.py` —
+mevcut pH/Brix/Aw doğrulama testinden (`test_validation.py`) tamamen
+ayrı, birbirini etkilemez).
+
+### Arayüz farkları (Viskozite seçildiğinde)
+
+- Veri girişi formu **tek ölçüm** alır (vardiya/alt grup seçimi yok);
+  ölçümlerin girildiği **sıra** korunur ve moving range hesabında
+  kullanılır.
+- Grafik sekmesinde X-bar/R yerine **I chart** (üstte) ve **MR chart**
+  (altta) gösterilir.
+- Cpk hesaplaması `compute_cpk(x̄, MR̄, n=2, ...)` ile yapılır — n=2
+  sabit tablosundaki d2=1.128 değeri I-MR'nin kendi σ̂ formülüyle
+  birebir örtüştüğü için `compute_cpk()`'ye dokunmadan yeniden
+  kullanılabildi.
+- Sayı girişi aralığı 0–300.000 cP olarak genişletildi (viskozite
+  ürüne göre çok geniş bir aralıkta olabilir — sütten fıstık ezmesine
+  kadar). Logaritmik ölçekli bir giriş arayüzü değerlendirildi ancak
+  v1 kapsamında karmaşıklığı gerekçelendirmediği için doğrusal (linear)
+  bir sayı girişiyle bırakıldı; kullanıcı değeri doğrudan yazabilir.
+
+## Viskozite referans tablosu
+
+**Kaynak:** Prime Resins ve Sculpture Supply teknik viskozite tabloları
+— gerçek marka ölçümlerine dayanan sektör referansları, resmi/zorunlu
+bir standart değildir.
+
+**Tiksotropi uyarısı:** Ketçap, hardal gibi ürünler **tiksotropiktir**
+— karıştırma/basınç arttıkça viskoziteleri azalır. Ölçüm koşulları
+(karıştırma hızı, bekleme süresi) standardize edilmeden yapılan
+ölçümler tutarsız olabilir; bu tablodaki değerler yalnızca gösterge
+niteliğindedir, hassas kalite kontrol kararları için ölçüm protokolü
+sabitlenmelidir.
+
 ## Nasıl çalıştırılır (local)
 
 ```bash
@@ -226,10 +312,11 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 spc-foodlab/
 ├── src/
 │   ├── app.py          # Streamlit arayüzü (3 sekme)
-│   ├── spc_core.py     # X-bar/R ve Cpk hesaplama çekirdeği
-│   ├── demo_data.py    # Kontrollü simülasyon veri üreteci
-│   └── constants.py    # Sabit yapılandırma (n=4, vardiya listesi)
+│   ├── spc_core.py     # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
+│   ├── demo_data.py    # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
+│   └── constants.py    # Sabit yapılandırma (n=4, parametre/ürün tablolari)
 ├── tests/
-│   └── test_validation.py  # Formül doğrulama testi
+│   ├── test_validation.py      # pH/Brix/Aw (X-bar/R) formül doğrulama testi
+│   └── test_imr_validation.py  # Viskozite (I-MR) formül doğrulama testi
 └── requirements.txt
 ```

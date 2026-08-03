@@ -43,6 +43,35 @@ def generate_demo_subgroups(
     return subgroups
 
 
+def generate_demo_individual(
+    n_points: int = 24,
+    target_mean: float = 50000.0,
+    target_sigma: float = 3000.0,
+    shift_index: int = 18,
+    shift_amount: float | None = None,
+    seed: int = 42,
+) -> list[float]:
+    """I-MR (alt grup olmayan, tek tek olculen) parametreler icin demo veri.
+
+    generate_demo_subgroups()'tan farkli: burada alt grup ortalama/range'i
+    yok, dogrudan hedef ortalama etrafinda tek deger serisi uretilir (viskozite
+    gibi). shift_amount verilmezse target_sigma'nin 3 kati kullanilir (UCL
+    disina belirgin sekilde cikan bir nokta gorebilmek icin).
+    """
+    if shift_amount is None:
+        shift_amount = target_sigma * 3
+
+    rng = np.random.default_rng(seed)
+    values = []
+    for i in range(n_points):
+        mean = target_mean
+        if i == shift_index:
+            mean += shift_amount
+        values.append(round(float(rng.normal(loc=mean, scale=target_sigma)), 3))
+
+    return values
+
+
 if __name__ == "__main__":
     data = generate_demo_subgroups()
     for i, sg in enumerate(data):
