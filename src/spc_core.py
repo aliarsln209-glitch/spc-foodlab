@@ -76,13 +76,22 @@ def compute_xbar_r_limits(x_double_bar: float, r_bar: float, n: int) -> XbarRLim
     )
 
 
-def compute_cpk(x_double_bar: float, r_bar: float, n: int, lsl: float, usl: float) -> float:
+def compute_cpk(
+    x_double_bar: float, r_bar: float, n: int, lsl: float, usl: float, one_sided: bool = False
+) -> float:
     """Cpk = min[(USL - x_double_bar) / (3*sigma_hat), (x_double_bar - LSL) / (3*sigma_hat)]
 
     sigma_hat = r_bar / d2  (subgroup-ici kisa vadeli varyasyon tahmini)
+
+    one_sided=True ise sadece Cpu = (USL - x_double_bar) / (3*sigma_hat) dondurulur,
+    LSL yok sayilir. Bu, aw (su aktivitesi) gibi sadece ust limitin anlamli oldugu
+    parametreler icin kullanilir (alt limit tanimsizdir - mikrobiyal guvenlik acisindan
+    sadece "asagida kal" onemlidir, "yukarida kal" degil).
     """
     _, _, _, d2 = get_constants(n)
     sigma_hat = r_bar / d2
     cpu = (usl - x_double_bar) / (3 * sigma_hat)
+    if one_sided:
+        return cpu
     cpl = (x_double_bar - lsl) / (3 * sigma_hat)
     return min(cpu, cpl)

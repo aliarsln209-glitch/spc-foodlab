@@ -58,6 +58,28 @@ BRIX_PRODUCT_RANGES = {
     "Ozel/Manuel gir": None,
 }
 
+# Gosterge amacli aw (su aktivitesi, birimsiz, 0-1 arasi) UST limiti. aw'de
+# sadece USL anlamlidir - "aw su degeri gecmesin" mikrobiyal guvenlik riskini
+# ifade eder (dusuk aw'de bakteri/mantar uremesi durur); LSL cogu urun icin
+# tanimsiz/anlamsizdir, bu yuzden degerler (None, USL) seklinde tutulur.
+# Kaynak: DRINC / UC Davis ve Virginia Tech Cooperative Extension aw referans
+# tablolari. FDA, dusuk asitli/asitlendirilmis konserve gida regulasyonunda
+# (21 CFR 113/114) aw=0.85 esigini "potansiyel olarak tehlikeli gida" siniri
+# olarak kullanir. Detay icin bkz. README.md "Aw referans tablosu".
+AW_PRODUCT_RANGES = {
+    "Taze et/balik": (None, 0.99),
+    "Ekmek": (None, 0.95),
+    "Islenmis peynir": (None, 0.98),
+    "Olgun kasar/cheddar": (None, 0.87),
+    "Fermente sucuk/sosis": (None, 0.87),
+    "Recel/marmelat": (None, 0.80),
+    "Kuru meyve": (None, 0.75),
+    "Biskuvi/kraker": (None, 0.40),
+    "Sut tozu/baharat": (None, 0.60),
+    "Hazir kahve": (None, 0.20),
+    "Ozel/Manuel gir": None,
+}
+
 # Parametre bazli yapilandirma - Sekme 2'deki urun/birim/aralik mantigi buna gore dallanir.
 PARAMETER_CONFIG = {
     "pH": {
@@ -67,8 +89,10 @@ PARAMETER_CONFIG = {
         "products": PRODUCT_PH_RANGES,
         "default_lsl": 6.8,
         "default_usl": 7.2,
+        "default_measurement": 7.0,
         "demo_target_mean": 7.01,
         "demo_target_r_bar": 0.12,
+        "one_sided": False,
     },
     "Brix": {
         "unit": "°Bx",
@@ -77,7 +101,21 @@ PARAMETER_CONFIG = {
         "products": BRIX_PRODUCT_RANGES,
         "default_lsl": 10.0,
         "default_usl": 14.0,
+        "default_measurement": 12.0,
         "demo_target_mean": 12.0,
         "demo_target_r_bar": 0.3,
+        "one_sided": False,
+    },
+    "Aw": {
+        "unit": "aw",
+        "min_value": 0.0,
+        "max_value": 1.0,
+        "products": AW_PRODUCT_RANGES,
+        "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
+        "default_usl": 0.95,
+        "default_measurement": 0.85,
+        "demo_target_mean": 0.85,
+        "demo_target_r_bar": 0.015,
+        "one_sided": True,
     },
 }

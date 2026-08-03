@@ -195,13 +195,19 @@ with tab_data:
             shift = st.selectbox("Vardiya", SHIFT_OPTIONS)
             cols = st.columns(SUBGROUP_SIZE)
             measurements = []
-            default_measurement = round((param_config["default_lsl"] + param_config["default_usl"]) / 2, 2)
+            default_measurement = param_config["default_measurement"]
             for i, col in enumerate(cols):
                 with col:
+                    # key'e parametre adi dahil edildi: Streamlit, ayni key'e sahip bir
+                    # number_input'un onceki gosterilen degerini frontend'de tutar - session_state
+                    # taraftan silinse bile "value=" ile verilen yeni varsayilani yoksayip eski
+                    # degeri gostermeye devam eder. Parametre degisince key de degisince widget
+                    # gercekten yeniden olusturulur ve dogru varsayilanla baslar.
                     val = st.number_input(
                         f"Olcum {i + 1} ({unit})", min_value=param_config["min_value"],
                         max_value=param_config["max_value"],
-                        value=default_measurement, step=0.01, format="%.2f", key=f"m_{i}",
+                        value=default_measurement, step=0.01, format="%.2f",
+                        key=f"m_{i}_{st.session_state.active_parameter}",
                     )
                     measurements.append(val)
             submitted = st.form_submit_button("Alt grubu kaydet")
@@ -284,9 +290,11 @@ with tab_chart:
         st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
         means, ranges, live_x_double_bar, live_r_bar = compute_stats(st.session_state.subgroups)
+        one_sided = param_config.get("one_sided", False)
+        cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
 
         with st.container(border=True):
-            st.subheader(f"Spesifikasyon limitleri ({unit}, Cpk icin)")
+            st.subheader(f"Spesifikasyon limitleri ({unit}, {cpk_label} icin)")
 
             products = list(param_config["products"].keys())
             default_index = products.index("Ozel/Manuel gir")
@@ -307,7 +315,10 @@ with tab_chart:
             if selected_product != st.session_state.prev_product:
                 product_range = param_config["products"][selected_product]
                 if product_range is not None:
-                    st.session_state.lsl_input, st.session_state.usl_input = product_range
+                    range_lsl, range_usl = product_range
+                    if range_lsl is not None:
+                        st.session_state.lsl_input = range_lsl
+                    st.session_state.usl_input = range_usl
                 st.session_state.prev_product = selected_product
 
             if unit == "pH":
@@ -318,7 +329,7 @@ with tab_chart:
                     "kontrol referansi olarak kullanilir. LSL/USL degerlerini "
                     "kendi urun/spesifikasyonuna gore elle degistirebilirsin."
                 )
-            else:
+            elif unit == "°Bx":
                 st.caption(
                     "Bu degerler 19 CFR 151.91 (ABD federal regülasyonu, meyve "
                     "sulari icin resmi ortalama Brix tablosu) ve sektor pratigine "
@@ -327,11 +338,22 @@ with tab_chart:
                     "kalite kontrol referansidir. LSL/USL degerlerini kendi "
                     "urun/spesifikasyonuna gore elle degistirebilirsin."
                 )
+            else:
+                st.caption(
+                    "Bu degerler DRINC/UC Davis ve Virginia Tech Cooperative "
+                    "Extension aw referans tablolarina dayanir - kalite kontrol "
+                    "referansidir, zorunlu bir limit degil. **aw'de sadece USL "
+                    "(ust limit) anlamlidir**: aw belirli bir degerin ustune "
+                    "cikarsa mikrobiyal ureme riski artar; alt limit cogu urun "
+                    "icin tanimsiz oldugundan LSL bu parametrede kullanilmaz."
+                )
 
             col1, col2 = st.columns(2)
             with col1:
                 lsl = st.number_input(
-                    f"Alt spesifikasyon limiti (LSL, {unit})", step=0.01, format="%.2f", key="lsl_input"
+                    f"Alt spesifikasyon limiti (LSL, {unit})", step=0.01, format="%.2f",
+                    key="lsl_input", disabled=one_sided,
+                    help="Bu parametrede LSL kullanilmiyor (bkz. yukaridaki not)." if one_sided else None,
                 )
             with col2:
                 usl = st.number_input(
@@ -418,7 +440,7 @@ with tab_chart:
                 r_bar = baseline["r_bar"]
 
         limits = compute_xbar_r_limits(x_double_bar, r_bar, SUBGROUP_SIZE)
-        cpk = compute_cpk(x_double_bar, r_bar, SUBGROUP_SIZE, lsl, usl)
+        cpk = compute_cpk(x_double_bar, r_bar, SUBGROUP_SIZE, lsl, usl, one_sided=one_sided)
 
         st.write("")
 
@@ -427,20 +449,20 @@ with tab_chart:
             m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.4f}")
             m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.4f}")
             m3.metric("UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}")
-            m4.metric("Cpk", f"{cpk:.3f}")
+            m4.metric(cpk_label, f"{cpk:.3f}")
 
             if abs(cpk) > CPK_SANITY_THRESHOLD:
                 st.warning(
-                    "Cpk anlamsiz derecede yuksek/dusuk cikti. Sectigin urunun "
-                    "spesifikasyon araligi, girdigin verilerle ortusmuyor "
+                    f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
+                    "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
                     "olabilir - LSL/USL degerlerini kontrol et."
                 )
             elif cpk < 1.0:
-                st.error("Cpk < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
+                st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
             elif cpk < 1.33:
-                st.warning("Cpk 1.0-1.33 arasi: Surec marjinal yeterli.")
+                st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
             else:
-                st.success("Cpk >= 1.33: Surec yeterli.")
+                st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
 
         st.write("")
 
@@ -507,17 +529,25 @@ with tab_about:
         st.subheader("SPC FoodLab hakkinda")
         st.markdown(
             """
-Gida uretim hatlarinda pH veya Brix olcumlerinden **istatistiksel proses
-kontrolu (SPC)** grafigi ve **surec yeterlilik analizi (Cpk)** ureten bir arac.
+Gida uretim hatlarinda pH, Brix veya aw (su aktivitesi) olcumlerinden
+**istatistiksel proses kontrolu (SPC)** grafigi ve **surec yeterlilik
+analizi (Cpk)** ureten bir arac.
 
 **Kullanilan formuller:**
 - X-bar UCL/LCL: `x̄̄ ± A2 × R̄`
 - R chart UCL/LCL: `D4 × R̄` / `D3 × R̄`
-- Cpk: `min[(USL - x̄̄)/(3σ̂), (x̄̄ - LSL)/(3σ̂)]`, `σ̂ = R̄/d2`
+- Cpk (iki tarafli, pH/Brix): `min[(USL - x̄̄)/(3σ̂), (x̄̄ - LSL)/(3σ̂)]`, `σ̂ = R̄/d2`
+- Cpu (tek tarafli, aw): `(USL - x̄̄)/(3σ̂)` - LSL yok sayilir
 
 Bu formuller ve A2/D3/D4/d2 sabit tablosu parametreden bagimsizdir (n=4 icin
-ayni sabitler pH'da da Brix'te de gecerlidir) - degisen sadece olcum birimi
-ve urun spesifikasyon tablosudur.
+ayni sabitler pH'da, Brix'te ve aw'de de gecerlidir) - degisen sadece olcum
+birimi, urun spesifikasyon tablosu ve aw icin tek/iki tarafli Cpk secimidir.
+
+**Neden aw'de tek tarafli Cpk:** aw'de yalnizca ust limit (USL) mikrobiyal
+guvenlik acisindan anlamlidir ("aw belirli bir degeri gecmesin"); alt limit
+cogu urun icin tanimsizdir. Iki tarafli Cpk formulu boyle bir durumda LSL
+icin anlamsiz bir Cpl degeri uretip surec yeterliligini yanlis yansitir; bu
+yuzden aw secildiginde sadece Cpu hesaplanir.
 
 **Baseline mantigi:** Kontrol limitleri, "Baseline'i hesapla ve dondur"
 butonuyla o ana kadar girilen verilerden bir kez hesaplanip sabitlenir.

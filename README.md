@@ -26,7 +26,7 @@ doğrulayarak çalışan, deploy edilmiş bir ürüne dönüştürmek.
 ## Kapsam (v1 / MVP)
 
 **Dahil:**
-- İki parametre: pH ve Brix (sidebar'dan seçilir, aynı anda tek parametre aktif)
+- Üç parametre: pH, Brix ve Aw (sidebar'dan seçilir, aynı anda tek parametre aktif)
 - Yapılandırılmış form ile alt grup veri girişi (vardiya başına 4 ölçüm)
 - Otomatik ortalama, standart sapma, UCL/LCL hesaplama
 - X-bar ve R kontrol grafiği
@@ -168,6 +168,36 @@ kalite kontrol referansıdır, zorunlu bir uyumluluk şartı değildir.
 oturumda karışmasın diye, sidebar'dan parametre değiştirmek mevcut
 alt grup verisini ve baseline'ı siler — bu işlem geri alınamaz olduğu
 için onay istenir.
+
+## Aw (su aktivitesi) referans tablosu ve tek taraflı Cpk
+
+Üçüncü parametre olarak **aw (su aktivitesi, birimsiz, 0–1 arası)**
+desteklenir. X-bar/R formülleri ve A2/D3/D4/d2 sabit tablosu burada da
+değişmez; değişen, Cpk hesabının **tek taraflı** yapılmasıdır (aşağıya
+bakınız).
+
+**Kaynak:** DRINC (Davis Region Innovation Corridor) / UC Davis ve
+Virginia Tech Cooperative Extension aw referans tabloları. Ayrıca FDA,
+düşük asitli/asitlendirilmiş konserve gıda regülasyonunda (21 CFR
+113/114) **aw = 0.85 eşiğini** "potansiyel olarak tehlikeli gıda"
+sınırı olarak kullanır — bu, aw'nin gıda güvenliğinde neden tek yönlü
+bir risk eşiği olarak ele alındığının regülasyon örneğidir.
+
+**Neden tek taraflı Cpk (Cpu):** aw'de yalnızca **üst limit (USL)**
+mikrobiyal güvenlik açısından anlamlıdır — "aw belirli bir değeri
+geçmesin" (düşük aw'de bakteri/küf üremesi durur, dolayısıyla "aşağıda
+kalmak" bir risk değil, hedeftir). Alt limit çoğu ürün için
+tanımsızdır/anlamsızdır. Standart iki taraflı Cpk formülü
+`min(Cpu, Cpl)` kullanılırsa, anlamsız bir LSL için hesaplanan Cpl,
+gerçek süreç yeterliliğini yanlış yansıtabilir (örn. yapay olarak
+düşük bir Cpk göstererek süreci olduğundan daha kötü gösterebilir).
+Bu yüzden aw seçildiğinde arayüz LSL alanını devre dışı bırakır ve
+sadece `Cpu = (USL - x̄̄) / (3σ̂)` hesaplanıp gösterilir.
+
+`compute_cpk()` fonksiyonu bunun için opsiyonel bir `one_sided`
+parametresi alır; `False` (varsayılan) durumda pH/Brix için mevcut iki
+taraflı davranış aynen korunur — bu değişiklik pH/Brix hesaplamalarını
+etkilemez (bkz. `tests/test_validation.py`, hâlâ geçiyor).
 
 ## Nasıl çalıştırılır (local)
 
