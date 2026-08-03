@@ -23,13 +23,6 @@ olarak uygulamaya döktüğüm bireysel bir proje. Amaç, ders içeriğindeki
 formülleri (X-bar/R kontrol grafiği, Cpk) literatür kaynaklarıyla
 doğrulayarak çalışan, deploy edilmiş bir ürüne dönüştürmek.
 
-**Bağımsızlık notu:** Bu proje, NAR ve EtiketAI'daki ekip
-çalışmalarımdan tamamen bağımsız, farklı bir gıda mühendisliği alt
-alanında (istatistiksel proses kontrolü / kalite mühendisliği)
-bireysel olarak geliştirilmiştir. NAR etiket analizi, EtiketAI mevzuat
-uyum SaaS'ı üzerine kurulu ekip projeleridir; SPC FoodLab konu, kullanım
-senaryosu ve hedef kitle açısından bunlardan net şekilde ayrışır.
-
 ## Kapsam (v1 / MVP)
 
 **Dahil:**
