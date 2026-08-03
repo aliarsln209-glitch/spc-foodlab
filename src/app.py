@@ -154,6 +154,44 @@ def compute_individual_stats(subgroups):
     return values, moving_ranges, x_bar, mr_bar
 
 
+def format_cpk(cpk: float) -> str:
+    """Cpk/Cpu metrik gosterimi - r_bar/mr_bar=0 (varyasyon yok) durumunda
+    compute_cpk() sonsuz dondurur; bunu okunakli sekilde gosterir."""
+    if cpk == float("inf"):
+        return "∞"
+    if cpk == float("-inf"):
+        return "-∞"
+    return f"{cpk:.3f}"
+
+
+def render_cpk_message(cpk: float, cpk_label: str) -> None:
+    """Cpk/Cpu degerine gore uygun basari/uyari/hata mesajini gosterir.
+    Iki yerde (X-bar/R ve I-MR) aynen kullanilir, tekrar onlemek icin
+    ortak fonksiyon haline getirildi."""
+    if cpk == float("inf"):
+        st.success(
+            f"{cpk_label} = ∞: olculen degerlerde hic varyasyon yok (R̄/MR̄ = 0) "
+            "ve ortalama spesifikasyon icinde - surec kusursuz."
+        )
+    elif cpk == float("-inf"):
+        st.error(
+            f"{cpk_label} = -∞: olculen degerlerde varyasyon yok ama ortalama "
+            "zaten spesifikasyon disinda - surec yeterli degil."
+        )
+    elif abs(cpk) > CPK_SANITY_THRESHOLD:
+        st.warning(
+            f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
+            "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
+            "olabilir - LSL/USL degerlerini kontrol et."
+        )
+    elif cpk < 1.0:
+        st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
+    elif cpk < 1.33:
+        st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
+    else:
+        st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+
+
 def style_chart(fig, ax, dark: bool) -> None:
     """Grafigi secilen acik/koyu temaya uyarlar (arka plan, yazi, izgara, legend renkleri)."""
     bg = "#0e1117" if dark else "#ffffff"
@@ -181,7 +219,10 @@ def style_chart(fig, ax, dark: bool) -> None:
 st.title("\U0001F4CA SPC FoodLab")
 st.caption("Gida uretiminde pH/Brix/Aw/Viskozite olcumlerinden istatistiksel proses kontrolu (SPC)")
 
-tab_data, tab_chart, tab_about = st.tabs(["\U0001F4DD Veri Girisi", "\U0001F4C8 X-bar/R Chart & Cpk", "ℹ️ Hakkinda"])
+tab_data, tab_chart, tab_calc, tab_about = st.tabs([
+    "\U0001F4DD Veri Girisi", "\U0001F4C8 X-bar/R Chart & Cpk",
+    "\U0001F9EE Hizli Hesaplayicilar", "ℹ️ Hakkinda",
+])
 
 # NOT: SEKME 1 (tab_data) kodu bilerek SEKME 2'den (tab_chart) ONCE yaziliyor.
 # Sekme gecisi Streamlit'te bir rerun TETIKLEMEZ (sadece client-side gorunurluk
@@ -345,15 +386,37 @@ with tab_chart:
     if len(st.session_state.subgroups) < 2:
         st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
-        one_sided = param_config.get("one_sided", False)
+        products = list(param_config["products"].keys())
+        default_index = products.index("Ozel/Manuel gir")
+
+        def _resolve_one_sided(product_name: str) -> bool:
+            """Tek/iki tarafli Cpk secimi PARAMETRE degil URUN bazindadir:
+            secilen urunun LSL'i None ise (orn. Nem/Rutubet'te 'Bal') o urun
+            icin tek tarafli Cpu hesaplanir; 'Ozel/Manuel gir' secildiginde
+            parametrenin kendi varsayilanina (PARAMETER_CONFIG['one_sided'])
+            geri donulur."""
+            product_range = param_config["products"].get(product_name)
+            if product_range is None:
+                return param_config.get("one_sided", False)
+            range_lsl, _ = product_range
+            return range_lsl is None
+
+        # Selectbox olusturulmadan once mevcut secimi (varsa) tahmin ederek
+        # basliktaki Cpk/Cpu etiketini dogru gostermeye calisiriz; selectbox
+        # olusturulduktan sonra ayni deger zaten kesinlesmis olarak asagida
+        # yeniden hesaplaniyor (bkz. "one_sided = _resolve_one_sided(...)").
+        _guess_product = st.session_state.get("product_select", products[default_index])
+        if _guess_product not in param_config["products"]:
+            _guess_product = products[default_index]
+        one_sided = _resolve_one_sided(_guess_product)
         cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
 
         with st.container(border=True):
             st.subheader(f"Spesifikasyon limitleri ({unit}, {cpk_label} icin)")
 
-            products = list(param_config["products"].keys())
-            default_index = products.index("Ozel/Manuel gir")
             selected_product = st.selectbox("Urun", products, index=default_index, key="product_select")
+            one_sided = _resolve_one_sided(selected_product)
+            cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
 
             if (
                 "prev_product" not in st.session_state
@@ -376,7 +439,8 @@ with tab_chart:
                     st.session_state.usl_input = range_usl
                 st.session_state.prev_product = selected_product
 
-            if unit == "pH":
+            active_param = st.session_state.active_parameter
+            if active_param == "pH":
                 st.caption(
                     "Bu degerler literatur/sektor pratiginden alinan gosterge "
                     "degerlerdir. Turk Gida Kodeksi cogu urunde sayisal bir pH "
@@ -384,7 +448,7 @@ with tab_chart:
                     "kontrol referansi olarak kullanilir. LSL/USL degerlerini "
                     "kendi urun/spesifikasyonuna gore elle degistirebilirsin."
                 )
-            elif unit == "°Bx":
+            elif active_param == "Brix":
                 st.caption(
                     "Bu degerler 19 CFR 151.91 (ABD federal regülasyonu, meyve "
                     "sulari icin resmi ortalama Brix tablosu) ve sektor pratigine "
@@ -393,7 +457,7 @@ with tab_chart:
                     "kalite kontrol referansidir. LSL/USL degerlerini kendi "
                     "urun/spesifikasyonuna gore elle degistirebilirsin."
                 )
-            elif unit == "cP":
+            elif active_param == "Viskozite":
                 st.caption(
                     "Bu degerler Prime Resins ve Sculpture Supply teknik "
                     "viskozite tablolarina (gercek marka olcumlerine dayanan "
@@ -404,7 +468,7 @@ with tab_chart:
                     "bekleme suresi) standardize edilmeden yapilan olcumler "
                     "tutarsiz olabilir."
                 )
-            else:
+            elif active_param == "Aw":
                 st.caption(
                     "Bu degerler DRINC/UC Davis ve Virginia Tech Cooperative "
                     "Extension aw referans tablolarina dayanir - kalite kontrol "
@@ -413,13 +477,52 @@ with tab_chart:
                     "cikarsa mikrobiyal ureme riski artar; alt limit cogu urun "
                     "icin tanimsiz oldugundan LSL bu parametrede kullanilmaz."
                 )
+            elif active_param == "Nem/Rutubet":
+                st.caption(
+                    "Bu degerler sektor pratigine dayanan gosterge degerlerdir, "
+                    "kalite kontrol referansidir. **Bal urunu icin sadece USL "
+                    "anlamlidir** (TGK Bal Tebligi'nde nem icin tek tarafli ust "
+                    "limit tanimlanmistir) - bu urun secildiginde LSL otomatik "
+                    "devre disi kalir ve Cpu hesaplanir; diger urunler iki "
+                    "tarafli kalir."
+                )
+            elif active_param == "Tuz/NaCl":
+                st.caption(
+                    "Bu degerler sektor pratigine dayanan gosterge degerlerdir, "
+                    "kalite kontrol referansidir, TGK'nin yerini tutmaz. LSL/USL "
+                    "degerlerini kendi urun/spesifikasyonuna gore elle "
+                    "degistirebilirsin."
+                )
+            elif active_param == "Titrasyon Asitligi":
+                st.caption(
+                    "Bu degerler sektor pratigine dayanan gosterge degerlerdir, "
+                    "kalite kontrol referansidir. Titrasyon asitligi, urunun "
+                    "toplam asit icerigini (pH'tan farkli olarak) yansitir; "
+                    "LSL/USL degerlerini kendi urun/spesifikasyonuna gore elle "
+                    "degistirebilirsin."
+                )
+            elif active_param == "Peroksit Degeri":
+                st.caption(
+                    "Bu deger Codex Alimentarius / IOC (International Olive "
+                    "Council) standardina dayanir (zeytinyagi icin) - kalite "
+                    "kontrol referansidir. **Sadece USL anlamlidir**: peroksit "
+                    "degeri yaglarda oksidasyon derecesini gosterir, ne kadar "
+                    "dusukse o kadar iyidir; alt limit kavrami yoktur."
+                )
+            else:  # HMF
+                st.caption(
+                    "Bu degerler TGK Bal Tebligi, TGK Uzum Pekmezi Tebligi ve "
+                    "genel sektor pratigine dayanir. **Sadece USL anlamlidir**: "
+                    "HMF, isil islem/depolama sirasinda sekerlerin bozunmasinin "
+                    "gostergesidir; alt limit kavrami yoktur."
+                )
 
             col1, col2 = st.columns(2)
             with col1:
                 lsl = st.number_input(
                     f"Alt spesifikasyon limiti (LSL, {unit})", step=0.01, format="%.2f",
                     key="lsl_input", disabled=one_sided,
-                    help="Bu parametrede LSL kullanilmiyor (bkz. yukaridaki not)." if one_sided else None,
+                    help="Bu urun/parametrede LSL kullanilmiyor (bkz. yukaridaki not)." if one_sided else None,
                 )
             with col2:
                 usl = st.number_input(
@@ -519,20 +622,9 @@ with tab_chart:
                 m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.4f}")
                 m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.4f}")
                 m3.metric("UCL / LCL (I chart)", f"{limits.ucl_i:.4f} / {limits.lcl_i:.4f}")
-                m4.metric(cpk_label, f"{cpk:.3f}")
+                m4.metric(cpk_label, format_cpk(cpk))
 
-                if abs(cpk) > CPK_SANITY_THRESHOLD:
-                    st.warning(
-                        f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
-                        "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
-                        "olabilir - LSL/USL degerlerini kontrol et."
-                    )
-                elif cpk < 1.0:
-                    st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
-                elif cpk < 1.33:
-                    st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
-                else:
-                    st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+                render_cpk_message(cpk, cpk_label)
 
             st.write("")
 
@@ -550,7 +642,11 @@ with tab_chart:
                 ax.plot(indices_i, values, marker="o", color="steelblue", linewidth=1, label="Olcum")
                 ax.axhline(x_bar, color="green", linestyle="-", label="Genel ortalama (x̄)")
                 ax.axhline(limits.ucl_i, color="red", linestyle="--", label="UCL")
-                ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
+                if not one_sided:
+                    # Tek tarafli (one_sided) analizde LSL/LCL anlamsizdir (bkz.
+                    # Spesifikasyon limitleri karti) - grafik sadelestirmesi
+                    # olarak bu durumda LCL cizgisi/etiketi cizilmez.
+                    ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
                 if out_of_control_i:
                     ax.scatter(
                         [indices_i[i] for i in out_of_control_i],
@@ -686,20 +782,9 @@ with tab_chart:
                 m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.4f}")
                 m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.4f}")
                 m3.metric("UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}")
-                m4.metric(cpk_label, f"{cpk:.3f}")
+                m4.metric(cpk_label, format_cpk(cpk))
 
-                if abs(cpk) > CPK_SANITY_THRESHOLD:
-                    st.warning(
-                        f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
-                        "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
-                        "olabilir - LSL/USL degerlerini kontrol et."
-                    )
-                elif cpk < 1.0:
-                    st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
-                elif cpk < 1.33:
-                    st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
-                else:
-                    st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+                render_cpk_message(cpk, cpk_label)
 
             st.write("")
 
@@ -714,7 +799,11 @@ with tab_chart:
                 ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
                 ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
                 ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
-                ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
+                if not one_sided:
+                    # Tek tarafli (one_sided) analizde LSL/LCL anlamsizdir (bkz.
+                    # Spesifikasyon limitleri karti) - grafik sadelestirmesi
+                    # olarak bu durumda LCL cizgisi/etiketi cizilmez.
+                    ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
                 if out_of_control_x:
                     ax.scatter(
                         [indices[i] for i in out_of_control_x],
@@ -759,7 +848,37 @@ with tab_chart:
                 )
 
 # ---------------------------------------------------------------------------
-# SEKME 3: Hakkinda
+# SEKME 3: Hizli Hesaplayicilar
+# ---------------------------------------------------------------------------
+# NOT: Bu sekme, mevcut SPC chart/veri akisindan BILINCLI OLARAK izole tutuldu.
+# Totox tek seferlik bir hesap makinesidir - session_state.subgroups'a hicbir
+# sekilde dokunmaz, kontrol grafigi/baseline mantigiyla etkilesime girmez.
+with tab_calc:
+    with st.container(border=True):
+        st.subheader("Totox Hesaplayici")
+        st.caption(
+            "Totox = 2 × Peroksit Degeri + Anisidin Degeri. Bu bir SPC kontrol "
+            "grafigi degildir - tek seferlik bir hesap makinesidir, mevcut "
+            "veri girisi/chart akisindan bagimsizdir ve onu etkilemez."
+        )
+
+        tc1, tc2 = st.columns(2)
+        with tc1:
+            totox_peroxide = st.number_input(
+                "Peroksit Degeri (meq O2/kg)", min_value=0.0, value=5.0,
+                step=0.1, format="%.2f", key="totox_peroxide",
+            )
+        with tc2:
+            totox_anisidine = st.number_input(
+                "Anisidin Degeri", min_value=0.0, value=3.0,
+                step=0.1, format="%.2f", key="totox_anisidine",
+            )
+
+        totox_value = 2 * totox_peroxide + totox_anisidine
+        st.metric("Totox Degeri", f"{totox_value:.2f}")
+
+# ---------------------------------------------------------------------------
+# SEKME 4: Hakkinda
 # ---------------------------------------------------------------------------
 with tab_about:
     with st.container(border=True):

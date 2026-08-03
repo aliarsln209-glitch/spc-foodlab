@@ -91,9 +91,23 @@ def compute_cpk(
     LSL yok sayilir. Bu, aw (su aktivitesi) gibi sadece ust limitin anlamli oldugu
     parametreler icin kullanilir (alt limit tanimsizdir - mikrobiyal guvenlik acisindan
     sadece "asagida kal" onemlidir, "yukarida kal" degil).
+
+    Sifira bolme korumasi: r_bar (veya I-MR icin mr_bar) tam 0 ise (olculen
+    degerlerde hic varyasyon yoksa, orn. Peroksit/HMF'de ardisik olcumler
+    birebir ayniysa) sigma_hat = r_bar/d2 de 0 olur ve normal formul
+    ZeroDivisionError verir. Bu matematiksel olarak "surec kusursuz, hicbir
+    varyasyon yok" anlamina gelir - pratikte Cpk/Cpu sonsuz (surec ne kadar
+    dar olursa olsun sinirlar icinde kalir) sayilir, TABII x_double_bar zaten
+    spesifikasyon disindaysa (varyasyon olmasa bile) surec yeterli DEGILDIR.
     """
     _, _, _, d2 = get_constants(n)
     sigma_hat = r_bar / d2
+
+    if sigma_hat == 0:
+        if one_sided:
+            return float("inf") if x_double_bar <= usl else float("-inf")
+        return float("inf") if lsl <= x_double_bar <= usl else float("-inf")
+
     cpu = (usl - x_double_bar) / (3 * sigma_hat)
     if one_sided:
         return cpu

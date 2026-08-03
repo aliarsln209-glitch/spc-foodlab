@@ -102,6 +102,70 @@ VISCOSITY_PRODUCT_RANGES = {
     "Ozel/Manuel gir": None,
 }
 
+# Gosterge amacli nem/rutubet (%) araligi (LSL, USL). Bal icin (None, 20.0) -
+# TGK Bal Tebliginde tek taraflı (sadece ust limit) bir sinir olarak
+# tanimlanmistir; diger urunler iki tarafli araliga sahiptir. Bu, PARAMETRE
+# bazinda degil URUN bazinda tek/iki tarafli Cpk secimine bir ornektir - bkz.
+# app.py'deki one_sided hesaplama mantigi (urunun LSL'i None ise o urun icin
+# tek tarafli Cpu hesaplanir, parametrenin geri kalani iki tarafli kalabilir).
+MOISTURE_PRODUCT_RANGES = {
+    "Ekmek": (35.0, 40.0),
+    "Biskuvi/kraker": (2.0, 5.0),
+    "Kasar peyniri": (40.0, 45.0),
+    "Bal": (None, 20.0),  # TGK Bal Tebligi - tek tarafli, sadece ust limit
+    "Makarna (kuru)": (10.0, 12.5),
+    "Domates salcasi": (70.0, 72.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli tuz/NaCl (%) araligi (LSL, USL). Sektor pratigine dayanan
+# kalite kontrol referansi, TGK'nin yerini tutmaz.
+SALT_PRODUCT_RANGES = {
+    "Ekmek": (1.5, 2.0),
+    "Beyaz peynir": (2.0, 4.0),
+    "Kasar peyniri": (1.5, 2.5),
+    "Sucuk/salam": (2.0, 3.0),
+    "Tursu salamurasi": (5.0, 10.0),
+    "Zeytin (sofralik, salamura)": (4.0, 8.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli titrasyon asitligi (%) araligi (LSL, USL). Sektor
+# pratigine dayanan kalite kontrol referansi.
+TITRATABLE_ACIDITY_PRODUCT_RANGES = {
+    "Sut (taze)": (0.14, 0.16),
+    "Yogurt": (0.6, 1.0),
+    "Domates salcasi": (0.4, 0.6),
+    "Meyve suyu (genel)": (0.3, 1.5),
+    "Tursu": (0.6, 1.2),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli peroksit degeri (meq O2/kg) UST limiti. Yaglarda oksidasyon
+# derecesini gosterir - sadece USL anlamlidir (peroksit degeri ne kadar
+# dusukse o kadar iyi; alt limit kavrami yoktur). Kaynak: Codex Alimentarius/
+# IOC (International Olive Council) standardi (zeytinyagi icin). Her olcum
+# tek basina bir batch/parti sonucu oldugundan (alt grup yok), I-MR chart
+# kullanilir (bkz. PARAMETER_CONFIG["Peroksit Degeri"]["is_individual"]).
+PEROXIDE_PRODUCT_RANGES = {
+    "Zeytinyagi (naturel sizma)": (None, 20.0),  # Codex Alimentarius/IOC standardi
+    "Aycicek yagi (rafine)": (None, 10.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli HMF (Hidroksimetilfurfural, mg/kg) UST limiti. Isil islem/
+# depolama sirasinda sekerlerin bozunmasinin gostergesi - sadece USL
+# anlamlidir. Kaynak: TGK Bal Tebligi (bal), TGK Uzum Pekmezi Tebligi
+# (pekmez), genel sektor pratigi (meyve suyu konsantresi). I-MR chart
+# kullanilir (alt grup yok, her olcum tek bir parti sonucu).
+HMF_PRODUCT_RANGES = {
+    "Bal": (None, 40.0),  # TGK Bal Tebligi
+    "Pekmez (sivi)": (None, 75.0),  # TGK Uzum Pekmezi Tebligi
+    "Pekmez (kati)": (None, 100.0),  # TGK Uzum Pekmezi Tebligi
+    "Meyve suyu (konsantre)": (None, 20.0),  # genel sektor pratigi
+    "Ozel/Manuel gir": None,
+}
+
 # Parametre bazli yapilandirma - Sekme 2'deki urun/birim/aralik mantigi buna gore dallanir.
 PARAMETER_CONFIG = {
     "pH": {
@@ -160,5 +224,70 @@ PARAMETER_CONFIG = {
         "demo_target_sigma": 3000.0,  # I-MR demo icin dogrudan std sapma (R_bar/d2 degil)
         "one_sided": False,
         "is_individual": True,  # X-bar/R degil, I-MR chart kullanilir (alt grup yok)
+    },
+    "Nem/Rutubet": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 100.0,
+        "products": MOISTURE_PRODUCT_RANGES,
+        "default_lsl": 35.0,
+        "default_usl": 40.0,
+        "default_measurement": 37.5,
+        "demo_target_mean": 37.5,
+        "demo_target_r_bar": 0.5,
+        "demo_shift_amount": 2.0,
+        "one_sided": False,  # "Ozel/Manuel gir" icin varsayilan; urun bazinda override edilebilir (bkz. Bal)
+    },
+    "Tuz/NaCl": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 20.0,
+        "products": SALT_PRODUCT_RANGES,
+        "default_lsl": 1.5,
+        "default_usl": 2.0,
+        "default_measurement": 1.75,
+        "demo_target_mean": 1.75,
+        "demo_target_r_bar": 0.05,
+        "demo_shift_amount": 0.3,
+        "one_sided": False,
+    },
+    "Titrasyon Asitligi": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 5.0,
+        "products": TITRATABLE_ACIDITY_PRODUCT_RANGES,
+        "default_lsl": 0.14,
+        "default_usl": 0.16,
+        "default_measurement": 0.15,
+        "demo_target_mean": 0.15,
+        "demo_target_r_bar": 0.005,
+        "demo_shift_amount": 0.03,
+        "one_sided": False,
+    },
+    "Peroksit Degeri": {
+        "unit": "meq O2/kg",
+        "min_value": 0.0,
+        "max_value": 50.0,
+        "products": PEROXIDE_PRODUCT_RANGES,
+        "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
+        "default_usl": 20.0,
+        "default_measurement": 10.0,
+        "demo_target_mean": 10.0,
+        "demo_target_sigma": 1.0,
+        "one_sided": True,  # "Ozel/Manuel gir" icin varsayilan (tum tanimli urunler zaten tek tarafli)
+        "is_individual": True,  # her olcum tek bir parti/batch sonucu - alt grup yok
+    },
+    "HMF": {
+        "unit": "mg/kg",
+        "min_value": 0.0,
+        "max_value": 150.0,
+        "products": HMF_PRODUCT_RANGES,
+        "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
+        "default_usl": 40.0,
+        "default_measurement": 20.0,
+        "demo_target_mean": 20.0,
+        "demo_target_sigma": 3.0,
+        "one_sided": True,
+        "is_individual": True,
     },
 }

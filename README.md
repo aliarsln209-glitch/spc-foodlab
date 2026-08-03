@@ -1,16 +1,18 @@
 # 📊 SPC FoodLab
 
-Gıda üretiminde pH, Brix, aw (su aktivitesi) veya viskozite
-ölçümlerinden **istatistiksel proses kontrolü (SPC)** grafiği ve
-**süreç yeterlilik analizi (Cpk)** üreten bir Streamlit uygulaması.
+Gıda üretiminde pH, Brix, aw (su aktivitesi), viskozite, nem/rutubet,
+tuz/NaCl, titrasyon asitliği, peroksit değeri veya HMF ölçümlerinden
+**istatistiksel proses kontrolü (SPC)** grafiği ve **süreç yeterlilik
+analizi (Cpk)** üreten bir Streamlit uygulaması.
 
 ## Ne yapar
 
 Gıda üretim hatlarında laboratuvar analiz sonuçları (pH, Brix, nem, aw,
 viskozite vb.) genelde sadece kaydedilir, istatistiksel olarak
 yorumlanmaz. Bu araç, seçilen parametreye göre **alt grup bazlı**
-(pH/Brix/aw — vardiya başına birden çok ölçüm) veya **tek tek ölçülen**
-(viskozite — I-MR chart, bkz. aşağıda) verilerden otomatik olarak:
+(pH/Brix/aw/nem/tuz/asitlik — vardiya başına birden çok ölçüm) veya
+**tek tek ölçülen** (viskozite, peroksit, HMF — I-MR chart, bkz.
+aşağıda) verilerden otomatik olarak:
 
 - Ortalama, standart sapma, kontrol limitlerini (UCL/LCL),
 - X-bar/R veya I-MR kontrol grafiğini,
@@ -27,13 +29,23 @@ doğrulayarak çalışan, deploy edilmiş bir ürüne dönüştürmek.
 ## Kapsam (v1 / MVP)
 
 **Dahil:**
-- Dört parametre: pH, Brix, Aw ve Viskozite (sidebar'dan seçilir, aynı anda tek parametre aktif)
-- pH/Brix/Aw için yapılandırılmış form ile alt grup veri girişi (vardiya başına 4 ölçüm)
-- Viskozite için tek tek ölçüm girişi (alt grup yok, I-MR chart — bkz. aşağıda)
+- Dokuz parametre: pH, Brix, Aw, Viskozite, Nem/Rutubet, Tuz/NaCl,
+  Titrasyon Asitliği, Peroksit Değeri, HMF (sidebar'dan seçilir, aynı
+  anda tek parametre aktif)
+- X-bar/R altyapısı: pH, Brix, Aw, Nem/Rutubet, Tuz/NaCl, Titrasyon
+  Asitliği — yapılandırılmış form ile alt grup veri girişi (vardiya
+  başına 4 ölçüm)
+- I-MR altyapısı: Viskozite, Peroksit Değeri, HMF — tek tek ölçüm
+  girişi (alt grup yok, bkz. aşağıda)
+- Tek/iki taraflı Cpk seçimi **ürün bazında** otomatik belirlenir
+  (örn. Nem/Rutubet'te "Bal" tek taraflı, diğer ürünler iki taraflı)
 - Otomatik ortalama, standart sapma, UCL/LCL hesaplama
-- X-bar/R kontrol grafiği (pH/Brix/Aw) veya I-MR kontrol grafiği (Viskozite)
-- Cpk / Cpu (süreç yeterlilik indeksi)
-- Spesifikasyon dışı noktaların görsel işaretlenmesi
+- X-bar/R kontrol grafiği veya I-MR kontrol grafiği (parametreye göre)
+- Cpk / Cpu (süreç yeterlilik indeksi), sıfır-varyasyon edge case'i
+  (∞/-∞) dahil
+- Spesifikasyon dışı noktaların görsel işaretlenmesi (tek taraflı
+  durumlarda LSL/LCL çizgisi gizlenir)
+- Totox hesaplayıcı (izole, tek seferlik — "Hızlı Hesaplayıcılar" sekmesi)
 
 **Kapsam dışı (v1'de yok):**
 - Çoklu parametre karşılaştırma
@@ -201,6 +213,49 @@ parametresi alır; `False` (varsayılan) durumda pH/Brix için mevcut iki
 taraflı davranış aynen korunur — bu değişiklik pH/Brix hesaplamalarını
 etkilemez (bkz. `tests/test_validation.py`, hâlâ geçiyor).
 
+## Ürün bazında tek/iki taraflı Cpk
+
+Başlangıçta tek/iki taraflı Cpk seçimi **parametre** düzeyinde sabitti
+(örn. tüm aw her zaman tek taraflı). Nem/Rutubet parametresiyle birlikte
+bu esnekleştirildi: artık seçim **ürün** düzeyinde de değişebilir. Örnek:
+Nem/Rutubet parametresinde çoğu ürün (Ekmek, Kaşar peyniri, Makarna vb.)
+iki taraflıyken, **Bal** ürünü seçildiğinde otomatik olarak tek taraflı
+Cpu'ya geçilir — çünkü TGK Bal Tebliği'nde nem için sadece bir üst limit
+tanımlıdır, alt limit yoktur.
+
+Bu, ürün referans tablolarındaki `(LSL, USL)` ikilisinde `LSL = None`
+olan girdilerle ifade edilir (aynı `AW_PRODUCT_RANGES`'te kullanılan
+`(None, USL)` deseni). Uygulama, seçilen ürünün LSL'i `None` ise o ürün
+için tek taraflı Cpu hesaplar; "Özel/Manuel gir" seçildiğinde ise
+parametrenin kendi varsayılanına (`PARAMETER_CONFIG["one_sided"]`)
+geri döner. Bu sayede aynı parametre içinde bazı ürünler iki taraflı,
+bazıları tek taraflı olabilir.
+
+**Grafik sadeleştirmesi:** Tek taraflı analiz aktifken (parametre veya
+ürün kaynaklı fark etmez) X-bar/I chart'ta **LSL/LCL çizgisi ve etiketi
+çizilmez** — sadece USL/UCL gösterilir. Bu, önceki oturumda yalnızca
+Aw için değil, artık tüm tek taraflı durumlar için tutarlı şekilde
+uygulanır (istatistiksel kontrol-dışı tespiti, yani bir noktanın LCL
+altında kalıp kalmadığı kontrolü, buna rağmen aynen çalışmaya devam
+eder — sadece çizgi görsel olarak gizlenir).
+
+## Sıfıra bölme koruması (Cpk/Cpu edge case)
+
+Eğer bir seri/alt grupta hiç varyasyon yoksa (R̄ veya MR̄ tam 0 — örn.
+Peroksit/HMF'de ardışık ölçümler birebir aynıysa), `σ̂ = R̄/d2` formülü
+de 0 çıkar ve normal Cpk formülü sıfıra bölme hatası verirdi.
+`compute_cpk()` artık bu durumu özel olarak ele alır:
+
+- Varyasyon yok VE ortalama spesifikasyon içindeyse → Cpk/Cpu = **∞**
+  (süreç kusursuz)
+- Varyasyon yok AMA ortalama zaten spesifikasyon dışındaysa → Cpk/Cpu =
+  **-∞** (varyasyon olmasa da süreç yetersiz)
+
+Bu davranış hem X-bar/R hem I-MR yolları için geçerlidir (ikisi de aynı
+`compute_cpk()` fonksiyonunu kullanır) ve `tests/test_cpk_edge_cases.py`
+ile doğrulanmıştır — mevcut pH/Brix/Aw/Viskozite testlerinden bağımsız,
+onları etkilemez.
+
 ## I-MR (Individual-Moving Range) Chart — Viskozite
 
 Dördüncü parametre olan **Viskozite (cP)**, X-bar/R yerine **I-MR
@@ -285,6 +340,54 @@ bir standart değildir.
 niteliğindedir, hassas kalite kontrol kararları için ölçüm protokolü
 sabitlenmelidir.
 
+## Nem/Rutubet, Tuz/NaCl ve Titrasyon Asitliği referans tabloları
+
+Bu üç parametre, X-bar/R altyapısını (pH/Brix ile aynı) kullanır —
+yapılandırılmış alt grup veri girişi, iki taraflı Cpk (Bal istisnası
+hariç, bkz. yukarıda). Değerler sektör pratiğine dayanan gösterge
+değerleridir, TGK'nin yerini tutmaz (Bal'ın nem üst limiti hariç — o
+doğrudan TGK Bal Tebliği'nden alınmıştır).
+
+| Parametre | Birim | Örnek ürün aralığı |
+|---|---|---|
+| Nem/Rutubet | % | Ekmek: 35-40, Bal: ≤20 (TGK Bal Tebliği, tek taraflı) |
+| Tuz/NaCl | % | Ekmek: 1.5-2.0, Turşu salamurası: 5.0-10.0 |
+| Titrasyon Asitliği | % | Süt (taze): 0.14-0.16, Yoğurt: 0.6-1.0 |
+
+## Peroksit Değeri ve HMF referans tabloları (I-MR + tek taraflı)
+
+Bu iki parametre, Viskozite gibi **I-MR chart** kullanır (her ölçüm tek
+bir parti/batch sonucu olduğundan alt grup kavramı pratik değildir) ve
+aw gibi **tek taraflı Cpu** hesaplar (sadece üst limit anlamlıdır).
+
+**Peroksit Değeri (meq O2/kg):** Yağlarda oksidasyon derecesinin
+göstergesi. **Kaynak:** Codex Alimentarius / IOC (International Olive
+Council) standardı — natürel sızma zeytinyağı için ≤20 meq O2/kg.
+
+**HMF — Hidroksimetilfurfural (mg/kg):** Isıl işlem/depolama sırasında
+şekerlerin bozunmasının göstergesi. **Kaynak:** TGK Bal Tebliği (bal,
+≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (pekmez sıvı ≤75, katı ≤100
+mg/kg), genel sektör pratiği (meyve suyu konsantresi, ≤20 mg/kg).
+
+Her iki parametre de `PARAMETER_CONFIG` içinde `is_individual: True` ve
+`one_sided: True` bayraklarını birlikte taşır — bu, I-MR ve tek taraflı
+Cpk mekanizmalarının birbirinden bağımsız olarak tasarlandığını ve
+istenildiği gibi birleştirilebildiğini gösterir.
+
+## Hızlı Hesaplayıcılar — Totox
+
+Ayrı bir sekmede ("🧮 Hızlı Hesaplayıcılar"), SPC kontrol grafiği
+akışından tamamen izole, tek seferlik bir **Totox hesaplayıcısı**
+bulunur:
+
+```
+Totox = 2 × Peroksit Değeri + Anisidin Değeri
+```
+
+Bu bir kontrol grafiği değildir — kullanıcı iki değeri elle girer,
+sonuç anında hesaplanır. `session_state.subgroups` veya baseline
+mekanizmasına hiçbir şekilde dokunmaz.
+
 ## Nasıl çalıştırılır (local)
 
 ```bash
@@ -311,12 +414,13 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 ```
 spc-foodlab/
 ├── src/
-│   ├── app.py          # Streamlit arayüzü (3 sekme)
+│   ├── app.py          # Streamlit arayüzü (4 sekme)
 │   ├── spc_core.py     # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
 │   ├── demo_data.py    # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
 │   └── constants.py    # Sabit yapılandırma (n=4, parametre/ürün tablolari)
 ├── tests/
-│   ├── test_validation.py      # pH/Brix/Aw (X-bar/R) formül doğrulama testi
-│   └── test_imr_validation.py  # Viskozite (I-MR) formül doğrulama testi
+│   ├── test_validation.py      # pH/Brix/Aw/Nem/Tuz/Asitlik (X-bar/R) formül doğrulama testi
+│   ├── test_imr_validation.py  # Viskozite/Peroksit/HMF (I-MR) formül doğrulama testi
+│   └── test_cpk_edge_cases.py  # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
 └── requirements.txt
 ```
