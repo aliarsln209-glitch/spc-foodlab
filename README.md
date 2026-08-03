@@ -132,7 +132,7 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 
 ## Demo
 
-<!-- Deploy sonrası link buraya eklenecek -->
+🔗 [spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app](https://spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app/)
 
 ## Teknik yığın
 
