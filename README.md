@@ -25,6 +25,9 @@ SPC FoodLab turns routine food-quality lab measurements into proper
   Cpk/Cpu, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
   `tests/` (10 automated tests across 3 files).
+- Result dashboard with a Cpk/Cpu level badge, an auto-generated plain-text
+  summary, a shift-by-shift comparison table, and a one-page PDF report
+  export — on top of the existing PNG chart export and CSV import/export.
 - Built with Python + Streamlit, deployed on Streamlit Community
   Cloud. Independent, individually-developed project (built to apply
   SPC/quality-engineering coursework to a real, deployed tool).
@@ -61,8 +64,7 @@ mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md).
 
 **Kapsam dışı (v1'de yok):** çoklu parametre karşılaştırma, Western
 Electric kuralları, kullanıcı hesabı/çoklu kullanıcı sistemi, veritabanı
-entegrasyonu (session-state + CSV export yeterli), değişken alt grup
-büyüklüğü (n=4 sabit).
+entegrasyonu (session-state + CSV export yeterli).
 
 ## Hızlı Hesaplayıcılar — Totox
 
@@ -85,6 +87,8 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 ## Teknik yığın
 
 - **Streamlit** (Python) — form, hesaplama ve grafik tek pakette
+- **matplotlib + scipy** — kontrol grafikleri ve kapasite histogramı
+- **fpdf2** — tek sayfalık PDF analiz raporu export'u
 - **Deploy:** Streamlit Community Cloud
 - Veri kalıcılığı: session-state (uygulama içi) + CSV export — v1'de
   veritabanı entegrasyonu yok
@@ -97,7 +101,7 @@ spc-foodlab/
 │   ├── app.py          # Streamlit arayüzü (4 sekme)
 │   ├── spc_core.py     # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
 │   ├── demo_data.py    # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
-│   └── constants.py    # Sabit yapılandırma (n=4, parametre/ürün tabloları)
+│   └── constants.py    # Sabit yapılandırma (varsayılan n=4, parametre/ürün/kaynak tabloları)
 ├── tests/
 │   ├── test_validation.py      # X-bar/R formül doğrulama testi (pH örneği)
 │   ├── test_imr_validation.py  # I-MR formül doğrulama testi (kahve sıcaklığı örneği)

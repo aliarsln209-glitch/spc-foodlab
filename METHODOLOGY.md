@@ -120,6 +120,33 @@ olarak anlamlı bir sonuçla ele alır:
 Bu davranış hem X-bar/R hem I-MR yolları için geçerlidir (ikisi de aynı
 `compute_cpk()` fonksiyonunu kullanır).
 
+#### Sonuç seviyesi rozeti
+
+KPI panelindeki Cpk/Cpu kartında görülen 🟢/🟡/🔴 rozet, `get_cpk_level()`
+fonksiyonundaki (`src/app.py`) şu eşiklere dayanır — bu, hesaplamayı
+etkilemeyen, salt görsel bir sınıflandırmadır:
+
+| Cpk/Cpu | Rozet |
+|---|---|
+| ≥ 1.67 | 🟢 Excellent |
+| 1.33 – 1.67 | 🟢 Capable |
+| 1.0 – 1.33 | 🟡 Marginal |
+| < 1.0 | 🔴 Not Capable |
+
+`render_cpk_message()`'in metin uyarısı (başarı/uyarı/hata kutusu) daha
+kaba bir 3'lü eşik kullanır (<1.0 / 1.0–1.33 / ≥1.33); ikisi birbirini
+tamamlar, çelişmez — rozet daha ince taneli bir okuma sağlar.
+
+#### Trend göstergesi
+
+"Ortalama" KPI kartındaki ▲/▼/→ ok, istatistiksel bir kontrol testi
+DEĞİLDİR — `compute_trend()` (`src/app.py`) son N noktanın ortalamasıyla
+(N = min(6, örnek sayısı/2)) ondan önceki N noktanın ortalamasını
+karşılaştıran basit, tanımlayıcı bir gösterge. Yön ve büyüklük bir
+sürecin "iyi" ya da "kötü" gittiğini değil, sadece son verilerin genel
+ortalamaya göre nereye kaydığını gösterir; süreç yeterliliği için tek
+başına Cpk/Cpu ve kontrol limitlerine bakılmalıdır.
+
 ## Doğrulama
 
 Her formül, kodlamadan önce elle çözülmüş literatür örnekleriyle test
