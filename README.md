@@ -7,7 +7,7 @@ tuz/NaCl, titrasyon asitliği, peroksit değeri veya HMF ölçümlerinden
 **istatistiksel proses kontrolü (SPC)** grafiği ve **süreç yeterlilik
 analizi (Cpk/Cpu)** üreten bir Streamlit uygulaması.
 
-🔗 **Demo:** [spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app](https://spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app/)
+🔗 **Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
 ## English summary
 
@@ -85,7 +85,7 @@ streamlit run app.py
 ```
 Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 
-**Demo:** [spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app](https://spc-foodlab-4qhdg4ozkknrpnhwj5pxxm.streamlit.app/)
+**Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
 ## Teknik yığın
 
