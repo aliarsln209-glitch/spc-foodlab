@@ -1,12 +1,18 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
+import io
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import streamlit as st
+from scipy import stats
 
 from constants import PARAMETER_CONFIG, SHIFT_OPTIONS, SUBGROUP_SIZE
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from spc_core import compute_cpk, compute_imr_limits, compute_moving_ranges, compute_xbar_r_limits
+
+GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
 
 MIN_RECOMMENDED_BASELINE = 20
 CPK_SANITY_THRESHOLD = 10  # |Cpk| bu esigi asarsa LSL/USL-veri uyumsuzlugu uyarisi goster
@@ -192,6 +198,92 @@ def render_cpk_message(cpk: float, cpk_label: str) -> None:
         st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
 
 
+def fig_to_png_bytes(fig) -> bytes:
+    """Matplotlib figurunu PNG bayt dizisine cevirir (indirme butonlari icin)."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def render_png_download(fig, filename: str, key: str) -> None:
+    """Verilen figur icin 'PNG olarak indir' butonu gosterir. plt.close(fig)
+    cagrilmadan ONCE (byte'lar alinip kapatildiktan sonra da kullanilabilir,
+    cunku fig_to_png_bytes zaten byte'lari kapatmadan once cikarir) cagrilmalidir."""
+    png_bytes = fig_to_png_bytes(fig)
+    st.download_button(
+        "\U0001F5BC️ PNG olarak indir", png_bytes, filename, "image/png", key=key
+    )
+
+
+def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
+                      n_samples: int, n_out_of_control: int) -> None:
+    """Chart'tan once gosterilen 4'lu hizli ozet paneli - detayli karti
+    tekrar etmez, sadece en onemli 4 sayiyi one cikarir."""
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric(
+        f"Ortalama ({unit})", f"{center_value:.4f}",
+        help="Surecin genel ortalamasi (X-bar/R'de x̄̄, I-MR'de x̄).",
+    )
+    k2.metric(
+        cpk_label, format_cpk(cpk),
+        help=(
+            "Surecin spesifikasyon limitlerini karsilama yetenegini gosterir. "
+            "Genel kabul: ≥1.33 yeterli, 1.0-1.33 marjinal, <1.0 yetersiz."
+        ),
+    )
+    k3.metric(
+        "Ornek Sayisi", n_samples,
+        help="Toplam olcum (I-MR) veya alt grup (X-bar/R) sayisi.",
+    )
+    k4.metric(
+        "Kontrol Disi Nokta", n_out_of_control,
+        help="Istatistiksel kontrol limitlerinin (UCL/LCL) disinda kalan nokta sayisi.",
+    )
+
+
+def render_capability_histogram(values: list[float], lsl: float, usl: float,
+                                 one_sided: bool, dark: bool, unit: str):
+    """Mevcut olcumlerden histogram + normal dagilim egrisi (scipy.stats.norm),
+    LSL/USL dikey cizgileri ve (iki tarafliysa) Target (LSL/USL ortalamasi)
+    cizgisi ile bir 'surec yeterlilik' gorseli olusturur. Figur objesini
+    dondurur - cagiran taraf st.pyplot + PNG export + plt.close yapar."""
+    values_arr = np.array(values, dtype=float)
+    mu = float(values_arr.mean())
+    sigma = float(values_arr.std(ddof=1)) if len(values_arr) > 1 else 0.0
+
+    fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
+
+    bins = min(15, max(5, len(values_arr) // 2))
+    ax.hist(
+        values_arr, bins=bins, density=True, color="steelblue", alpha=0.6,
+        edgecolor="white", label="Olcum dagilimi",
+    )
+
+    data_min, data_max = float(values_arr.min()), float(values_arr.max())
+    lower_bound = data_min if one_sided else min(data_min, lsl)
+    upper_bound = max(data_max, usl)
+    span = upper_bound - lower_bound
+    pad = span * 0.15 if span > 0 else (sigma * 3 if sigma > 0 else 1.0)
+    x_curve = np.linspace(lower_bound - pad, upper_bound + pad, 200)
+
+    if sigma > 0:
+        y_curve = stats.norm.pdf(x_curve, mu, sigma)
+        ax.plot(x_curve, y_curve, color="darkorange", linewidth=2, label="Normal dagilim")
+
+    ax.axvline(usl, color="red", linestyle="--", linewidth=1.5, label="USL")
+    if not one_sided:
+        ax.axvline(lsl, color="red", linestyle="--", linewidth=1.5, label="LSL")
+        target = (lsl + usl) / 2
+        ax.axvline(target, color="seagreen", linestyle=":", linewidth=1.5, label="Target")
+
+    ax.set_xlabel(unit)
+    ax.set_ylabel("Yogunluk")
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+    style_chart(fig, ax, dark)
+    return fig
+
+
 def style_chart(fig, ax, dark: bool) -> None:
     """Grafigi secilen acik/koyu temaya uyarlar (arka plan, yazi, izgara, legend renkleri)."""
     bg = "#0e1117" if dark else "#ffffff"
@@ -354,30 +446,31 @@ with tab_data:
 
             st.divider()
 
-            rows = []
-            for i, sg in enumerate(st.session_state.subgroups, start=1):
-                vals = sg["values"]
-                if is_individual:
-                    rows.append({
-                        "Sira": i,
-                        **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
-                    })
-                else:
-                    rows.append({
-                        "Grup": i,
-                        "Vardiya": sg["shift"],
-                        **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
-                        "Ortalama": sum(vals) / len(vals),
-                        "Range": max(vals) - min(vals),
-                    })
-            df = pd.DataFrame(rows)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            with st.expander("\U0001F4CB Ham verileri goruntule", expanded=False):
+                rows = []
+                for i, sg in enumerate(st.session_state.subgroups, start=1):
+                    vals = sg["values"]
+                    if is_individual:
+                        rows.append({
+                            "Sira": i,
+                            **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
+                        })
+                    else:
+                        rows.append({
+                            "Grup": i,
+                            "Vardiya": sg["shift"],
+                            **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
+                            "Ortalama": sum(vals) / len(vals),
+                            "Range": max(vals) - min(vals),
+                        })
+                df = pd.DataFrame(rows)
+                st.dataframe(df, use_container_width=True, hide_index=True)
 
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "CSV olarak indir", csv,
-                f"{st.session_state.active_parameter.lower()}_olcumleri.csv", "text/csv",
-            )
+                csv = df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "CSV olarak indir", csv,
+                    f"{st.session_state.active_parameter.lower()}_olcumleri.csv", "text/csv",
+                )
 
 # ---------------------------------------------------------------------------
 # SEKME 2: X-bar/R Chart & Cpk
@@ -621,8 +714,14 @@ with tab_chart:
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.4f}")
                 m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.4f}")
-                m3.metric("UCL / LCL (I chart)", f"{limits.ucl_i:.4f} / {limits.lcl_i:.4f}")
-                m4.metric(cpk_label, format_cpk(cpk))
+                m3.metric(
+                    "UCL / LCL (I chart)", f"{limits.ucl_i:.4f} / {limits.lcl_i:.4f}",
+                    help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
+                )
+                m4.metric(
+                    cpk_label, format_cpk(cpk),
+                    help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
+                )
 
                 render_cpk_message(cpk, cpk_label)
 
@@ -634,6 +733,12 @@ with tab_chart:
             out_of_control_mr = [
                 i for i, mr in enumerate(moving_ranges) if mr > limits.ucl_mr or mr < limits.lcl_mr
             ]
+            flagged_points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
+
+            with st.container(border=True):
+                render_kpi_panel(unit, x_bar, cpk, cpk_label, len(values), len(flagged_points))
+
+            st.write("")
 
             with st.container(border=True):
                 st.subheader("I (Individual) Kontrol Grafigi")
@@ -658,7 +763,24 @@ with tab_chart:
                 ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
                 style_chart(fig, ax, dark)
                 st.pyplot(fig, use_container_width=True)
+                render_png_download(fig, f"{st.session_state.active_parameter.lower()}_i_chart.png", key="png_i_chart")
                 plt.close(fig)
+
+            st.write("")
+
+            with st.container(border=True):
+                st.subheader("Surec Yeterlilik Histogrami")
+                st.caption(
+                    "Olculen degerlerin dagilimi + normal dagilim egrisi (scipy.stats.norm). "
+                    "Bu, kontrol grafiginden farkli bir gorseldir - zaman sirasini degil, "
+                    "verinin spesifikasyon limitlerine gore genel dagilimini gosterir."
+                )
+                hist_fig = render_capability_histogram(values, lsl, usl, one_sided, dark, unit)
+                st.pyplot(hist_fig, use_container_width=True)
+                render_png_download(
+                    hist_fig, f"{st.session_state.active_parameter.lower()}_histogram.png", key="png_histogram"
+                )
+                plt.close(hist_fig)
 
             st.write("")
 
@@ -684,12 +806,12 @@ with tab_chart:
                 ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
                 style_chart(fig2, ax2, dark)
                 st.pyplot(fig2, use_container_width=True)
+                render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_mr_chart.png", key="png_mr_chart")
                 plt.close(fig2)
 
-            if out_of_control_i or out_of_control_mr:
-                points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
+            if flagged_points:
                 st.warning(
-                    f"Kontrol disi olcumler: {points} "
+                    f"Kontrol disi olcumler: {flagged_points} "
                     "- surec bu noktalarda 'kontrol disi' kabul edilir."
                 )
         else:
@@ -781,8 +903,14 @@ with tab_chart:
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.4f}")
                 m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.4f}")
-                m3.metric("UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}")
-                m4.metric(cpk_label, format_cpk(cpk))
+                m3.metric(
+                    "UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}",
+                    help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
+                )
+                m4.metric(
+                    cpk_label, format_cpk(cpk),
+                    help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
+                )
 
                 render_cpk_message(cpk, cpk_label)
 
@@ -791,6 +919,12 @@ with tab_chart:
             indices = list(range(1, len(means) + 1))
             out_of_control_x = [i for i, m in enumerate(means) if m > limits.ucl_x or m < limits.lcl_x]
             out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
+            groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
+
+            with st.container(border=True):
+                render_kpi_panel(unit, x_double_bar, cpk, cpk_label, len(means), len(groups))
+
+            st.write("")
 
             with st.container(border=True):
                 st.subheader("X-bar Kontrol Grafigi")
@@ -815,7 +949,26 @@ with tab_chart:
                 ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
                 style_chart(fig, ax, dark)
                 st.pyplot(fig, use_container_width=True)
+                render_png_download(fig, f"{st.session_state.active_parameter.lower()}_xbar_chart.png", key="png_xbar_chart")
                 plt.close(fig)
+
+            st.write("")
+
+            with st.container(border=True):
+                st.subheader("Surec Yeterlilik Histogrami")
+                st.caption(
+                    "Tum bireysel olcumlerin (alt gruplar acilarak) dagilimi + normal "
+                    "dagilim egrisi (scipy.stats.norm). Bu, kontrol grafiginden farkli "
+                    "bir gorseldir - zaman sirasini degil, verinin spesifikasyon "
+                    "limitlerine gore genel dagilimini gosterir."
+                )
+                all_values = [v for sg in st.session_state.subgroups for v in sg["values"]]
+                hist_fig = render_capability_histogram(all_values, lsl, usl, one_sided, dark, unit)
+                st.pyplot(hist_fig, use_container_width=True)
+                render_png_download(
+                    hist_fig, f"{st.session_state.active_parameter.lower()}_histogram.png", key="png_histogram"
+                )
+                plt.close(hist_fig)
 
             st.write("")
 
@@ -838,10 +991,10 @@ with tab_chart:
                 ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
                 style_chart(fig2, ax2, dark)
                 st.pyplot(fig2, use_container_width=True)
+                render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_r_chart.png", key="png_r_chart")
                 plt.close(fig2)
 
-            if out_of_control_x or out_of_control_r:
-                groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
+            if groups:
                 st.warning(
                     f"Kontrol disi alt gruplar: {groups} "
                     "- surec bu noktalarda 'kontrol disi' kabul edilir."
@@ -933,3 +1086,10 @@ mevcut veriyi siler (onay istenir).
 Detayli kaynak ve dogrulama notlari icin bkz. README.
             """
         )
+
+# ---------------------------------------------------------------------------
+# FOOTER - tum sekmelerin altinda, her zaman gorunur (with tab_x: bloklarinin
+# disinda oldugu icin hangi sekme secili olursa olsun sayfanin en altinda kalir)
+# ---------------------------------------------------------------------------
+st.divider()
+st.caption(f"SPC FoodLab v1.0 · [GitHub]({GITHUB_URL})")
