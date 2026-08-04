@@ -1,5 +1,7 @@
 # 📊 SPC FoodLab
 
+[![Tests](https://github.com/aliarsln209-glitch/spc-foodlab/actions/workflows/tests.yml/badge.svg)](https://github.com/aliarsln209-glitch/spc-foodlab/actions/workflows/tests.yml)
+
 Gıda üretiminde pH, Brix, aw (su aktivitesi), viskozite, nem/rutubet,
 tuz/NaCl, titrasyon asitliği, peroksit değeri veya HMF ölçümlerinden
 **istatistiksel proses kontrolü (SPC)** grafiği ve **süreç yeterlilik
@@ -24,7 +26,8 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (10 automated tests across 3 files).
+  `tests/` (27 automated tests across 4 files, run on every push via
+  GitHub Actions — see badge above).
 - Result dashboard with a Cpk/Cpu level badge, an auto-generated plain-text
   summary, a shift-by-shift comparison table, and a one-page PDF report
   export — on top of the existing PNG chart export and CSV import/export.
@@ -97,15 +100,19 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 
 ```
 spc-foodlab/
+├── .github/workflows/
+│   └── tests.yml        # Her push'ta pytest calistiran GitHub Actions CI
 ├── src/
-│   ├── app.py          # Streamlit arayüzü (4 sekme)
-│   ├── spc_core.py     # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
-│   ├── demo_data.py    # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
-│   └── constants.py    # Sabit yapılandırma (varsayılan n=4, parametre/ürün/kaynak tabloları)
+│   ├── app.py             # Streamlit arayüzü (4 sekme)
+│   ├── spc_core.py        # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
+│   ├── result_helpers.py  # Cpk rozeti, trend göstergesi, quick summary, demo senaryosu hedefleri
+│   ├── demo_data.py       # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
+│   └── constants.py       # Sabit yapılandırma (varsayılan n=4, parametre/ürün/kaynak tabloları)
 ├── tests/
-│   ├── test_validation.py      # X-bar/R formül doğrulama testi (pH örneği)
-│   ├── test_imr_validation.py  # I-MR formül doğrulama testi (kahve sıcaklığı örneği)
-│   └── test_cpk_edge_cases.py  # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
+│   ├── test_validation.py       # X-bar/R formül doğrulama testi (pH örneği)
+│   ├── test_imr_validation.py   # I-MR formül doğrulama testi (kahve sıcaklığı örneği)
+│   ├── test_cpk_edge_cases.py   # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
+│   └── test_result_helpers.py   # Rozet/trend/özet/demo-senaryosu testleri (result_helpers.py)
 ├── screenshots/         # README ekran görüntüleri
 ├── METHODOLOGY.md       # Formüller, doğrulama, ürün referans kaynakları
 └── requirements.txt

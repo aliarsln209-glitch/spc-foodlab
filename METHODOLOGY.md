@@ -150,7 +150,14 @@ başına Cpk/Cpu ve kontrol limitlerine bakılmalıdır.
 ## Doğrulama
 
 Her formül, kodlamadan önce elle çözülmüş literatür örnekleriyle test
-edildi (`pytest tests/` — 10 test, 3 dosya).
+edildi (`pytest tests/` — 27 test, 4 dosya; her push'ta GitHub Actions
+ile otomatik çalışır). İlk 3 dosya (17 test) aşağıda anlatılan formül
+doğrulamalarını kapsar; 4. dosya (`test_result_helpers.py`, 10 test)
+`src/result_helpers.py`'daki hesaplama-DIŞI sunum yardımcılarını
+(Cpk rozet eşikleri, trend göstergesi, quick summary metni, demo
+senaryosu hedef hesaplaması) test eder — bunlar doğrulanacak
+istatistiksel formüller değil, mevcut sonuçların doğru sınıflandırılıp
+metne çevrildiğinin kontrolüdür.
 
 ### X-bar/R
 
