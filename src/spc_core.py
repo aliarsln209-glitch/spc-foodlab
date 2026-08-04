@@ -11,8 +11,11 @@ I-MR (Individual-Moving Range) formülleri ve sabitleri de ayni Montgomery
 kaynagindandir; dogrulama ornegi 6Sigma Toolkit I-MR Chart ornegi (kahve
 sicakligi verisi) - bkz. tests/test_imr_validation.py.
 
-NOT: subgroup_size (n) bu projede v1 kapsamında SABİTTİR (bkz. constants.py).
-Kullanıcının n'yi değiştirebilmesi MVP'de desteklenmiyor.
+NOT: subgroup_size (n), sidebar'dan kullanıcı tarafından seçilebilir
+(varsayılan n=4, aralık n=2..10 — bkz. constants.py MIN/MAX_SUBGROUP_SIZE).
+Alt sınır n=2'dir: n=1'de range her zaman 0 olacağından X-bar/R anlamsızdır
+(bu durum için ayrı bir chart türü olan I-MR kullanılır). Üst sınır, aşağıdaki
+CONTROL_CHART_CONSTANTS tablosunun kapsadığı n=10'dur.
 """
 
 from dataclasses import dataclass

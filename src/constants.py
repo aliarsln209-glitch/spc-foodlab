@@ -1,7 +1,26 @@
 """Proje genelinde sabit kalan yapilandirma degerleri (v1 kapsami)."""
 
-SUBGROUP_SIZE = 4  # v1'de sabit - kullanici degistiremez (bkz. proje karari)
+DEFAULT_SUBGROUP_SIZE = 4  # kullanici degistirebilir (sidebar) - bu sadece baslangic degeri
+# n=1 icin X-bar/R anlamli degildir (range=0 olur); bu durumda zaten ayri bir
+# chart turu olan I-MR kullanilir (bkz. PARAMETER_CONFIG["is_individual"]).
+# Ust sinir CONTROL_CHART_CONSTANTS (spc_core.py) tablosunun kapsadigi n=10'dur.
+MIN_SUBGROUP_SIZE = 2
+MAX_SUBGROUP_SIZE = 10
 SHIFT_OPTIONS = ["Sabah", "Ogle", "Gece"]
+
+# Sidebar'da parametre secici radyo'nun altinda gosterilen kisa aciklamalar
+# (st.radio captions=). Sadece bilgilendirme amaclidir, hesaplamayi etkilemez.
+PARAMETER_DESCRIPTIONS = {
+    "pH": "Asit/baz dengesi (0-14). Cogu gida urununde iki tarafli spesifikasyon.",
+    "Brix": "Cozunur kuru madde / seker orani (°Bx). Meyve suyu, salca, recel.",
+    "Aw": "Su aktivitesi (0-1) - mikrobiyal bozulma riski gostergesi. Genelde tek tarafli (ust limit).",
+    "Viskozite": "Akiskanliga direnc (cP). Tek tek olculur - I-MR chart kullanilir.",
+    "Nem/Rutubet": "Numunedeki nem yuzdesi (%). Bal gibi urunlerde tek tarafli olabilir.",
+    "Tuz/NaCl": "Sodyum klorur yuzdesi (%). Salamura, sarkuteri urunlerinde kritik.",
+    "Titrasyon Asitligi": "Titre edilebilir toplam asitlik (%). pH'tan farkli, toplam asit miktarini olcer.",
+    "Peroksit Degeri": "Yaglarda oksidatif bozulma gostergesi (meq O2/kg). Tek tek olculur, tek tarafli.",
+    "HMF": "Isil islem/depolama sirasinda olusan bozulma belirteci (mg/kg). Tek tek olculur, tek tarafli.",
+}
 
 # Gosterge amacli pH araligi (LSL, USL). Kaynak: Oklahoma State University
 # Extension (FDA Bacteriological Analytical Manual verilerine dayanan) ve

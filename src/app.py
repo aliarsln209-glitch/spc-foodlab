@@ -8,7 +8,14 @@ import pandas as pd
 import streamlit as st
 from scipy import stats
 
-from constants import PARAMETER_CONFIG, SHIFT_OPTIONS, SUBGROUP_SIZE
+from constants import (
+    DEFAULT_SUBGROUP_SIZE,
+    MAX_SUBGROUP_SIZE,
+    MIN_SUBGROUP_SIZE,
+    PARAMETER_CONFIG,
+    PARAMETER_DESCRIPTIONS,
+    SHIFT_OPTIONS,
+)
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from spc_core import (
     I_CHART_CONSTANT,
@@ -33,6 +40,8 @@ if "baseline" not in st.session_state:
     st.session_state.baseline = None  # dict: {"x_double_bar", "r_bar", "n_baseline"}
 if "active_parameter" not in st.session_state:
     st.session_state.active_parameter = "pH"
+if "subgroup_size" not in st.session_state:
+    st.session_state.subgroup_size = DEFAULT_SUBGROUP_SIZE
 for _flag in ("confirm_clear", "confirm_freeze", "confirm_reset_baseline", "confirm_param_switch"):
     if _flag not in st.session_state:
         st.session_state[_flag] = False
@@ -58,6 +67,10 @@ def reset_parameter_scoped_state() -> None:
 # birakilan bayrakla, widget'tan once burada uyguluyoruz.
 if st.session_state.pop("_reset_parameter_radio", False):
     st.session_state.parameter_radio = st.session_state.active_parameter
+# Ayni sekilde n secici icin: iptal edildiginde widget'i eski degere dondurur
+# (widget instantiate edilmeden ONCE yapilmali - bkz. yukaridaki aciklama).
+if st.session_state.pop("_reset_subgroup_n_input", False):
+    st.session_state.subgroup_size_input = st.session_state.subgroup_size
 
 with st.sidebar:
     st.subheader("Ayarlar")
@@ -67,6 +80,7 @@ with st.sidebar:
         "Parametre", param_options,
         index=param_options.index(st.session_state.active_parameter),
         key="parameter_radio",
+        captions=[PARAMETER_DESCRIPTIONS.get(p, "") for p in param_options],
     )
 
     if selected_param_radio != st.session_state.active_parameter:
@@ -99,6 +113,47 @@ dark = chart_theme == "Koyu"
 param_config = PARAMETER_CONFIG[st.session_state.active_parameter]
 unit = param_config["unit"]
 is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
+
+if not is_individual:
+    with st.sidebar:
+        st.divider()
+        selected_n = st.number_input(
+            "Alt grup buyuklugu (n)",
+            min_value=MIN_SUBGROUP_SIZE, max_value=MAX_SUBGROUP_SIZE,
+            value=st.session_state.subgroup_size, step=1,
+            key="subgroup_size_input",
+            help=(
+                f"Her alt grupta kac {unit} olcumu olacagini belirler. n=1 icin "
+                "X-bar/R anlamsizdir (range her zaman 0 olur) - bu yuzden alt "
+                f"sinir n={MIN_SUBGROUP_SIZE}'dir; tek tek olculen parametreler "
+                "(Viskozite, Peroksit, HMF) zaten ayri bir chart turu olan I-MR "
+                "kullanir. Ust sinir, standart Montgomery SPC sabit tablosunun "
+                f"kapsadigi n={MAX_SUBGROUP_SIZE}'dur. Pratikte n=4-5 yaygindir."
+            ),
+        )
+        if selected_n != st.session_state.subgroup_size:
+            if st.session_state.subgroups:
+                st.warning(
+                    f"n degeri {st.session_state.subgroup_size} -> {selected_n} olarak "
+                    "degistirilirse mevcut alt gruplar ve baseline silinecek "
+                    "(mevcut veri eski n'e gore girildi). Emin misiniz?"
+                )
+                nc1, nc2 = st.columns(2)
+                with nc1:
+                    if st.button("Evet, degistir", type="primary", key="n_change_yes"):
+                        st.session_state.subgroup_size = selected_n
+                        st.session_state.subgroups = []
+                        st.session_state.baseline = None
+                        st.rerun()
+                with nc2:
+                    if st.button("Vazgec", key="n_change_no"):
+                        st.session_state._reset_subgroup_n_input = True
+                        st.rerun()
+            else:
+                st.session_state.subgroup_size = selected_n
+                st.rerun()
+
+subgroup_n = st.session_state.subgroup_size
 
 
 def inject_theme_css(dark: bool) -> None:
@@ -310,7 +365,7 @@ def render_calculation_steps_xbar(x_double_bar: float, r_bar: float, limits,
     lines = [
         f"x̄̄ = alt grup ortalamalarinin ortalamasi = **{x_double_bar:.4f} {unit}**",
         f"R̄ = alt grup range'lerinin ortalamasi = **{r_bar:.4f} {unit}**",
-        f"A2 (n={SUBGROUP_SIZE}) = {limits.a2}, D3 = {limits.d3}, D4 = {limits.d4}, d2 = {limits.d2}  *(Montgomery SPC sabit tablosu)*",
+        f"A2 (n={subgroup_n}) = {limits.a2}, D3 = {limits.d3}, D4 = {limits.d4}, d2 = {limits.d2}  *(Montgomery SPC sabit tablosu)*",
         "",
         f"UCL = x̄̄ + A2·R̄ = {x_double_bar:.4f} + {limits.a2}×{r_bar:.4f} = **{limits.ucl_x:.4f}**",
         f"LCL = x̄̄ - A2·R̄ = {x_double_bar:.4f} - {limits.a2}×{r_bar:.4f} = **{limits.lcl_x:.4f}**",
@@ -414,7 +469,7 @@ with tab_data:
             )
         else:
             st.subheader("Yeni alt grup ekle")
-            st.write(f"Her alt grup icin {SUBGROUP_SIZE} {unit} olcumu girilir. (Parametre: {st.session_state.active_parameter})")
+            st.write(f"Her alt grup icin {subgroup_n} {unit} olcumu girilir. (Parametre: {st.session_state.active_parameter})")
 
         with st.form("subgroup_form", clear_on_submit=True):
             default_measurement = param_config["default_measurement"]
@@ -434,7 +489,7 @@ with tab_data:
                 shift = "-"
             else:
                 shift = st.selectbox("Vardiya", SHIFT_OPTIONS)
-                cols = st.columns(SUBGROUP_SIZE)
+                cols = st.columns(subgroup_n)
                 measurements = []
                 for i, col in enumerate(cols):
                     with col:
@@ -461,6 +516,7 @@ with tab_data:
                     st.session_state.subgroups = [{"shift": "-", "values": [v]} for v in demo_values]
                 else:
                     demo = generate_demo_subgroups(
+                        subgroup_size=subgroup_n,
                         target_mean=param_config["demo_target_mean"],
                         target_r_bar=param_config["demo_target_r_bar"],
                         shift_amount=param_config.get("demo_shift_amount", 0.35),
@@ -497,7 +553,7 @@ with tab_data:
 
     with st.container(border=True):
         with st.expander("\U0001F4E4 CSV'den veri yukle", expanded=False):
-            expected_cols = "Sira, Olcum 1" if is_individual else f"Grup, Vardiya, Olcum 1..{SUBGROUP_SIZE}"
+            expected_cols = "Sira, Olcum 1" if is_individual else f"Grup, Vardiya, Olcum 1..{subgroup_n}"
             st.caption(
                 f"Uygulamanin kendi 'CSV olarak indir' formatiyla uyumlu olmalidir - "
                 f"beklenen sutunlar: **{expected_cols}** (birim: {unit}). "
@@ -529,10 +585,10 @@ with tab_data:
                                 st.session_state.baseline = None
                                 st.success(f"{len(numeric_vals)} olcum CSV'den yuklendi.")
                     else:
-                        if len(measurement_cols) != SUBGROUP_SIZE:
+                        if len(measurement_cols) != subgroup_n:
                             st.error(
                                 f"Beklenmeyen sutun sayisi: {len(measurement_cols)} 'Olcum' "
-                                f"sutunu bulundu, {SUBGROUP_SIZE} bekleniyor."
+                                f"sutunu bulundu, {subgroup_n} bekleniyor."
                             )
                         else:
                             numeric_block = import_df[measurement_cols].apply(pd.to_numeric, errors="coerce")
@@ -1033,8 +1089,8 @@ with tab_chart:
                     x_double_bar = baseline["x_double_bar"]
                     r_bar = baseline["r_bar"]
 
-            limits = compute_xbar_r_limits(x_double_bar, r_bar, SUBGROUP_SIZE)
-            cpk = compute_cpk(x_double_bar, r_bar, SUBGROUP_SIZE, lsl, usl, one_sided=one_sided)
+            limits = compute_xbar_r_limits(x_double_bar, r_bar, subgroup_n)
+            cpk = compute_cpk(x_double_bar, r_bar, subgroup_n, lsl, usl, one_sided=one_sided)
 
             st.write("")
 
@@ -1200,9 +1256,10 @@ yeterlilik analizi (Cpk)** ureten bir arac.
 - MR chart UCL/LCL: `3.267 × MR̄` / `0`
 - σ̂ = MR̄/d2 (d2=1.128, n=2 sabiti) - Cpk/Cpu ayni formulle, sadece σ̂ farkli hesaplanir
 
-Bu formuller ve A2/D3/D4/d2 sabit tablosu parametreden bagimsizdir (n=4 icin
-ayni sabitler pH'da, Brix'te ve aw'de de gecerlidir) - degisen sadece olcum
-birimi, urun spesifikasyon tablosu ve aw icin tek/iki tarafli Cpk secimidir.
+Bu formuller ve A2/D3/D4/d2 sabit tablosu parametreden bagimsizdir - degisen
+sadece olcum birimi, urun spesifikasyon tablosu ve aw icin tek/iki tarafli Cpk
+secimidir. Alt grup buyuklugu (n) sidebar'dan secilebilir (varsayilan n=4,
+aralik n=2-10); n degistiginde A2/D3/D4/d2 sabitleri de otomatik guncellenir.
 
 **X-bar/R ile I-MR arasindaki temel fark:** X-bar/R'de bir **alt grup**
 kavrami vardir (orn. vardiya basina 4 olcum) - kontrol limitleri alt grup

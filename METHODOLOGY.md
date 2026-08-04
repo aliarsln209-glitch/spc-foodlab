@@ -39,7 +39,14 @@ Statistical Quality Control*.
 | 9 | 0.337 | 0.184 | 1.816 | 2.970 |
 | 10 | 0.308 | 0.223 | 1.777 | 3.078 |
 
-Uygulamada n=4 sabittir (bkz. README "Kapsam dışı").
+Alt grup büyüklüğü (n) sidebar'dan kullanıcı tarafından seçilebilir
+(varsayılan n=4). Alt sınır **n=2**'dir: n=1'de range her zaman 0
+olacağından X-bar/R istatistiksel olarak anlamsızdır — bu durum için
+zaten ayrı bir chart türü olan I-MR kullanılır (aşağıya bakınız). Üst
+sınır **n=10**'dur — yukarıdaki tablonun kapsadığı Montgomery sabit
+aralığı budur. n değiştirildiğinde mevcut alt gruplar geçersiz hale
+geldiği için (eski n'e göre girilmiş oldukları için) uygulama onay
+isteyip verileri sıfırlar.
 
 ### I-MR (tek tek ölçülen parametreler — Viskozite, Peroksit, HMF)
 

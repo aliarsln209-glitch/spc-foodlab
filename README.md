@@ -55,8 +55,9 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 | HMF | I-MR | mg/kg |
 
 Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
-Bal'ın nem spesifikasyonunda sadece üst limit vardır) — detaylı mantık
-ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md).
+Bal'ın nem spesifikasyonunda sadece üst limit vardır); alt grup büyüklüğü
+(n) sidebar'dan seçilebilir (varsayılan n=4, aralık n=2–10) — detaylı
+mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md).
 
 **Kapsam dışı (v1'de yok):** çoklu parametre karşılaştırma, Western
 Electric kuralları, kullanıcı hesabı/çoklu kullanıcı sistemi, veritabanı
