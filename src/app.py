@@ -651,8 +651,9 @@ def style_chart(fig, ax, dark: bool) -> None:
 st.title("\U0001F4CA SPC FoodLab")
 st.caption("Gida uretiminde pH/Brix/Aw/Viskozite olcumlerinden istatistiksel proses kontrolu (SPC)")
 
+chart_tab_label = "\U0001F4C8 I-MR Chart & Cpk" if is_individual else "\U0001F4C8 X-bar/R Chart & Cpk"
 tab_data, tab_chart, tab_calc, tab_about = st.tabs([
-    "\U0001F4DD Veri Girisi", "\U0001F4C8 X-bar/R Chart & Cpk",
+    "\U0001F4DD Veri Girisi", chart_tab_label,
     "\U0001F9EE Hizli Hesaplayicilar", "ℹ️ Hakkinda",
 ])
 
