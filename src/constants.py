@@ -22,6 +22,76 @@ PARAMETER_DESCRIPTIONS = {
     "HMF": "Isil islem/depolama sirasinda olusan bozulma belirteci (mg/kg). Tek tek olculur, tek tarafli.",
 }
 
+# "Parametre Bilgi Karti" (tab_chart ustunde) icin daha uzun (2-3 cumle)
+# aciklamalar - ne olcer, neden onemli. PARAMETER_DESCRIPTIONS'dan (sidebar
+# caption) farkli olarak burada "neden onemli" kismi da var.
+PARAMETER_INFO = {
+    "pH": (
+        "pH, bir urunun asit/baz dengesini (0-14 olcek, 7=notr) gosterir. "
+        "Gida guvenliginde kritiktir: dusuk pH (asidik ortam) cogu patojen "
+        "bakterinin uremesini engeller, bu yuzden fermente/konserve "
+        "urunlerde siki takip edilir."
+    ),
+    "Brix": (
+        "Brix (°Bx), bir cozeltideki cozunur kuru madde (agirlikli olarak "
+        "seker) oranini yuzde olarak gosterir. Meyve suyu, salca, recel gibi "
+        "urunlerde hem tat/kalite tutarliligi hem de raf omru (yuksek Brix, "
+        "mikrobiyal uremeyi kisitlar) acisindan onemlidir."
+    ),
+    "Aw": (
+        "Su aktivitesi (aw), gidadaki suyun ne kadarinin mikroorganizmalar "
+        "tarafindan kullanilabilir oldugunu gosterir (0-1 olcek, saf su=1). "
+        "Toplam nem miktarindan farklidir - mikrobiyal bozulma riskini "
+        "dogrudan tahmin eden, gida guvenligi acisindan kritik bir gostergedir."
+    ),
+    "Viskozite": (
+        "Viskozite, bir sivinin akiskanliga karsi direncini olcer (cP). "
+        "Urun tutarliligi (agiz hissi, dokum/doldurma hizi, ambalaj "
+        "performansi) acisindan onemlidir - hedeften sapma, uretim "
+        "hattinda dolum/paketleme sorunlarina yol acabilir."
+    ),
+    "Nem/Rutubet": (
+        "Nem/rutubet, numunedeki su icerigini yuzde olarak gosterir. "
+        "Raf omru, mikrobiyal stabilite ve bazi urunlerde (orn. bal) yasal "
+        "kalite tanimi acisindan dogrudan etkilidir."
+    ),
+    "Tuz/NaCl": (
+        "Tuz/NaCl orani, hem tat/kalite standardizasyonu hem de bazi "
+        "urunlerde (salamura, sarkuteri) mikrobiyal stabilite acisindan "
+        "kontrol edilen bir parametredir."
+    ),
+    "Titrasyon Asitligi": (
+        "Titrasyon asitligi, bir numunedeki toplam titre edilebilir asit "
+        "miktarini olcer - pH'tan farkli olarak zayif asitlerin toplam "
+        "miktarini yansitir. Tat profili ve mikrobiyal stabilite ile "
+        "iliskilidir."
+    ),
+    "Peroksit Degeri": (
+        "Peroksit degeri, yaglarda/yaglı urunlerde oksidatif bozulmanin "
+        "(acilasma) erken gostergesidir. Deger ne kadar dusukse yag o kadar "
+        "taze/stabildir; sadece bir ust limit (USL) anlamlidir."
+    ),
+    "HMF": (
+        "HMF (hidroksimetilfurfural), isil islem veya uzun sureli depolama "
+        "sirasinda sekerlerin bozunmasiyla olusan bir belirtectir. Yuksek "
+        "HMF, asiri isil islem veya kotu depolama kosullarina isaret eder."
+    ),
+}
+
+# "Kaynak Rozeti" (urun secildikten sonra LSL/USL'in dayandigi kaynagin kisa
+# ozeti) - detayli kaynak/tolerans notlari icin bkz. METHODOLOGY.md.
+PARAMETER_SOURCES = {
+    "pH": "Oklahoma State University Extension, Dairy Food Safety Victoria",
+    "Brix": "19 CFR 151.91 (ABD federal regulasyonu) + sektor pratigi",
+    "Aw": "DRINC/UC Davis, Virginia Tech Cooperative Extension",
+    "Nem/Rutubet": "Sektor pratigi (Bal: TGK Bal Tebligi)",
+    "Tuz/NaCl": "Sektor pratigi",
+    "Titrasyon Asitligi": "Sektor pratigi",
+    "Viskozite": "Prime Resins, Sculpture Supply (teknik viskozite tablolari)",
+    "Peroksit Degeri": "Codex Alimentarius / IOC (International Olive Council)",
+    "HMF": "TGK Bal Tebligi, TGK Uzum Pekmezi Tebligi, sektor pratigi",
+}
+
 # Gosterge amacli pH araligi (LSL, USL). Kaynak: Oklahoma State University
 # Extension (FDA Bacteriological Analytical Manual verilerine dayanan) ve
 # Dairy Food Safety Victoria teknik bilgi notu (sut urunleri icin). Bu

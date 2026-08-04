@@ -1,11 +1,13 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+from fpdf import FPDF
 from scipy import stats
 
 from constants import (
@@ -14,6 +16,8 @@ from constants import (
     MIN_SUBGROUP_SIZE,
     PARAMETER_CONFIG,
     PARAMETER_DESCRIPTIONS,
+    PARAMETER_INFO,
+    PARAMETER_SOURCES,
     SHIFT_OPTIONS,
 )
 from demo_data import generate_demo_individual, generate_demo_subgroups
@@ -108,6 +112,11 @@ with st.sidebar:
 
     st.divider()
     chart_theme = st.selectbox("Tema (grafik + arayuz)", ["Acik", "Koyu"], key="chart_theme")
+    accent_color = st.color_picker(
+        "Vurgu rengi", value=st.session_state.get("accent_color", "#4c6ef5"),
+        key="accent_color",
+        help="Butonlar ve KPI kartlarindaki vurgu rengini degistirir (basari/uyari/hata renkleri sabit kalir).",
+    )
 
 dark = chart_theme == "Koyu"
 param_config = PARAMETER_CONFIG[st.session_state.active_parameter]
@@ -156,14 +165,17 @@ if not is_individual:
 subgroup_n = st.session_state.subgroup_size
 
 
-def inject_theme_css(dark: bool) -> None:
-    """Secilen acik/koyu temayi grafiklerin otesinde tum arayuze (sidebar,
-    kartlar, metrikler, uyari kutulari) uygular. Streamlit'in kendi
-    config.toml temasi Community Cloud'da calisma anindan degistirilemedigi
-    icin bu, custom CSS injection ile yapiliyor."""
+def inject_theme_css(dark: bool, accent: str) -> None:
+    """Secilen acik/koyu temayi + vurgu rengini grafiklerin otesinde tum
+    arayuze (sidebar, kartlar, metrikler, uyari kutulari) uygular. Streamlit'in
+    kendi config.toml temasi Community Cloud'da calisma anindan
+    degistirilemedigi icin bu, custom CSS injection ile yapiliyor.
+
+    Ayrica hafif (agir olmayan) hover/gecis animasyonlari icerir - buton
+    hover'da kucuk buyume, karti gecisi, uyari kutularinda fade-in. Amac
+    sadece arayuzu biraz daha 'canli' hissettirmek, dikkat dagitmamak."""
     if dark:
-        css = """
-        <style>
+        theme_css = """
         .stApp { background-color: #0e1117; }
         [data-testid="stSidebar"] { background-color: #161a23; }
         .stApp, .stApp p, .stApp span, .stApp label,
@@ -186,18 +198,50 @@ def inject_theme_css(dark: bool) -> None:
             color: #fafafa !important;
             border-color: #333c4a;
         }
-        </style>
         """
     else:
-        css = """
-        <style>
+        theme_css = """
         .stApp { background-color: #ffffff; }
-        </style>
         """
+
+    css = f"""
+    <style>
+    {theme_css}
+
+    /* Vurgu rengi (kullanici secimi) - primary butonlar + slider */
+    button[kind="primary"] {{
+        background-color: {accent} !important;
+        border-color: {accent} !important;
+    }}
+    [data-testid="stSlider"] div[role="slider"] {{ background-color: {accent} !important; }}
+    a {{ color: {accent}; }}
+
+    /* Hafif hover/gecis animasyonlari - agir hareket yok, sadece kucuk
+       buyume/golge/fade. */
+    button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
+    button:hover {{ transform: translateY(-1px) scale(1.01); }}
+
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        transition: box-shadow 0.2s ease;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+        box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    }}
+
+    .kpi-card {{ transition: transform 0.15s ease, box-shadow 0.15s ease; }}
+    .kpi-card:hover {{ transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }}
+
+    @keyframes spcFadeIn {{
+        from {{ opacity: 0; transform: translateY(-4px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    .stAlert {{ animation: spcFadeIn 0.35s ease; }}
+    </style>
+    """
     st.markdown(css, unsafe_allow_html=True)
 
 
-inject_theme_css(dark)
+inject_theme_css(dark, accent_color)
 
 
 def compute_stats(subgroups):
@@ -261,6 +305,201 @@ def render_cpk_message(cpk: float, cpk_label: str) -> None:
         st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
 
 
+def compute_trend(series: list[float], window: int = 6) -> tuple[str, float] | None:
+    """Son 'window' nokta ile ondan onceki 'window' nokta arasindaki ortalama
+    farkini karsilastiran basit bir trend gostergesi (yukselen/dusen/sabit).
+    En az 4 nokta gerekir; daha az veride anlamli bir trend cikarilamaz."""
+    n = len(series)
+    if n < 4:
+        return None
+    w = min(window, n // 2)
+    recent_avg = sum(series[-w:]) / w
+    previous_avg = sum(series[-2 * w:-w]) / w
+    delta = recent_avg - previous_avg
+    direction = "up" if delta > 0 else ("down" if delta < 0 else "flat")
+    return direction, delta
+
+
+def get_cpk_level(cpk: float) -> tuple[str, str, str]:
+    """Cpk/Cpu degerine gore (emoji, seviye etiketi, renk) rozet bilgisi.
+    Esikler: >=1.67 Excellent, 1.33-1.67 Capable, 1.0-1.33 Marginal, <1.0
+    Not Capable - yaygin SPC kabulu (bkz. render_cpk_message esikleri)."""
+    if cpk == float("-inf"):
+        return "\U0001F534", "Not Capable", "#e03131"
+    if cpk == float("inf") or cpk >= 1.67:
+        return "\U0001F7E2", "Excellent", "#2f9e44"
+    if cpk >= 1.33:
+        return "\U0001F7E2", "Capable", "#2f9e44"
+    if cpk >= 1.0:
+        return "\U0001F7E1", "Marginal", "#f08c00"
+    return "\U0001F534", "Not Capable", "#e03131"
+
+
+def build_quick_summary(sample_word: str, n_samples: int, n_out_of_control: int,
+                         cpk: float, cpk_label: str) -> str:
+    """Analiz sonrasi otomatik olusturulan kisa metin ozeti (if-else ile,
+    formul degil - sadece mevcut sonuclarin duz dile cevrilmesi)."""
+    _, level_label, _ = get_cpk_level(cpk)
+    oos_text = (
+        "kontrol disi nokta yok" if n_out_of_control == 0
+        else f"{n_out_of_control} kontrol disi nokta var"
+    )
+    level_text = {
+        "Excellent": "surec mukemmel yeterli",
+        "Capable": "surec yeterli",
+        "Marginal": "surec marjinal yeterli",
+        "Not Capable": "surec yeterli degil",
+    }[level_label]
+    return (
+        f"{n_samples} {sample_word} analiz edildi, {oos_text}, "
+        f"{cpk_label}={format_cpk(cpk)} ile {level_text}."
+    )
+
+
+def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
+                               n_samples: int, cpk: float, cpk_label: str) -> None:
+    """Tek yerde ozet: Parametre, Urun, Ornek Sayisi, Chart Tipi, Sonuc + zaman damgasi."""
+    emoji, level_label, _ = get_cpk_level(cpk)
+    st.caption(f"\U0001F553 Son analiz: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+    la1, la2, la3, la4, la5 = st.columns(5)
+    la1.markdown(f"**Parametre**  \n{parameter}")
+    la2.markdown(f"**Urun**  \n{product}")
+    la3.markdown(f"**Ornek Sayisi**  \n{n_samples}")
+    la4.markdown(f"**Chart Tipi**  \n{chart_type_label}")
+    la5.markdown(f"**Sonuc**  \n{emoji} {cpk_label}={format_cpk(cpk)} ({level_label})")
+
+
+def render_formula_method_card(chart_type_label: str, n_val: int) -> None:
+    """Hangi chart tipinin/formulun kullanildigini ozetleyen kucuk kart,
+    detay icin METHODOLOGY.md'ye link verir."""
+    if chart_type_label == "I-MR":
+        formula_line = f"I chart: x̄ ± {I_CHART_CONSTANT}×MR̄  ·  σ̂ = MR̄/d2 (d2={MR_CHART_D2}, n=2)"
+    else:
+        formula_line = f"X-bar/R: x̄̄ ± A2×R̄ (n={n_val})  ·  σ̂ = R̄/d2"
+    st.caption(
+        f"\U0001F4D0 Yontem: **{chart_type_label}** · {formula_line} · "
+        f"Detay ve dogrulama: [METHODOLOGY.md]({GITHUB_URL}/blob/main/METHODOLOGY.md)"
+    )
+
+
+def _pdf_safe(text: str) -> str:
+    """PDF'in temel Latin-1 fontuyla uyumsuz karakterleri (orn. sonsuz
+    isareti) ASCII karsiliklarina cevirir - fpdf2'nin gomulu (base14)
+    fontlari Latin-1 disina cikan karakterleri kabul etmez."""
+    return (
+        text.replace("∞", "Inf")
+        .replace("x̄̄", "x-double-bar")
+        .replace("x̄", "x-bar")
+        .replace("σ̂", "sigma-hat")
+        .replace("R̄", "R-bar")
+        .replace("MR̄", "MR-bar")
+    )
+
+
+def build_pdf_report(parameter: str, product: str, chart_type_label: str,
+                      n_samples: int, n_out_of_control: int, cpk: float,
+                      cpk_label: str, quick_summary_text: str,
+                      chart_png_bytes: bytes | None) -> bytes:
+    """Grafik + KPI ozeti + Quick Summary'yi tek sayfalik bir PDF'e dokumler.
+    Mevcut PNG export'un (fig_to_png_bytes) genisletilmesi - ayni PNG byte'lari
+    burada da kullanilir, ek bir grafik render islemi yapilmaz."""
+    _, level_label, _ = get_cpk_level(cpk)
+
+    pdf = FPDF()
+    pdf.add_page()
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, "SPC FoodLab - Analiz Raporu", ln=True)
+
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(110, 110, 110)
+    pdf.cell(0, 6, f"Olusturma: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}", ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(3)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "Analiz Bilgisi", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    for line in [
+        f"Parametre: {parameter}",
+        f"Urun: {product}",
+        f"Chart Tipi: {chart_type_label}",
+        f"Ornek Sayisi: {n_samples}",
+        f"Kontrol Disi Nokta: {n_out_of_control}",
+        f"{_pdf_safe(cpk_label)}: {_pdf_safe(format_cpk(cpk))} ({level_label})",
+    ]:
+        pdf.cell(0, 6, _pdf_safe(line), ln=True)
+    pdf.ln(3)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, "Ozet", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.multi_cell(0, 6, _pdf_safe(quick_summary_text))
+    pdf.ln(3)
+
+    if chart_png_bytes:
+        import os
+        import tempfile
+
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp.write(chart_png_bytes)
+                tmp_path = tmp.name
+            pdf.image(tmp_path, w=180)
+        finally:
+            if tmp_path:
+                os.unlink(tmp_path)
+
+    return bytes(pdf.output())
+
+
+def render_pdf_download(parameter: str, product: str, chart_type_label: str,
+                         n_samples: int, n_out_of_control: int, cpk: float,
+                         cpk_label: str, quick_summary_text: str,
+                         chart_png_bytes: bytes | None, key: str) -> None:
+    """'PDF olarak indir' butonu - build_pdf_report() ile ayni verilerden
+    tek sayfalik bir rapor uretir."""
+    pdf_bytes = build_pdf_report(
+        parameter, product, chart_type_label, n_samples, n_out_of_control,
+        cpk, cpk_label, quick_summary_text, chart_png_bytes,
+    )
+    st.download_button(
+        "\U0001F4C4 PDF rapor olarak indir", pdf_bytes,
+        f"{parameter.lower()}_spc_raporu.pdf", "application/pdf", key=key,
+    )
+
+
+def render_shift_comparison(subgroups: list[dict], n_val: int, lsl: float, usl: float,
+                             one_sided: bool, cpk_label: str, unit: str) -> None:
+    """Ayni parametre icin vardiyalara gore (Sabah/Ogle/Gece) ortalama ve
+    Cpk/Cpu'yu yan yana gosteren basit bir tablo - tam bir batch comparison
+    dashboard degil, mevcut veri uzerinde vardiya etiketine gore gruplama."""
+    rows = []
+    for shift in SHIFT_OPTIONS:
+        shift_groups = [sg for sg in subgroups if sg["shift"] == shift]
+        if not shift_groups:
+            continue
+        _, _, shift_mean, shift_r_bar = compute_stats(shift_groups)
+        shift_cpk = compute_cpk(shift_mean, shift_r_bar, n_val, lsl, usl, one_sided=one_sided)
+        rows.append({
+            "Vardiya": shift,
+            "Alt Grup Sayisi": len(shift_groups),
+            f"Ortalama ({unit})": round(shift_mean, 4),
+            cpk_label: format_cpk(shift_cpk),
+        })
+
+    with st.container(border=True):
+        st.subheader("Vardiya Karsilastirmasi")
+        if len(rows) < 2:
+            st.info(
+                "Vardiya karsilastirmasi icin en az 2 farkli vardiyada veri olmali "
+                "(su an tum veri ayni vardiyada veya vardiya cesitliligi yetersiz)."
+            )
+        else:
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+
 def fig_to_png_bytes(fig) -> bytes:
     """Matplotlib figurunu PNG bayt dizisine cevirir (indirme butonlari icin)."""
     buf = io.BytesIO()
@@ -280,29 +519,58 @@ def render_png_download(fig, filename: str, key: str) -> None:
 
 
 def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
-                      n_samples: int, n_out_of_control: int) -> None:
+                      n_samples: int, n_out_of_control: int,
+                      trend: tuple[str, float] | None = None) -> None:
     """Chart'tan once gosterilen 4'lu hizli ozet paneli - detayli karti
-    tekrar etmez, sadece en onemli 4 sayiyi one cikarir."""
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric(
-        f"Ortalama ({unit})", f"{center_value:.4f}",
-        help="Surecin genel ortalamasi (X-bar/R'de x̄̄, I-MR'de x̄).",
-    )
-    k2.metric(
-        cpk_label, format_cpk(cpk),
-        help=(
-            "Surecin spesifikasyon limitlerini karsilama yetenegini gosterir. "
-            "Genel kabul: ≥1.33 yeterli, 1.0-1.33 marjinal, <1.0 yetersiz."
-        ),
-    )
-    k3.metric(
-        "Ornek Sayisi", n_samples,
-        help="Toplam olcum (I-MR) veya alt grup (X-bar/R) sayisi.",
-    )
-    k4.metric(
-        "Kontrol Disi Nokta", n_out_of_control,
-        help="Istatistiksel kontrol limitlerinin (UCL/LCL) disinda kalan nokta sayisi.",
-    )
+    tekrar etmez, sadece en onemli 4 sayiyi renkli kart + ikon + (Cpk
+    kartinda) sonuc rozeti + (Ortalama kartinda, varsa) trend okuyla one
+    cikarir. trend, compute_trend()'in donusu: (yon, delta) veya None."""
+    emoji, level_label, color = get_cpk_level(cpk)
+    card_bg = "#161a23" if dark else "#f8f9fa"
+    text_color = "#fafafa" if dark else "#31333f"
+    sub_color = "#9aa4b2" if dark else "#666666"
+    oos_color = "#e03131" if n_out_of_control else "#2f9e44"
+    oos_icon = "⚠️" if n_out_of_control else "✅"
+
+    trend_badge = None
+    if trend is not None:
+        direction, delta = trend
+        trend_icon = {"up": "▲", "down": "▼", "flat": "→"}[direction]
+        trend_badge = f"{trend_icon} {delta:+.4f} (son {min(6, n_samples // 2)} nokta)"
+
+    cards = [
+        ("\U0001F4CA", f"Ortalama ({unit})", f"{center_value:.4f}", trend_badge, sub_color,
+         accent_color, "Surecin genel ortalamasi (X-bar/R'de x-double-bar, I-MR'de x-bar) "
+         "ve son verilere gore basit bir egilim (trend) gostergesi."),
+        (emoji, cpk_label, format_cpk(cpk), level_label, color, color,
+         "Surecin spesifikasyon limitlerini karsilama yetenegini gosterir. "
+         "Genel kabul: >=1.67 excellent, 1.33-1.67 capable, 1.0-1.33 marginal, <1.0 not capable."),
+        ("\U0001F522", "Ornek Sayisi", str(n_samples), None, sub_color, accent_color,
+         "Toplam olcum (I-MR) veya alt grup (X-bar/R) sayisi."),
+        (oos_icon, "Kontrol Disi Nokta", str(n_out_of_control), None, sub_color, oos_color,
+         "Istatistiksel kontrol limitlerinin (UCL/LCL) disinda kalan nokta sayisi."),
+    ]
+
+    cols = st.columns(4)
+    for col, (icon, label, value, badge, badge_color, card_accent, tooltip) in zip(cols, cards):
+        badge_html = (
+            f'<div style="font-size:0.72rem;font-weight:700;color:{badge_color};'
+            f'margin-top:2px;">{badge}</div>' if badge else ""
+        )
+        with col:
+            st.markdown(
+                f"""
+                <div class="kpi-card" title="{tooltip}" style="background:{card_bg};
+                            border-left:4px solid {card_accent}; border-radius:8px;
+                            padding:0.7rem 0.9rem; height:100%;">
+                    <div style="font-size:0.78rem; color:{sub_color};">{icon} {label}</div>
+                    <div style="font-size:1.45rem; font-weight:700; color:{text_color};
+                                line-height:1.3;">{value}</div>
+                    {badge_html}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 def render_capability_histogram(values: list[float], lsl: float, usl: float,
@@ -434,6 +702,36 @@ def style_chart(fig, ax, dark: bool) -> None:
             text.set_color(fg)
 
 
+def demo_scenario_targets(product_name: str | None) -> tuple[float, float, float]:
+    """Secilen demo senaryosuna (urun) gore hedef ortalama, alt grup (R̄) /
+    tekli-olcum (sigma) yayilimi ve shift_amount hesaplar. product_name=None
+    veya urunun tanimli bir araligi yoksa (orn. 'Ozel/Manuel gir'), parametrenin
+    genel varsayilanlarina (PARAMETER_CONFIG) geri doner - onceki tek-senaryolu
+    davranisla birebir ayni sonucu verir."""
+    product_range = param_config["products"].get(product_name) if product_name else None
+
+    if product_range is None:
+        mean = param_config["demo_target_mean"]
+        spread = param_config.get("demo_target_r_bar") or param_config.get("demo_target_sigma")
+        # demo_shift_amount sadece alt grup bazli parametrelerde tanimli (bkz.
+        # PARAMETER_CONFIG); tanimsizsa (I-MR parametreleri) spread*3 kullanilir -
+        # bu, generate_demo_individual()'in kendi ic varsayilaniyla (shift_amount=
+        # None -> target_sigma*3) birebir aynidir, davranis degismez.
+        shift_amount = param_config.get("demo_shift_amount") or spread * 3
+        return mean, spread, shift_amount
+
+    range_lsl, range_usl = product_range
+    if range_lsl is not None:
+        mean = (range_lsl + range_usl) / 2
+        span = range_usl - range_lsl
+    else:
+        mean = range_usl - range_usl * 0.08
+        span = range_usl * 0.16
+    spread = max(span / 8, 1e-6)
+    shift_amount = spread * 3
+    return mean, spread, shift_amount
+
+
 st.title("\U0001F4CA SPC FoodLab")
 st.caption("Gida uretiminde pH/Brix/Aw/Viskozite olcumlerinden istatistiksel proses kontrolu (SPC)")
 
@@ -505,21 +803,38 @@ with tab_data:
                 st.session_state.subgroups.append({"shift": shift, "values": measurements})
                 st.success("Olcum eklendi." if is_individual else "Alt grup eklendi.")
 
+        demo_scenario_options = ["Genel (varsayilan)"] + [
+            p for p in param_config["products"] if p != "Ozel/Manuel gir"
+        ]
+        demo_scenario = st.selectbox(
+            "Demo senaryosu", demo_scenario_options,
+            key=f"demo_scenario_{st.session_state.active_parameter}",
+            help=(
+                "'Genel (varsayilan)' parametrenin standart demo verisini uretir. "
+                "Bir urun secersen, demo veri o urunun LSL/USL araligina gore "
+                "ortalanmis olarak uretilir (orn. 'Bal' secilirse nem verisi "
+                "Bal'in nem spesifikasyonu civarinda olusturulur)."
+            ),
+        )
+
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
+                scenario_product = None if demo_scenario == "Genel (varsayilan)" else demo_scenario
+                demo_mean, demo_spread, demo_shift_amount = demo_scenario_targets(scenario_product)
                 if is_individual:
                     demo_values = generate_demo_individual(
-                        target_mean=param_config["demo_target_mean"],
-                        target_sigma=param_config["demo_target_sigma"],
+                        target_mean=demo_mean,
+                        target_sigma=demo_spread,
+                        shift_amount=demo_shift_amount,
                     )
                     st.session_state.subgroups = [{"shift": "-", "values": [v]} for v in demo_values]
                 else:
                     demo = generate_demo_subgroups(
                         subgroup_size=subgroup_n,
-                        target_mean=param_config["demo_target_mean"],
-                        target_r_bar=param_config["demo_target_r_bar"],
-                        shift_amount=param_config.get("demo_shift_amount", 0.35),
+                        target_mean=demo_mean,
+                        target_r_bar=demo_spread,
+                        shift_amount=demo_shift_amount,
                         clip_min=param_config["min_value"],
                         clip_max=param_config["max_value"],
                     )
@@ -529,7 +844,7 @@ with tab_data:
                     ]
                 st.session_state.baseline = None
                 st.session_state.confirm_clear = False
-                st.success("Demo veri yuklendi.")
+                st.success(f"Demo veri yuklendi ({demo_scenario}).")
         with col_b:
             if not st.session_state.confirm_clear:
                 if st.button("\U0001F5D1️ Tum verileri temizle", type="secondary"):
@@ -666,6 +981,25 @@ with tab_chart:
     if len(st.session_state.subgroups) < 2:
         st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
+        with st.container(border=True):
+            info_col, clear_col = st.columns([5, 1])
+            with info_col:
+                st.caption(
+                    f"ℹ️ **{st.session_state.active_parameter}** — "
+                    f"{PARAMETER_INFO.get(st.session_state.active_parameter, '')}"
+                )
+            with clear_col:
+                if st.button(
+                    "\U0001F504 Analizi Temizle", key="clear_analysis_btn",
+                    help="Baseline'i ve urun/limit secimini sifirlar; olculen veriler korunur.",
+                ):
+                    st.session_state.baseline = None
+                    reset_parameter_scoped_state()
+                    st.session_state.confirm_freeze = False
+                    st.session_state.confirm_reset_baseline = False
+                    st.success("Analiz sifirlandi (olculen veriler korundu).")
+                    st.rerun()
+
         products = list(param_config["products"].keys())
         default_index = products.index("Ozel/Manuel gir")
 
@@ -694,9 +1028,16 @@ with tab_chart:
         with st.container(border=True):
             st.subheader(f"Spesifikasyon limitleri ({unit}, {cpk_label} icin)")
 
-            selected_product = st.selectbox("Urun", products, index=default_index, key="product_select")
+            selected_product = st.selectbox(
+                "Urun", products, index=default_index, key="product_select",
+                help="Secilen urune gore LSL/USL degerleri asagida otomatik doldurulur (elle degistirilebilir).",
+            )
             one_sided = _resolve_one_sided(selected_product)
             cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
+            st.caption(
+                f"\U0001F3F7️ Kaynak: **{PARAMETER_SOURCES.get(st.session_state.active_parameter, '-')}** "
+                f"— detay: [METHODOLOGY.md]({GITHUB_URL}/blob/main/METHODOLOGY.md)"
+            )
 
             if (
                 "prev_product" not in st.session_state
@@ -802,11 +1143,16 @@ with tab_chart:
                 lsl = st.number_input(
                     f"Alt spesifikasyon limiti (LSL, {unit})", step=0.01, format="%.2f",
                     key="lsl_input", disabled=one_sided,
-                    help="Bu urun/parametrede LSL kullanilmiyor (bkz. yukaridaki not)." if one_sided else None,
+                    help=(
+                        "Bu urun/parametrede LSL kullanilmiyor (bkz. yukaridaki not)."
+                        if one_sided else
+                        "Surecin kabul edilebilir alt siniri - Cpk hesabinda kullanilir."
+                    ),
                 )
             with col2:
                 usl = st.number_input(
-                    f"Ust spesifikasyon limiti (USL, {unit})", step=0.01, format="%.2f", key="usl_input"
+                    f"Ust spesifikasyon limiti (USL, {unit})", step=0.01, format="%.2f", key="usl_input",
+                    help="Surecin kabul edilebilir ust siniri - Cpk/Cpu hesabinda kullanilir.",
                 )
 
         st.write("")
@@ -926,7 +1272,22 @@ with tab_chart:
             flagged_points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
 
             with st.container(border=True):
-                render_kpi_panel(unit, x_bar, cpk, cpk_label, len(values), len(flagged_points))
+                render_kpi_panel(
+                    unit, x_bar, cpk, cpk_label, len(values), len(flagged_points),
+                    trend=compute_trend(values),
+                )
+                render_formula_method_card("I-MR", 2)
+
+            st.write("")
+
+            imr_quick_summary = build_quick_summary("olcum", len(values), len(flagged_points), cpk, cpk_label)
+            with st.container(border=True):
+                st.markdown(f"**\U0001F4CB Ozet:** {imr_quick_summary}")
+                st.code(imr_quick_summary, language=None)
+                render_last_analysis_card(
+                    st.session_state.active_parameter, selected_product, "I-MR",
+                    len(values), cpk, cpk_label,
+                )
 
             st.write("")
 
@@ -957,6 +1318,7 @@ with tab_chart:
                 style_chart(fig, ax, dark)
                 st.pyplot(fig, use_container_width=True)
                 render_png_download(fig, f"{st.session_state.active_parameter.lower()}_i_chart.png", key="png_i_chart")
+                imr_main_chart_png = fig_to_png_bytes(fig)
                 plt.close(fig)
 
             st.write("")
@@ -1003,6 +1365,13 @@ with tab_chart:
                 st.pyplot(fig2, use_container_width=True)
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_mr_chart.png", key="png_mr_chart")
                 plt.close(fig2)
+
+            with st.container(border=True):
+                render_pdf_download(
+                    st.session_state.active_parameter, selected_product, "I-MR",
+                    len(values), len(flagged_points), cpk, cpk_label, imr_quick_summary,
+                    imr_main_chart_png, key="pdf_imr",
+                )
 
             if flagged_points:
                 st.warning(
@@ -1120,7 +1489,28 @@ with tab_chart:
             groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
 
             with st.container(border=True):
-                render_kpi_panel(unit, x_double_bar, cpk, cpk_label, len(means), len(groups))
+                render_kpi_panel(
+                    unit, x_double_bar, cpk, cpk_label, len(means), len(groups),
+                    trend=compute_trend(means),
+                )
+                render_formula_method_card("X-bar/R", subgroup_n)
+
+            st.write("")
+
+            xbar_quick_summary = build_quick_summary("alt grup", len(means), len(groups), cpk, cpk_label)
+            with st.container(border=True):
+                st.markdown(f"**\U0001F4CB Ozet:** {xbar_quick_summary}")
+                st.code(xbar_quick_summary, language=None)
+                render_last_analysis_card(
+                    st.session_state.active_parameter, selected_product, "X-bar/R",
+                    len(means), cpk, cpk_label,
+                )
+
+            st.write("")
+
+            render_shift_comparison(
+                st.session_state.subgroups, subgroup_n, lsl, usl, one_sided, cpk_label, unit,
+            )
 
             st.write("")
 
@@ -1151,6 +1541,7 @@ with tab_chart:
                 style_chart(fig, ax, dark)
                 st.pyplot(fig, use_container_width=True)
                 render_png_download(fig, f"{st.session_state.active_parameter.lower()}_xbar_chart.png", key="png_xbar_chart")
+                xbar_main_chart_png = fig_to_png_bytes(fig)
                 plt.close(fig)
 
             st.write("")
@@ -1196,6 +1587,13 @@ with tab_chart:
                 st.pyplot(fig2, use_container_width=True)
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_r_chart.png", key="png_r_chart")
                 plt.close(fig2)
+
+            with st.container(border=True):
+                render_pdf_download(
+                    st.session_state.active_parameter, selected_product, "X-bar/R",
+                    len(means), len(groups), cpk, cpk_label, xbar_quick_summary,
+                    xbar_main_chart_png, key="pdf_xbar",
+                )
 
             if groups:
                 st.warning(
