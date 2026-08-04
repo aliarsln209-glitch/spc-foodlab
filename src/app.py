@@ -10,7 +10,15 @@ from scipy import stats
 
 from constants import PARAMETER_CONFIG, SHIFT_OPTIONS, SUBGROUP_SIZE
 from demo_data import generate_demo_individual, generate_demo_subgroups
-from spc_core import compute_cpk, compute_imr_limits, compute_moving_ranges, compute_xbar_r_limits
+from spc_core import (
+    I_CHART_CONSTANT,
+    MR_CHART_D2,
+    MR_CHART_D4,
+    compute_cpk,
+    compute_imr_limits,
+    compute_moving_ranges,
+    compute_xbar_r_limits,
+)
 
 GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
 
@@ -284,6 +292,69 @@ def render_capability_histogram(values: list[float], lsl: float, usl: float,
     return fig
 
 
+def annotate_hline(ax, x_pos: float, y_value: float, text: str, color: str) -> None:
+    """Bir yatay kontrol/spesifikasyon cizgisinin sag ucuna kucuk bir deger
+    etiketi ekler (orn. 'UCL=7.098'), grafigi okumayi kolaylastirir."""
+    ax.annotate(
+        text, xy=(x_pos, y_value), xytext=(3, 0), textcoords="offset points",
+        color=color, fontsize=7, va="center", ha="left", annotation_clip=False,
+    )
+
+
+def render_calculation_steps_xbar(x_double_bar: float, r_bar: float, limits,
+                                   cpk: float, cpk_label: str, lsl: float, usl: float,
+                                   one_sided: bool, unit: str) -> None:
+    """X-bar/R icin formul-adim-adim dokumu: bu sonuca nasil ulasildigini
+    rakamlarla gosterir (egitim amacli + guven verici seffaflik)."""
+    sigma_hat = r_bar / limits.d2 if limits.d2 else 0.0
+    lines = [
+        f"x̄̄ = alt grup ortalamalarinin ortalamasi = **{x_double_bar:.4f} {unit}**",
+        f"R̄ = alt grup range'lerinin ortalamasi = **{r_bar:.4f} {unit}**",
+        f"A2 (n={SUBGROUP_SIZE}) = {limits.a2}, D3 = {limits.d3}, D4 = {limits.d4}, d2 = {limits.d2}  *(Montgomery SPC sabit tablosu)*",
+        "",
+        f"UCL = x̄̄ + A2·R̄ = {x_double_bar:.4f} + {limits.a2}×{r_bar:.4f} = **{limits.ucl_x:.4f}**",
+        f"LCL = x̄̄ - A2·R̄ = {x_double_bar:.4f} - {limits.a2}×{r_bar:.4f} = **{limits.lcl_x:.4f}**",
+        "",
+        f"σ̂ = R̄ / d2 = {r_bar:.4f} / {limits.d2} = **{sigma_hat:.4f}**",
+    ]
+    if one_sided:
+        lines.append(f"{cpk_label} = (USL - x̄̄) / (3σ̂) = ({usl:.4f} - {x_double_bar:.4f}) / (3×{sigma_hat:.4f}) = **{format_cpk(cpk)}**")
+    else:
+        cpu = (usl - x_double_bar) / (3 * sigma_hat) if sigma_hat else float("inf")
+        cpl = (x_double_bar - lsl) / (3 * sigma_hat) if sigma_hat else float("inf")
+        lines.append(f"Cpu = (USL - x̄̄) / (3σ̂) = ({usl:.4f} - {x_double_bar:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpu)}")
+        lines.append(f"Cpl = (x̄̄ - LSL) / (3σ̂) = ({x_double_bar:.4f} - {lsl:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpl)}")
+        lines.append(f"{cpk_label} = min(Cpu, Cpl) = **{format_cpk(cpk)}**")
+    st.markdown("  \n".join(lines))
+
+
+def render_calculation_steps_imr(x_bar: float, mr_bar: float, limits,
+                                  cpk: float, cpk_label: str, lsl: float, usl: float,
+                                  one_sided: bool, unit: str) -> None:
+    """I-MR icin formul-adim-adim dokumu - X-bar/R'ye benzer ama I-MR'ye ozgu
+    sabitlerle (2.66, D4=3.267, d2=1.128, n=2)."""
+    sigma_hat = mr_bar / MR_CHART_D2 if MR_CHART_D2 else 0.0
+    lines = [
+        f"x̄ = tum olcumlerin ortalamasi = **{x_bar:.4f} {unit}**",
+        f"MR̄ = ardisik olcumler arasi ortalama fark = **{mr_bar:.4f} {unit}**",
+        f"I chart sabiti = {I_CHART_CONSTANT}, MR chart D4 = {MR_CHART_D4}, d2 = {MR_CHART_D2}  *(n=2, Montgomery SPC sabit tablosu)*",
+        "",
+        f"UCL = x̄ + 2.66×MR̄ = {x_bar:.4f} + {I_CHART_CONSTANT}×{mr_bar:.4f} = **{limits.ucl_i:.4f}**",
+        f"LCL = x̄ - 2.66×MR̄ = {x_bar:.4f} - {I_CHART_CONSTANT}×{mr_bar:.4f} = **{limits.lcl_i:.4f}**",
+        "",
+        f"σ̂ = MR̄ / d2 = {mr_bar:.4f} / {MR_CHART_D2} = **{sigma_hat:.4f}**",
+    ]
+    if one_sided:
+        lines.append(f"{cpk_label} = (USL - x̄) / (3σ̂) = ({usl:.4f} - {x_bar:.4f}) / (3×{sigma_hat:.4f}) = **{format_cpk(cpk)}**")
+    else:
+        cpu = (usl - x_bar) / (3 * sigma_hat) if sigma_hat else float("inf")
+        cpl = (x_bar - lsl) / (3 * sigma_hat) if sigma_hat else float("inf")
+        lines.append(f"Cpu = (USL - x̄) / (3σ̂) = ({usl:.4f} - {x_bar:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpu)}")
+        lines.append(f"Cpl = (x̄ - LSL) / (3σ̂) = ({x_bar:.4f} - {lsl:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpl)}")
+        lines.append(f"{cpk_label} = min(Cpu, Cpl) = **{format_cpk(cpk)}**")
+    st.markdown("  \n".join(lines))
+
+
 def style_chart(fig, ax, dark: bool) -> None:
     """Grafigi secilen acik/koyu temaya uyarlar (arka plan, yazi, izgara, legend renkleri)."""
     bg = "#0e1117" if dark else "#ffffff"
@@ -421,6 +492,66 @@ with tab_data:
                     if st.button("Vazgec", key="confirm_clear_no"):
                         st.session_state.confirm_clear = False
                         st.rerun()
+
+    st.write("")
+
+    with st.container(border=True):
+        with st.expander("\U0001F4E4 CSV'den veri yukle", expanded=False):
+            expected_cols = "Sira, Olcum 1" if is_individual else f"Grup, Vardiya, Olcum 1..{SUBGROUP_SIZE}"
+            st.caption(
+                f"Uygulamanin kendi 'CSV olarak indir' formatiyla uyumlu olmalidir - "
+                f"beklenen sutunlar: **{expected_cols}** (birim: {unit}). "
+                "Yuklenen veri MEVCUT VERININ YERINI ALIR (baseline da sifirlanir)."
+            )
+            uploaded_file = st.file_uploader(
+                "CSV dosyasi sec", type="csv",
+                key=f"csv_upload_{st.session_state.active_parameter}",
+            )
+            if uploaded_file is not None:
+                try:
+                    import_df = pd.read_csv(uploaded_file)
+                    measurement_cols = [c for c in import_df.columns if c.startswith("Olcum")]
+
+                    if is_individual:
+                        if len(measurement_cols) != 1:
+                            st.error(
+                                f"Beklenmeyen sutun sayisi: {len(measurement_cols)} 'Olcum' "
+                                "sutunu bulundu, I-MR icin 1 bekleniyor."
+                            )
+                        else:
+                            numeric_vals = pd.to_numeric(import_df[measurement_cols[0]], errors="coerce")
+                            if numeric_vals.isna().any():
+                                st.error("CSV'de sayisal olmayan veya eksik deger bulundu. Lutfen dosyayi kontrol edin.")
+                            else:
+                                st.session_state.subgroups = [
+                                    {"shift": "-", "values": [float(v)]} for v in numeric_vals
+                                ]
+                                st.session_state.baseline = None
+                                st.success(f"{len(numeric_vals)} olcum CSV'den yuklendi.")
+                    else:
+                        if len(measurement_cols) != SUBGROUP_SIZE:
+                            st.error(
+                                f"Beklenmeyen sutun sayisi: {len(measurement_cols)} 'Olcum' "
+                                f"sutunu bulundu, {SUBGROUP_SIZE} bekleniyor."
+                            )
+                        else:
+                            numeric_block = import_df[measurement_cols].apply(pd.to_numeric, errors="coerce")
+                            if numeric_block.isna().any().any():
+                                st.error("CSV'de sayisal olmayan veya eksik deger bulundu. Lutfen dosyayi kontrol edin.")
+                            else:
+                                shift_col = import_df["Vardiya"] if "Vardiya" in import_df.columns else None
+                                new_subgroups = []
+                                for i in range(len(import_df)):
+                                    vals = [float(numeric_block.iloc[i][c]) for c in measurement_cols]
+                                    shift_val = str(shift_col.iloc[i]) if shift_col is not None else SHIFT_OPTIONS[0]
+                                    if shift_val not in SHIFT_OPTIONS:
+                                        shift_val = SHIFT_OPTIONS[0]
+                                    new_subgroups.append({"shift": shift_val, "values": vals})
+                                st.session_state.subgroups = new_subgroups
+                                st.session_state.baseline = None
+                                st.success(f"{len(new_subgroups)} alt grup CSV'den yuklendi.")
+                except Exception as exc:
+                    st.error(f"CSV okunamadi: {exc}")
 
     st.write("")
 
@@ -725,6 +856,9 @@ with tab_chart:
 
                 render_cpk_message(cpk, cpk_label)
 
+                with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                    render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit)
+
             st.write("")
 
             indices_i = list(range(1, len(values) + 1))
@@ -747,11 +881,14 @@ with tab_chart:
                 ax.plot(indices_i, values, marker="o", color="steelblue", linewidth=1, label="Olcum")
                 ax.axhline(x_bar, color="green", linestyle="-", label="Genel ortalama (x̄)")
                 ax.axhline(limits.ucl_i, color="red", linestyle="--", label="UCL")
+                annotate_hline(ax, indices_i[-1], limits.ucl_i, f"UCL={limits.ucl_i:.3f}", "red")
+                annotate_hline(ax, indices_i[-1], x_bar, f"x̄={x_bar:.3f}", "green")
                 if not one_sided:
                     # Tek tarafli (one_sided) analizde LSL/LCL anlamsizdir (bkz.
                     # Spesifikasyon limitleri karti) - grafik sadelestirmesi
                     # olarak bu durumda LCL cizgisi/etiketi cizilmez.
                     ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
+                    annotate_hline(ax, indices_i[-1], limits.lcl_i, f"LCL={limits.lcl_i:.3f}", "red")
                 if out_of_control_i:
                     ax.scatter(
                         [indices_i[i] for i in out_of_control_i],
@@ -795,6 +932,8 @@ with tab_chart:
                 ax2.axhline(mr_bar, color="green", linestyle="-", label="MR̄")
                 ax2.axhline(limits.ucl_mr, color="red", linestyle="--", label="UCL_MR")
                 ax2.axhline(limits.lcl_mr, color="red", linestyle="--", label="LCL_MR")
+                annotate_hline(ax2, indices_mr[-1], limits.ucl_mr, f"UCL={limits.ucl_mr:.3f}", "red")
+                annotate_hline(ax2, indices_mr[-1], mr_bar, f"MR̄={mr_bar:.3f}", "green")
                 if out_of_control_mr:
                     ax2.scatter(
                         [indices_mr[i] for i in out_of_control_mr],
@@ -914,6 +1053,9 @@ with tab_chart:
 
                 render_cpk_message(cpk, cpk_label)
 
+                with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                    render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit)
+
             st.write("")
 
             indices = list(range(1, len(means) + 1))
@@ -933,11 +1075,14 @@ with tab_chart:
                 ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
                 ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
                 ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
+                annotate_hline(ax, indices[-1], limits.ucl_x, f"UCL={limits.ucl_x:.3f}", "red")
+                annotate_hline(ax, indices[-1], x_double_bar, f"x̄̄={x_double_bar:.3f}", "green")
                 if not one_sided:
                     # Tek tarafli (one_sided) analizde LSL/LCL anlamsizdir (bkz.
                     # Spesifikasyon limitleri karti) - grafik sadelestirmesi
                     # olarak bu durumda LCL cizgisi/etiketi cizilmez.
                     ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
+                    annotate_hline(ax, indices[-1], limits.lcl_x, f"LCL={limits.lcl_x:.3f}", "red")
                 if out_of_control_x:
                     ax.scatter(
                         [indices[i] for i in out_of_control_x],
@@ -980,6 +1125,8 @@ with tab_chart:
                 ax2.axhline(r_bar, color="green", linestyle="-", label="R̄")
                 ax2.axhline(limits.ucl_r, color="red", linestyle="--", label="UCL_R")
                 ax2.axhline(limits.lcl_r, color="red", linestyle="--", label="LCL_R")
+                annotate_hline(ax2, indices[-1], limits.ucl_r, f"UCL={limits.ucl_r:.3f}", "red")
+                annotate_hline(ax2, indices[-1], r_bar, f"R̄={r_bar:.3f}", "green")
                 if out_of_control_r:
                     ax2.scatter(
                         [indices[i] for i in out_of_control_r],
