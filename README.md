@@ -67,7 +67,7 @@ mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md).
 
 **Kapsam dışı (v1'de yok):** çoklu parametre karşılaştırma, Western
 Electric kuralları, kullanıcı hesabı/çoklu kullanıcı sistemi, veritabanı
-entegrasyonu (session-state + CSV export yeterli).
+entegrasyonu (session-state + CSV import/export yeterli).
 
 ## Hızlı Hesaplayıcılar — Totox
 
@@ -92,9 +92,11 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 - **Streamlit** (Python) — form, hesaplama ve grafik tek pakette
 - **matplotlib + scipy** — kontrol grafikleri ve kapasite histogramı
 - **fpdf2** — tek sayfalık PDF analiz raporu export'u
+- Hafif CSS geçişleri/animasyonları (buton hover, kart hover gölgesi,
+  uyarı kutularında fade-in) — arayüzü canlandırır, dikkat dağıtmaz
 - **Deploy:** Streamlit Community Cloud
-- Veri kalıcılığı: session-state (uygulama içi) + CSV export — v1'de
-  veritabanı entegrasyonu yok
+- Veri kalıcılığı: session-state (uygulama içi) + CSV import/export —
+  v1'de veritabanı entegrasyonu yok
 
 ## Proje yapısı
 
