@@ -1,6 +1,7 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
+import re
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -280,26 +281,26 @@ def render_cpk_message(cpk: float, cpk_label: str) -> None:
     ortak fonksiyon haline getirildi."""
     if cpk == float("inf"):
         st.success(
-            f"{cpk_label} = ∞: olculen degerlerde hic varyasyon yok (R̄/MR̄ = 0) "
-            "ve ortalama spesifikasyon icinde - surec kusursuz."
+            f"{cpk_label} = ∞: ölçülen değerlerde hiç varyasyon yok (R̄/MR̄ = 0) "
+            "ve ortalama spesifikasyon içinde - süreç kusursuz (Mükemmel)."
         )
     elif cpk == float("-inf"):
         st.error(
-            f"{cpk_label} = -∞: olculen degerlerde varyasyon yok ama ortalama "
-            "zaten spesifikasyon disinda - surec yeterli degil."
+            f"{cpk_label} = -∞: ölçülen değerlerde varyasyon yok ama ortalama "
+            "zaten spesifikasyon dışında - süreç yeterli değil (Yetersiz)."
         )
     elif abs(cpk) > CPK_SANITY_THRESHOLD:
         st.warning(
-            f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
-            "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
-            "olabilir - LSL/USL degerlerini kontrol et."
+            f"{cpk_label} anlamsız derecede yüksek/düşük çıktı. Seçtiğin "
+            "ürünün spesifikasyon aralığı, girdiğin verilerle örtüşmüyor "
+            "olabilir - LSL/USL değerlerini kontrol et."
         )
     elif cpk < 1.0:
-        st.error(f"{cpk_label} < 1.0: Surec yeterli degil (spesifikasyon limitlerine gore).")
+        st.error(f"{cpk_label} < 1.0: Süreç yeterli değil (Yetersiz), spesifikasyon limitlerine göre.")
     elif cpk < 1.33:
-        st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec marjinal yeterli.")
+        st.warning(f"{cpk_label} 1.0-1.33 arası: Süreç sınırda düzeyde yeterli (Sınırda).")
     else:
-        st.success(f"{cpk_label} >= 1.33: Surec yeterli.")
+        st.success(f"{cpk_label} >= 1.33: Süreç yeterli (Yeterli).")
 
 
 def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
@@ -464,6 +465,60 @@ def render_png_download(fig, filename: str, key: str) -> None:
     )
 
 
+_DECIMAL_COMMA_RE = re.compile(r"^-?\d+,\d+$")
+
+
+def _find_first_bad_value(raw_series: pd.Series, numeric_series: pd.Series) -> tuple[int, str] | None:
+    """numeric_series icinde NaN olan ilk satirin (1-index CSV satir no,
+    bastaki baslik satiri haric) ve ham metin degerini dondurur. Kullaniciya
+    'hangi satirda ne yanlis' sorusuna somut cevap vermek icin - bare
+    'CSV okunamadi' yerine."""
+    for i, (raw, num) in enumerate(zip(raw_series, numeric_series), start=1):
+        if pd.isna(num):
+            return i, ("" if pd.isna(raw) else str(raw))
+    return None
+
+
+def _friendly_numeric_error(raw_series: pd.Series, numeric_series: pd.Series, unit: str) -> str:
+    """Sayisal donusturme hatasini somut Turkce mesaja cevirir. En yaygin uc
+    durumu (ondalik ayiraci olarak virgul kullanilmasi, orn. Excel'in TR
+    yerel ayarlarindan kaynaklanan '1,25') ozel olarak yakalayip cozumu
+    soyler; digerlerinde bos hucre / sayisal olmayan metin ayrimi yapar."""
+    found = _find_first_bad_value(raw_series, numeric_series)
+    if found is None:
+        return "CSV'de sayisal olmayan veya eksik bir deger bulundu. Lutfen dosyayi kontrol edin."
+    row_no, raw_value = found
+    stripped = raw_value.strip()
+    if stripped == "" or stripped.lower() == "nan":
+        return f"{row_no}. satirda bos bir hucre bulundu. Her olcum hucresi bir sayi icermelidir."
+    if _DECIMAL_COMMA_RE.match(stripped):
+        return (
+            f"{row_no}. satirda '{stripped}' bulundu - ondalik ayiraci nokta olmalidir "
+            f"(virgul yerine '{stripped.replace(',', '.')}' yazin)."
+        )
+    return (
+        f"{row_no}. satirda sayisal olmayan bir deger bulundu: '{stripped}'. "
+        f"Bu sutun yalnizca sayisal {unit} olcumleri icermelidir."
+    )
+
+
+def _friendly_csv_read_error(exc: Exception) -> str:
+    """CSV'nin kendisi (pandas.read_csv) parse edilemediginde gosterilecek
+    somut Turkce mesaj. Ham exception metni kullaniciya DOGRUDAN gosterilmez
+    (teknik/Ingilizce ve cogu kullanici icin anlamsizdir) - sadece bir
+    'Teknik detay' expander'inda saklanir (bkz. cagiran kod)."""
+    if isinstance(exc, pd.errors.EmptyDataError):
+        return "CSV dosyasi bos gorunuyor. Lutfen en az bir satir olcum verisi iceren bir dosya yukleyin."
+    if isinstance(exc, pd.errors.ParserError):
+        return (
+            "CSV dosyasi ayristirilamadi - satirlardaki sutun sayisi tutarsiz olabilir "
+            "veya dosya virgulden farkli bir ayrac kullaniyor olabilir."
+        )
+    if isinstance(exc, UnicodeDecodeError):
+        return "Dosyanin karakter kodlamasi okunamadi. Dosyayi UTF-8 formatinda kaydedip tekrar deneyin."
+    return "CSV dosyasi okunamadi. Dosyanin bozuk olmadigindan ve .csv uzantili oldugundan emin olun."
+
+
 def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
                       n_samples: int, n_out_of_control: int,
                       trend: tuple[str, float] | None = None) -> None:
@@ -570,6 +625,25 @@ def annotate_hline(ax, x_pos: float, y_value: float, text: str, color: str) -> N
     )
 
 
+def _cpu_cpl_for_display(center: float, sigma_hat: float, lsl: float, usl: float) -> tuple[float, float]:
+    """Cpu/Cpl'yi 'Hesaplama adimlari' panelinde gostermek icin hesaplar.
+
+    compute_cpk() (spc_core.py) ile AYNI sigma_hat=0 kuralini taraf taraf
+    uygular: sigma_hat=0 ise Cpu, merkez USL'nin altinda/esitse +inf,
+    ustundeyse -inf; Cpl de ayni sekilde LSL'ye gore. Bu, iki tarafin da
+    kosulsuz +inf donduren eski davranisin aksine, compute_cpk()'in
+    min(Cpu, Cpl) sonucuyla HER ZAMAN tutarlidir (bkz. tests/test_cpk_edge_cases.py
+    - onceki halde merkez spesifikasyon disindayken bile panel Cpu=Cpl=inf
+    gosterebiliyordu, KPI kartindaki gercek Cpk=-inf ile celisiyordu)."""
+    if sigma_hat == 0:
+        cpu = float("inf") if center <= usl else float("-inf")
+        cpl = float("inf") if center >= lsl else float("-inf")
+        return cpu, cpl
+    cpu = (usl - center) / (3 * sigma_hat)
+    cpl = (center - lsl) / (3 * sigma_hat)
+    return cpu, cpl
+
+
 def render_calculation_steps_xbar(x_double_bar: float, r_bar: float, limits,
                                    cpk: float, cpk_label: str, lsl: float, usl: float,
                                    one_sided: bool, unit: str) -> None:
@@ -589,8 +663,7 @@ def render_calculation_steps_xbar(x_double_bar: float, r_bar: float, limits,
     if one_sided:
         lines.append(f"{cpk_label} = (USL - x̄̄) / (3σ̂) = ({usl:.4f} - {x_double_bar:.4f}) / (3×{sigma_hat:.4f}) = **{format_cpk(cpk)}**")
     else:
-        cpu = (usl - x_double_bar) / (3 * sigma_hat) if sigma_hat else float("inf")
-        cpl = (x_double_bar - lsl) / (3 * sigma_hat) if sigma_hat else float("inf")
+        cpu, cpl = _cpu_cpl_for_display(x_double_bar, sigma_hat, lsl, usl)
         lines.append(f"Cpu = (USL - x̄̄) / (3σ̂) = ({usl:.4f} - {x_double_bar:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpu)}")
         lines.append(f"Cpl = (x̄̄ - LSL) / (3σ̂) = ({x_double_bar:.4f} - {lsl:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpl)}")
         lines.append(f"{cpk_label} = min(Cpu, Cpl) = **{format_cpk(cpk)}**")
@@ -616,8 +689,7 @@ def render_calculation_steps_imr(x_bar: float, mr_bar: float, limits,
     if one_sided:
         lines.append(f"{cpk_label} = (USL - x̄) / (3σ̂) = ({usl:.4f} - {x_bar:.4f}) / (3×{sigma_hat:.4f}) = **{format_cpk(cpk)}**")
     else:
-        cpu = (usl - x_bar) / (3 * sigma_hat) if sigma_hat else float("inf")
-        cpl = (x_bar - lsl) / (3 * sigma_hat) if sigma_hat else float("inf")
+        cpu, cpl = _cpu_cpl_for_display(x_bar, sigma_hat, lsl, usl)
         lines.append(f"Cpu = (USL - x̄) / (3σ̂) = ({usl:.4f} - {x_bar:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpu)}")
         lines.append(f"Cpl = (x̄ - LSL) / (3σ̂) = ({x_bar:.4f} - {lsl:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpl)}")
         lines.append(f"{cpk_label} = min(Cpu, Cpl) = **{format_cpk(cpk)}**")
@@ -791,6 +863,18 @@ with tab_data:
                 f"beklenen sutunlar: **{expected_cols}** (birim: {unit}). "
                 "Yuklenen veri MEVCUT VERININ YERINI ALIR (baseline da sifirlanir)."
             )
+
+            if is_individual:
+                template_cols = ["Sira", "Olcum 1"]
+            else:
+                template_cols = ["Grup", "Vardiya"] + [f"Olcum {i + 1}" for i in range(subgroup_n)]
+            template_csv = (",".join(template_cols) + "\n").encode("utf-8")
+            st.download_button(
+                "\U0001F4C4 Bos sablon indir", template_csv,
+                f"{st.session_state.active_parameter.lower()}_sablon.csv", "text/csv",
+                key=f"csv_template_{st.session_state.active_parameter}",
+            )
+
             uploaded_file = st.file_uploader(
                 "CSV dosyasi sec", type="csv",
                 key=f"csv_upload_{st.session_state.active_parameter}",
@@ -798,18 +882,28 @@ with tab_data:
             if uploaded_file is not None:
                 try:
                     import_df = pd.read_csv(uploaded_file)
+                except Exception as exc:
+                    st.error(_friendly_csv_read_error(exc))
+                    with st.expander("Teknik detay"):
+                        st.code(f"{type(exc).__name__}: {exc}")
+                    import_df = None
+
+                if import_df is not None:
                     measurement_cols = [c for c in import_df.columns if c.startswith("Olcum")]
 
                     if is_individual:
                         if len(measurement_cols) != 1:
                             st.error(
-                                f"Beklenmeyen sutun sayisi: {len(measurement_cols)} 'Olcum' "
-                                "sutunu bulundu, I-MR icin 1 bekleniyor."
+                                f"Beklenen sutun bulunamadi: I-MR icin 1 'Olcum' sutunu bekleniyor, "
+                                f"{len(measurement_cols)} bulundu. CSV'deki sutunlar: "
+                                f"{', '.join(import_df.columns) or '(sutun yok)'}. Yukaridaki "
+                                "'Bos sablon indir' butonuyla dogru formati indirebilirsiniz."
                             )
                         else:
-                            numeric_vals = pd.to_numeric(import_df[measurement_cols[0]], errors="coerce")
+                            raw_series = import_df[measurement_cols[0]]
+                            numeric_vals = pd.to_numeric(raw_series, errors="coerce")
                             if numeric_vals.isna().any():
-                                st.error("CSV'de sayisal olmayan veya eksik deger bulundu. Lutfen dosyayi kontrol edin.")
+                                st.error(_friendly_numeric_error(raw_series, numeric_vals, unit))
                             else:
                                 st.session_state.subgroups = [
                                     {"shift": "-", "values": [float(v)]} for v in numeric_vals
@@ -819,13 +913,18 @@ with tab_data:
                     else:
                         if len(measurement_cols) != subgroup_n:
                             st.error(
-                                f"Beklenmeyen sutun sayisi: {len(measurement_cols)} 'Olcum' "
-                                f"sutunu bulundu, {subgroup_n} bekleniyor."
+                                f"Beklenen sutun bulunamadi: {subgroup_n} 'Olcum' sutunu bekleniyor, "
+                                f"{len(measurement_cols)} bulundu. CSV'deki sutunlar: "
+                                f"{', '.join(import_df.columns) or '(sutun yok)'}. Yukaridaki "
+                                "'Bos sablon indir' butonuyla dogru formati indirebilirsiniz."
                             )
                         else:
                             numeric_block = import_df[measurement_cols].apply(pd.to_numeric, errors="coerce")
                             if numeric_block.isna().any().any():
-                                st.error("CSV'de sayisal olmayan veya eksik deger bulundu. Lutfen dosyayi kontrol edin.")
+                                bad_col = next(
+                                    c for c in measurement_cols if numeric_block[c].isna().any()
+                                )
+                                st.error(_friendly_numeric_error(import_df[bad_col], numeric_block[bad_col], unit))
                             else:
                                 shift_col = import_df["Vardiya"] if "Vardiya" in import_df.columns else None
                                 new_subgroups = []
@@ -838,8 +937,6 @@ with tab_data:
                                 st.session_state.subgroups = new_subgroups
                                 st.session_state.baseline = None
                                 st.success(f"{len(new_subgroups)} alt grup CSV'den yuklendi.")
-                except Exception as exc:
-                    st.error(f"CSV okunamadi: {exc}")
 
     st.write("")
 

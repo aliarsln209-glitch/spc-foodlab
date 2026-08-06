@@ -22,17 +22,19 @@ def format_cpk(cpk: float) -> str:
 
 def get_cpk_level(cpk: float) -> tuple[str, str, str]:
     """Cpk/Cpu degerine gore (emoji, seviye etiketi, renk) rozet bilgisi.
-    Esikler: >=1.67 Excellent, 1.33-1.67 Capable, 1.0-1.33 Marginal, <1.0
-    Not Capable - yaygin SPC kabulu (bkz. render_cpk_message esikleri)."""
+    Esikler: >=1.67 Mükemmel, 1.33-1.67 Yeterli, 1.0-1.33 Sınırda, <1.0
+    Yetersiz - yaygin SPC kabulu (bkz. render_cpk_message esikleri).
+    Etiketler Turkce'dir (tum arayuzde tek dil kullanmak icin - bkz.
+    build_quick_summary'deki yorum cumleleri de ayni etiketlerle eslesir)."""
     if cpk == float("-inf"):
-        return "\U0001F534", "Not Capable", "#e03131"
+        return "\U0001F534", "Yetersiz", "#e03131"
     if cpk == float("inf") or cpk >= 1.67:
-        return "\U0001F7E2", "Excellent", "#2f9e44"
+        return "\U0001F7E2", "Mükemmel", "#2f9e44"
     if cpk >= 1.33:
-        return "\U0001F7E2", "Capable", "#2f9e44"
+        return "\U0001F7E2", "Yeterli", "#2f9e44"
     if cpk >= 1.0:
-        return "\U0001F7E1", "Marginal", "#f08c00"
-    return "\U0001F534", "Not Capable", "#e03131"
+        return "\U0001F7E1", "Sınırda", "#f08c00"
+    return "\U0001F534", "Yetersiz", "#e03131"
 
 
 def compute_trend(series: list[float], window: int = 6) -> tuple[str, float] | None:
@@ -60,10 +62,10 @@ def build_quick_summary(sample_word: str, n_samples: int, n_out_of_control: int,
         else f"{n_out_of_control} kontrol disi nokta var"
     )
     level_text = {
-        "Excellent": "surec mukemmel yeterli",
-        "Capable": "surec yeterli",
-        "Marginal": "surec marjinal yeterli",
-        "Not Capable": "surec yeterli degil",
+        "Mükemmel": "süreç mükemmel yeterli",
+        "Yeterli": "süreç yeterli",
+        "Sınırda": "süreç sınırda yeterli",
+        "Yetersiz": "süreç yeterli değil",
     }[level_label]
     return (
         f"{n_samples} {sample_word} analiz edildi, {oos_text}, "

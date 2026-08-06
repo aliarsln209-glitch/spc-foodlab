@@ -36,24 +36,24 @@ def test_format_cpk_normal():
 # --- get_cpk_level -------------------------------------------------------
 
 def test_cpk_level_excellent_at_and_above_threshold():
-    assert get_cpk_level(1.67)[1] == "Excellent"
-    assert get_cpk_level(2.5)[1] == "Excellent"
-    assert get_cpk_level(float("inf"))[1] == "Excellent"
+    assert get_cpk_level(1.67)[1] == "Mükemmel"
+    assert get_cpk_level(2.5)[1] == "Mükemmel"
+    assert get_cpk_level(float("inf"))[1] == "Mükemmel"
 
 
 def test_cpk_level_capable_band():
-    assert get_cpk_level(1.33)[1] == "Capable"
-    assert get_cpk_level(1.66)[1] == "Capable"
+    assert get_cpk_level(1.33)[1] == "Yeterli"
+    assert get_cpk_level(1.66)[1] == "Yeterli"
 
 
 def test_cpk_level_marginal_band():
-    assert get_cpk_level(1.0)[1] == "Marginal"
-    assert get_cpk_level(1.32)[1] == "Marginal"
+    assert get_cpk_level(1.0)[1] == "Sınırda"
+    assert get_cpk_level(1.32)[1] == "Sınırda"
 
 
 def test_cpk_level_not_capable_band():
-    assert get_cpk_level(0.99)[1] == "Not Capable"
-    assert get_cpk_level(float("-inf"))[1] == "Not Capable"
+    assert get_cpk_level(0.99)[1] == "Yetersiz"
+    assert get_cpk_level(float("-inf"))[1] == "Yetersiz"
 
 
 # --- compute_trend ---------------------------------------------------------
@@ -99,7 +99,7 @@ def test_quick_summary_mentions_no_out_of_control_points():
 def test_quick_summary_mentions_out_of_control_count():
     text = build_quick_summary("olcum", 24, 3, 0.8, "Cpu (tek tarafli)")
     assert "3 kontrol disi nokta var" in text
-    assert "surec yeterli degil" in text
+    assert "süreç yeterli değil" in text
 
 
 # --- demo_scenario_targets --------------------------------------------------

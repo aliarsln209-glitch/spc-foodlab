@@ -123,15 +123,17 @@ Bu davranış hem X-bar/R hem I-MR yolları için geçerlidir (ikisi de aynı
 #### Sonuç seviyesi rozeti
 
 KPI panelindeki Cpk/Cpu kartında görülen 🟢/🟡/🔴 rozet, `get_cpk_level()`
-fonksiyonundaki (`src/app.py`) şu eşiklere dayanır — bu, hesaplamayı
-etkilemeyen, salt görsel bir sınıflandırmadır:
+fonksiyonundaki (`src/result_helpers.py`) şu eşiklere dayanır — bu,
+hesaplamayı etkilemeyen, salt görsel bir sınıflandırmadır. Etiketler
+Türkçedir (arayüzde tek dil tutmak için — önceki sürümde İngilizce
+etiket + Türkçe yorum cümlesi karışık kullanılıyordu):
 
 | Cpk/Cpu | Rozet |
 |---|---|
-| ≥ 1.67 | 🟢 Excellent |
-| 1.33 – 1.67 | 🟢 Capable |
-| 1.0 – 1.33 | 🟡 Marginal |
-| < 1.0 | 🔴 Not Capable |
+| ≥ 1.67 | 🟢 Mükemmel |
+| 1.33 – 1.67 | 🟢 Yeterli |
+| 1.0 – 1.33 | 🟡 Sınırda |
+| < 1.0 | 🔴 Yetersiz |
 
 `render_cpk_message()`'in metin uyarısı (başarı/uyarı/hata kutusu) daha
 kaba bir 3'lü eşik kullanır (<1.0 / 1.0–1.33 / ≥1.33); ikisi birbirini
@@ -214,6 +216,26 @@ istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 | Viskozite | Prime Resins, Sculpture Supply (teknik viskozite tabloları) | **Tiksotropi uyarısı:** Ketçap, hardal gibi ürünler karıştırma/basınç arttıkça viskozite kaybeder; standardize edilmemiş ölçüm koşulları tutarsız sonuç verebilir |
 | Peroksit Değeri | Codex Alimentarius / IOC (International Olive Council) | Natürel sızma zeytinyağı için ≤20 meq O2/kg; sadece USL anlamlıdır |
 | HMF | TGK Bal Tebliği (≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (sıvı ≤75, katı ≤100 mg/kg), sektör pratiği (meyve suyu konsantresi ≤20 mg/kg) | Sadece USL anlamlıdır |
+
+## v1.1 Roadmap
+
+Aşağıdakiler v1 kapsamı DIŞINDADIR — bilinçli olarak bu sürüme dahil
+edilmedi (v1'in mevcut kapsamını genişletmemek için), sonraki bir
+iterasyonda değerlendirilecek notlardır:
+
+- **Nelson / Western Electric kuralları:** Kontrol şemasında sadece
+  UCL/LCL aşımı değil, örüntü tabanlı sinyaller de (örn. 7 ardışık nokta
+  artan/azalan, merkez çizginin bir tarafında 8 ardışık nokta) tespit
+  edilebilir. Bu, SPC'nin limit-aşımı ötesindeki "erken uyarı" yönünü
+  kapsama katar.
+- **PDF raporuna otomatik yorum cümlesi:** Mevcut PDF çıktısı sayısal
+  sonuçları (Cpk, UCL/LCL vb.) listeler; bir sonraki sürümde şemanın
+  gösterdiği örüntüye göre kısa bir otomatik yorum/öneri cümlesi
+  eklenebilir (örn. "trend yükseliyor, sürecin izlenmesi önerilir").
+- **Demo senaryo galerisi:** Şu an tek bir demo veri üretim yolu var;
+  birden fazla hazır senaryo (örn. "iyi süreç", "kayan ortalama", "düşük
+  Cpk") sunularak kullanıcının SPC'nin farklı çıktı durumlarını tek
+  tıkla görebilmesi sağlanabilir.
 
 ---
 
