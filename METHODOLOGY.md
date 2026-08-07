@@ -10,6 +10,7 @@ bir genel bakış içindir; burada projenin "neden doğru" olduğunun kanıtı v
 1. [Yöntem ve formüller](#yöntem-ve-formüller)
 2. [Doğrulama](#doğrulama)
 3. [Ürün referans tabloları ve kaynaklar](#ürün-referans-tabloları-ve-kaynaklar)
+4. [Yol haritası (v1.1 → v3)](#yol-haritası-v11--v3)
 
 ## Yöntem ve formüller
 
@@ -217,25 +218,156 @@ istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 | Peroksit Değeri | Codex Alimentarius / IOC (International Olive Council) | Natürel sızma zeytinyağı için ≤20 meq O2/kg; sadece USL anlamlıdır |
 | HMF | TGK Bal Tebliği (≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (sıvı ≤75, katı ≤100 mg/kg), sektör pratiği (meyve suyu konsantresi ≤20 mg/kg) | Sadece USL anlamlıdır |
 
-## v1.1 Roadmap
+## Yol Haritası (v1.1 → v3)
 
-Aşağıdakiler v1 kapsamı DIŞINDADIR — bilinçli olarak bu sürüme dahil
-edilmedi (v1'in mevcut kapsamını genişletmemek için), sonraki bir
-iterasyonda değerlendirilecek notlardır:
+v1, aşağıdaki sürümlerin hiçbiri olmadan da kendi başına tamamlanmış ve
+kullanılabilir kabul edilir. Aşağıdakiler bilinçli olarak v1 kapsamı
+DIŞINDA tutulan, gelecekteki iterasyonlar için notlardır — her sürüm bir
+öncekinin üzerine **tek bir net kavramsal eksen** ekleyecek şekilde
+sıralanmıştır (özellik listesi değil): sağlamlaştırma → istatistiksel
+derinlik → yeni veri tipi (mikrobiyoloji) → mimari (kalıcılık) → sistem
+tasarımı.
 
-- **Nelson / Western Electric kuralları:** Kontrol şemasında sadece
-  UCL/LCL aşımı değil, örüntü tabanlı sinyaller de (örn. 7 ardışık nokta
-  artan/azalan, merkez çizginin bir tarafında 8 ardışık nokta) tespit
-  edilebilir. Bu, SPC'nin limit-aşımı ötesindeki "erken uyarı" yönünü
-  kapsama katar.
-- **PDF raporuna otomatik yorum cümlesi:** Mevcut PDF çıktısı sayısal
-  sonuçları (Cpk, UCL/LCL vb.) listeler; bir sonraki sürümde şemanın
-  gösterdiği örüntüye göre kısa bir otomatik yorum/öneri cümlesi
-  eklenebilir (örn. "trend yükseliyor, sürecin izlenmesi önerilir").
-- **Demo senaryo galerisi:** Şu an tek bir demo veri üretim yolu var;
-  birden fazla hazır senaryo (örn. "iyi süreç", "kayan ortalama", "düşük
-  Cpk") sunularak kullanıcının SPC'nin farklı çıktı durumlarını tek
-  tıkla görebilmesi sağlanabilir.
+Liste **omurga** (yapılması planlanan, sürüm sırasını taşıyan) ve
+**stretch** (iyi fikir, zaman/ilgi kalırsa değerlendirilecek, taahhüt
+değil) olarak ikiye ayrılmıştır.
+
+### Omurga
+
+**v1.1 — Sağlamlaştırma** (yeni özellik yok, sadece mevcut iddiaların
+gerçekten tutulduğunun kanıtı)
+- CSV schema validation (yanlış/eksik sütun adı, yanlış veri tipi)
+- Minimum veri sayısı uyarısı (yetersiz gözlemle Cpk hesaplanmasını
+  engelleme/uyarma)
+- NaN / duplicate / boş satır temizleme kontrolü
+- Spesifikasyon limitlerinin mantıksal doğrulanması (LSL < USL, fiziksel
+  aralık)
+- Export → import round-trip testi (verinin döngüde bozulmadığının
+  otomatik kanıtı)
+- PDF export testi (rapor üretiminin otomatik doğrulanması)
+- Test coverage raporu (pytest-cov)
+- Anlamlı rakam / ondalık basamak koruması: `constants.py`'deki her
+  parametreye `decimal_places` niteliği (pH=2, Brix=1, Aw=3 gibi);
+  tüm grafik etiketi/tablo/Cpk özeti buna göre yuvarlanır — laboratuvar
+  cihazının ölçüm hassasiyetinin ötesinde sahte kesinlik göstermemek için
+- **Validation Suite tohumu:** `validation/` klasörü açılır, her
+  formül için literatür referans veri setiyle karşılaştırma burada
+  toplanır (`xbar_r_reference.csv`, `imr_reference.csv`,
+  `cpk_reference.csv` vb.). Tek seferlik bir teslimat değil — v1.2'de
+  Nelson, v1.3'te mikrobiyoloji formülleri eklendikçe kendi referans
+  dosyasını buraya ekler; proje boyunca büyüyen bir disiplin.
+
+**v1.2 — İstatistiksel derinlik** (mevcut sürekli-veri motorunun
+genişletilmesi, yeni istatistik ailesi yok)
+- Nelson / Western Electric kuralları: UCL/LCL aşımı dışında örüntü
+  tabanlı sinyaller (örn. 2/3 nokta 2σ dışı aynı yönde, 4/5 nokta 1σ
+  dışı aynı yönde, 8 ardışık nokta merkez çizginin aynı tarafında).
+  Kaynak: Nelson, L.S. (1984), *"The Shewhart Control Chart—Tests for
+  Special Causes"*, Journal of Quality Technology.
+- **OOS/OOT ayrımı:** Nelson sinyalinin çıktısı doğru endüstriyel
+  terimle etiketlenir — limit (USL/LSL) aşımı **OOS** (Out of
+  Specification), örüntü/trend sinyali **OOT** (Out of Trend). Sadece
+  doğru terminoloji; otomatik düzeltici faaliyet talimatı (karantina,
+  DÖF vb.) ÜRETİLMEZ — uygulama kurumsal SOP'u bilmediği için bu tür bir
+  öneri kendi yetkisini aşan bir iddia olur.
+- Normality / dağılım kontrolü: histogram + basit normal dağılım
+  karşılaştırması, "capability analizi yaklaşık normal veri varsayar"
+  şeklinde bir uyarı olarak sunulur — otomatik "normal değil → SPC
+  yapılamaz" kapısı DEĞİL, şeffaflık amaçlı.
+- Ppk/Pp hesabı (genel örneklem std sapmasıyla) + Cpk-vs-Ppk yorum
+  cümlesi ("kısa vadeli kapasite genel kapasiteden yüksek, süreç zaman
+  içinde kayıyor olabilir" gibi) — Ppk eklemenin gerçek faydasını
+  gösterir.
+- Demo senaryo galerisi (iyi süreç / kayan ortalama / düşük Cpk / trend)
+  — Nelson sinyallerini göstermek için de gerekli.
+- PDF raporuna otomatik yorum cümlesi (trend + Nelson sinyaline dayanan
+  kısa özet).
+
+**v1.3 — Mikrobiyoloji (kantitatif)**
+- Yeni parametre sınıfı: log10-CFU (TPC/TMAB, Küf-Maya, Koliform,
+  Enterobacteriaceae, kantitatif S. aureus) — sayısal, tek taraflı
+  (USL), mevcut I-MR + one_sided altyapısını kullanır.
+- Log10 dönüşüm katmanı: mikrobiyal sayımlar log-normal dağılır
+  (ICMSF, FDA BAM pratiği); ham CFU normal-dağılım varsayan I-MR/Cpk'ya
+  DOĞRUDAN sokulmaz.
+- **Ham/log10 şeffaflık tablosu:** kullanıcıya hem ham CFU hem
+  log10-dönüştürülmüş değer birlikte gösterilir (Batch / Raw CFU/g /
+  log₁₀ CFU/g) — "uygulama veriyi neden değiştirdi?" sorusunu önler.
+- **LOD/LOQ metadata'sı:** tespit limiti altı değerler ("<10 CFU/g")
+  sansürlü veridir; ikame kuralı (örn. LOD/2) kullanıcıya açıkça
+  gösterilir (`LOD = 10 CFU/g, Substitution = LOD/2, Used value = 5`),
+  gizlenmez.
+- Patojen (Salmonella, Listeria — var/yok) parametreleri BU sürüme
+  dahil edilmez: bunlar kantitatif değildir, Cpk kavramı uygulanamaz
+  (bkz. v2.2).
+
+**v2.0 — Kalıcılık & süreç tanımı**
+- Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
+  anlamda kapatılması.
+- Batch/Lot History: geçmiş lotların Cpk'sını karşılaştırma — kalıcı
+  depolamanın asıl gerekçesi budur (depolama tek başına amaç değildir).
+- Batch/lot kaydına isteğe bağlı **kullanıcı notu** sütunu (örn. "vana
+  temizlendi, sıcaklık normale döndü"), PDF'e yansır. Not: bu bir
+  "dijital imza" değildir — kriptografik imzalama/kimlik doğrulama
+  yapılmaz, sade bir metin alanıdır; öyle sunulmaz.
+- Control Plan: kullanıcının "bu parametre nasıl izlenecek" tanımını
+  (parametre, frekans, alt grup büyüklüğü, chart tipi, USL/LSL)
+  kaydedebilmesi — otomatik veri toplama sistemine ÇEVRİLMEZ, sadece
+  izleme niyetinin tanımı.
+
+**v3.0 — Sistem tasarımı**
+- Hesaplama mantığını API katmanına ayırma (FastAPI backend + ince
+  istemci) — `spc_core.py`/`result_helpers.py` zaten Streamlit'ten
+  bağımsız, bu adım o ayrımın doğal sonucu.
+- Docker containerization, temel CI/CD (Docker registry + otomatik
+  deploy).
+- Minimal audit trail: sade bir değişiklik günlüğü (kim/ne zaman/hangi
+  parametre/eski-yeni değer). Bilinçli olarak SADE tutulur — tam bir
+  uyum/regülasyon sistemine (e-imza, denetim modu vb.) dönüştürülmez;
+  bu proje istatistiksel süreç kontrolüne odaklanır.
+- Kapsamlı entegrasyon testleri (API seviyesinde).
+
+### Stretch (iyi fikir, taahhüt değil — ilk kesilecekler sırasıyla)
+
+1. **MSA / Gage R&R** (v2.3): "Süreç mi değişken, ölçüm sistemim mi
+   değişken?" sorusu — SPC'nin doğal komşusu ama kendi başına ayrı bir
+   istatistik disiplini (tekrarlanabilirlik/tekrar üretilebilirlik,
+   ANOVA tabanlı tasarım). En yüksek kesilme adayı.
+2. **Lot Kabul Örneklemesi — patojen var/yok** (v2.2): Salmonella/
+   Listeria gibi parametreler bir kontrol şeması DEĞİL, bir kabul
+   örnekleme sorunudur — ICMSF iki-sınıflı (n,c) veya EC 2073/2005 üç-
+   sınıflı (n,c,m,M) planları, zaman içinde trend izlemez, TEK bir lotu
+   kabul/red kararına bağlar. Bu nedenle aşağıdaki attribute chart
+   motorundan (v2.1) kasıtlı olarak AYRI tutulur — ikisi de "attribute
+   veri" olsa da farklı disiplinlerdir (kontrol şeması vs. kabul
+   örneklemesi), aynı çatı altında sunulmaz.
+3. **Attribute charts — fiziksel kusur** (v2.1): p-chart (kusurlu
+   oranı) / c-chart (birim başına kusur sayısı) — hatalı kapak, bombajlı
+   kutu, baskı hatası gibi zaman içinde tekrarlayan, trend/özel-neden
+   mantığının geçerli olduğu klasik SPC kullanımı. Formülü basit (Binom/
+   Poisson) ama yeni `spc_core` fonksiyonu + yeni grafik tipi + yeni
+   test gerektirir.
+4. **i18n** (v3.1): Arayüz + PDF için TR/EN geçişi. Gerekçesi mühendislik
+   pratiği genişliği göstermektir (string dışsallaştırma, locale-aware
+   biçimlendirme) — pazar/erişim büyütme gerekçesiyle DEĞİL.
+
+### Bilinçli olarak reddedilenler
+
+Aşağıdakiler değerlendirilip roadmap'e ALINMADI, gerekçesiyle birlikte:
+
+- **OOS için otomatik kurumsal aksiyon talimatı** ("ürünü bloke edin,
+  DÖF başlatın"): uygulamanın kurumsal SOP/yetki bilgisi yok, bunu
+  önermek istatistik aracı ile gerçek QMS otoritesi arasındaki sınırı
+  bulanıklaştırır.
+- **"Audit Mode"** (denetçiye sadece "temiz" veri gösterip taslak
+  veriyi gizleme): iyi niyetli bir "sade görünüm" fikri olsa da, tarif
+  edildiği haliyle veriyi seçici gösterme/gizleme mantığına dayanıyor —
+  bu, gıda denetimlerinin (BRC/IFS) tam olarak tespit etmeye çalıştığı
+  davranış türüdür. Bunun yerine nötr bir "kesinleşmiş lotlar" filtresi
+  düşünülebilir ama "denetçiden gizleme" çerçevesiyle değil.
+- **Hazır spesifikasyon şablon kütüphanesi**: zaten mevcut —
+  `PARAMETER_CONFIG`'teki `products` sözlüğü (yukarıdaki "Ürün referans
+  tabloları" bölümü) bu işlevi v1'den beri görüyor.
 
 ---
 
