@@ -10,25 +10,49 @@ maddesi), rapor uretiminin gercekten calistigini otomatik dogrular.
 
 import os
 import tempfile
+import unicodedata
 from datetime import datetime
 
 from fpdf import FPDF
 
 from result_helpers import format_cpk, get_cpk_level
 
+# ğ/Ğ, ş/Ş, ı/İ - Turkce'nin Latin-1'de (ISO-8859-1) KARSILIGI OLMAYAN tek
+# harfleri (ö/ü/ç gibi digerleri Latin-1'de mevcuttur, bu yuzden onlara
+# dokunulmaz - PDF'te aksanli haliyle kalirlar). Bu 6 harf, parametre/urun/
+# hammadde adlari gibi dinamik metinlerde kacip fpdf2'yi (core_fonts_encoding
+# latin-1) FPDFUnicodeEncodingException ile cokertebiliyordu (bkz. manuel QA -
+# canli PDF export "ğ" karakterinde patliyordu).
+_TURKISH_LATIN1_GAP_MAP = str.maketrans({
+    "ğ": "g", "Ğ": "G", "ş": "s", "Ş": "S", "ı": "i", "İ": "I",
+})
+
 
 def pdf_safe(text: str) -> str:
-    """PDF'in temel Latin-1 fontuyla uyumsuz karakterleri (orn. sonsuz
-    isareti) ASCII karsiliklarina cevirir - fpdf2'nin gomulu (base14)
-    fontlari Latin-1 disina cikan karakterleri kabul etmez."""
-    return (
+    """PDF'in temel Latin-1 fontuyla uyumsuz karakterleri ASCII karsiliklarina
+    cevirir - fpdf2'nin gomulu (base14) fontlari Latin-1 disina cikan
+    karakterleri kabul etmez. Once ozel SPC sembollerini (sonsuz, x-bar vb.)
+    anlamli karsiliklarina, sonra Turkce'nin Latin-1'de karsiligi olmayan 6
+    harfini (ğ/Ğ/ş/Ş/ı/İ) cevirir. Bunlardan SONRA hala latin-1'e
+    sigdirilamayan bir seyler kalirsa (orn. ileride eklenecek yeni bir
+    urun/hammadde adinda kacan beklenmedik bir unicode karakter - tek tek
+    karakter eklemek yerine GENEL bir guvenlik agi), NFKD ile ayristirip
+    ASCII'ye indirger; asla FPDFUnicodeEncodingException'a birakmaz."""
+    text = (
         text.replace("∞", "Inf")
         .replace("x̄̄", "x-double-bar")
         .replace("x̄", "x-bar")
         .replace("σ̂", "sigma-hat")
         .replace("R̄", "R-bar")
         .replace("MR̄", "MR-bar")
+        .translate(_TURKISH_LATIN1_GAP_MAP)
     )
+    try:
+        text.encode("latin-1")
+        return text
+    except UnicodeEncodeError:
+        normalized = unicodedata.normalize("NFKD", text)
+        return normalized.encode("ascii", "ignore").decode("ascii")
 
 
 def build_pdf_report(parameter: str, product: str, chart_type_label: str,

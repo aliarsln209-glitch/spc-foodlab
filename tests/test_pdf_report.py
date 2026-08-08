@@ -48,6 +48,28 @@ def test_pdf_safe_leaves_plain_text_unchanged():
     assert pdf_safe("Parametre: pH") == "Parametre: pH"
 
 
+def test_pdf_safe_converts_turkish_letters_missing_from_latin1():
+    # Canli QA'da bulunan gercek hata: 'ğ' (ve ş/ı/İ/Ğ/Ş) Latin-1'de
+    # (fpdf2'nin temel font kodlamasi) KARSILIGI OLMAYAN tek Turkce
+    # harflerdir - donusturulmezse FPDFUnicodeEncodingException firlatir.
+    assert pdf_safe("Peroksit değeri") == "Peroksit degeri"
+    assert pdf_safe("İşlenmiş peynir - Kırmızı Şarap") == "Islenmis peynir - Kirmizi Sarap"
+
+
+def test_pdf_safe_keeps_latin1_safe_accented_letters():
+    # ö/ü/ç Latin-1'de MEVCUTTUR (ISO-8859-1) - bunlara dokunulmamali,
+    # gereksiz yere ASCII'ye indirgemek okunakligi düşürür.
+    assert pdf_safe("Süt tozu, çözelti") == "Süt tozu, çözelti"
+
+
+def test_pdf_safe_generic_fallback_for_unmapped_unicode():
+    # Elle eslenmeyen (haritada olmayan) beklenmedik bir unicode karakter
+    # gelirse bile crash etmemeli - NFKD + ascii-ignore guvenlik agina duser.
+    result = pdf_safe("Emoji test \U0001F33E sonu")
+    assert "\U0001F33E" not in result
+    result.encode("latin-1")  # crash etmemeli
+
+
 # --- build_pdf_report --------------------------------------------------------
 
 def test_build_pdf_report_produces_valid_pdf_bytes_without_chart():
@@ -88,11 +110,28 @@ def test_build_pdf_report_handles_infinite_cpk_without_crashing():
     assert pdf_bytes.startswith(b"%PDF")
 
 
+def test_build_pdf_report_handles_turkish_letters_in_product_name():
+    # Regresyon: canli QA'da 'ğ' iceren bir metin (quick_summary/urun adi)
+    # PDF export'unu FPDFUnicodeEncodingException ile cokertiyordu.
+    pdf_bytes = build_pdf_report(
+        parameter="Peroksit Degeri", product="Değirmen yağı - Iğdır",
+        chart_type_label="I-MR", n_samples=10, n_out_of_control=0,
+        cpk=1.2, cpk_label="Cpu (tek tarafli)",
+        quick_summary_text="10 olcum analiz edildi, kontrol disi nokta yok, Cpu=1.200 ile surec yeterli.",
+        chart_png_bytes=None,
+    )
+    assert pdf_bytes.startswith(b"%PDF")
+
+
 if __name__ == "__main__":
     test_pdf_safe_converts_infinity_symbol()
     test_pdf_safe_converts_math_notation()
     test_pdf_safe_leaves_plain_text_unchanged()
+    test_pdf_safe_converts_turkish_letters_missing_from_latin1()
+    test_pdf_safe_keeps_latin1_safe_accented_letters()
+    test_pdf_safe_generic_fallback_for_unmapped_unicode()
     test_build_pdf_report_produces_valid_pdf_bytes_without_chart()
     test_build_pdf_report_produces_valid_pdf_bytes_with_chart()
     test_build_pdf_report_handles_infinite_cpk_without_crashing()
+    test_build_pdf_report_handles_turkish_letters_in_product_name()
     print("PDF_REPORT TESTLERI GECTI")
