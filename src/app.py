@@ -38,6 +38,7 @@ from spc_core import (
     compute_imr_limits,
     compute_moving_ranges,
     compute_xbar_r_limits,
+    is_spec_valid,
 )
 
 GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
@@ -309,16 +310,24 @@ def render_cpk_message(cpk: float, cpk_label: str) -> None:
 
 
 def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
-                               n_samples: int, cpk: float, cpk_label: str) -> None:
-    """Tek yerde ozet: Parametre, Urun, Ornek Sayisi, Chart Tipi, Sonuc + zaman damgasi."""
-    emoji, level_label, _ = get_cpk_level(cpk)
+                               n_samples: int, cpk: float, cpk_label: str,
+                               cpk_valid: bool = True) -> None:
+    """Tek yerde ozet: Parametre, Urun, Ornek Sayisi, Chart Tipi, Sonuc + zaman damgasi.
+    cpk_valid=False (LSL>=USL gecersiz spesifikasyon) durumunda gercek Cpk
+    degeri/rozeti YERINE somut bir 'gecersiz' notu gosterir - get_cpk_level()
+    gecersiz bir sayiyi (orn. -6.998) yine de bir renk/etikete siniflandirip
+    yaniltici bir sonuc gostermis olurdu."""
     st.caption(f"\U0001F553 Son analiz: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
     la1, la2, la3, la4, la5 = st.columns(5)
     la1.markdown(f"**Parametre**  \n{parameter}")
     la2.markdown(f"**Urun**  \n{product}")
     la3.markdown(f"**Ornek Sayisi**  \n{n_samples}")
     la4.markdown(f"**Chart Tipi**  \n{chart_type_label}")
-    la5.markdown(f"**Sonuc**  \n{emoji} {cpk_label}={format_cpk(cpk)} ({level_label})")
+    if cpk_valid:
+        emoji, level_label, _ = get_cpk_level(cpk)
+        la5.markdown(f"**Sonuc**  \n{emoji} {cpk_label}={format_cpk(cpk)} ({level_label})")
+    else:
+        la5.markdown(f"**Sonuc**  \n⚠️ {cpk_label}=Gecersiz (LSL≥USL)")
 
 
 def render_formula_method_card(chart_type_label: str, n_val: int) -> None:
@@ -405,12 +414,27 @@ def render_png_download(fig, filename: str, key: str) -> None:
 
 def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
                       n_samples: int, n_out_of_control: int, decimal_places: int,
-                      trend: tuple[str, float] | None = None) -> None:
+                      trend: tuple[str, float] | None = None, cpk_valid: bool = True) -> None:
     """Chart'tan once gosterilen 4'lu hizli ozet paneli - detayli karti
     tekrar etmez, sadece en onemli 4 sayiyi renkli kart + ikon + (Cpk
     kartinda) sonuc rozeti + (Ortalama kartinda, varsa) trend okuyla one
-    cikarir. trend, compute_trend()'in donusu: (yon, delta) veya None."""
-    emoji, level_label, color = get_cpk_level(cpk)
+    cikarir. trend, compute_trend()'in donusu: (yon, delta) veya None.
+
+    cpk_valid=False (LSL>=USL gecersiz spesifikasyon) durumunda Cpk karti
+    gercek sayiyi/rozeti GOSTERMEZ - get_cpk_level() gecersiz bir Cpk'yi
+    (orn. -6.998) yine de bir renge/etikete siniflandirip yaniltici bir
+    "sonuc" gostermis olurdu; bunun yerine notr bir 'Gecersiz' notu gosterilir."""
+    if cpk_valid:
+        emoji, level_label, color = get_cpk_level(cpk)
+        cpk_value_str = format_cpk(cpk)
+        cpk_tooltip = (
+            "Surecin spesifikasyon limitlerini karsilama yetenegini gosterir. "
+            "Genel kabul: >=1.67 excellent, 1.33-1.67 capable, 1.0-1.33 marginal, <1.0 not capable."
+        )
+    else:
+        emoji, level_label, color = "⚠️", "Gecersiz", "#f08c00"
+        cpk_value_str = "—"
+        cpk_tooltip = "LSL >= USL - spesifikasyon gecersiz oldugu icin Cpk/Cpu hesaplanmadi."
     card_bg = "#161a23" if dark else "#f8f9fa"
     text_color = "#fafafa" if dark else "#31333f"
     sub_color = "#9aa4b2" if dark else "#666666"
@@ -427,9 +451,7 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
         ("\U0001F4CA", f"Ortalama ({unit})", f"{center_value:.{decimal_places}f}", trend_badge, sub_color,
          accent_color, "Surecin genel ortalamasi (X-bar/R'de x-double-bar, I-MR'de x-bar) "
          "ve son verilere gore basit bir egilim (trend) gostergesi."),
-        (emoji, cpk_label, format_cpk(cpk), level_label, color, color,
-         "Surecin spesifikasyon limitlerini karsilama yetenegini gosterir. "
-         "Genel kabul: >=1.67 excellent, 1.33-1.67 capable, 1.0-1.33 marginal, <1.0 not capable."),
+        (emoji, cpk_label, cpk_value_str, level_label, color, color, cpk_tooltip),
         ("\U0001F522", "Ornek Sayisi", str(n_samples), None, sub_color, accent_color,
          "Toplam olcum (I-MR) veya alt grup (X-bar/R) sayisi."),
         (oos_icon, "Kontrol Disi Nokta", str(n_out_of_control), None, sub_color, oos_color,
@@ -1029,7 +1051,13 @@ with tab_chart:
                     help="Surecin kabul edilebilir ust siniri - Cpk/Cpu hesabinda kullanilir.",
                 )
 
-            if not one_sided and lsl >= usl:
+            # spec_valid=False iken Cpk/Cpu HESAPLANMAZ VE GOSTERILMEZ (asagidaki
+            # KPI karti/mesaj/hesaplama adimlari bunu kontrol eder) - LSL>=USL
+            # durumunda formul matematiksel olarak calisir ama anlamsiz bir sayi
+            # uretir (orn. Cpk=-6.998), bu da yukaridaki hata mesajiyla celisen
+            # yaniltici bir "sonuc" gostermis olurdu.
+            spec_valid = is_spec_valid(one_sided, lsl, usl)
+            if not spec_valid:
                 st.error(
                     f"Gecersiz spesifikasyon: LSL ({lsl:.2f}) >= USL ({usl:.2f}). "
                     "Alt limit ust limitten kucuk olmalidir - asagidaki Cpk/kontrol "
@@ -1138,15 +1166,23 @@ with tab_chart:
                     "UCL / LCL (I chart)", f"{limits.ucl_i:.{decimal_places}f} / {limits.lcl_i:.{decimal_places}f}",
                     help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
                 )
-                m4.metric(
-                    cpk_label, format_cpk(cpk),
-                    help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
-                )
-
-                render_cpk_message(cpk, cpk_label)
-
-                with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
-                    render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+                if spec_valid:
+                    m4.metric(
+                        cpk_label, format_cpk(cpk),
+                        help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
+                    )
+                    render_cpk_message(cpk, cpk_label)
+                    with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                        render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+                else:
+                    m4.metric(
+                        cpk_label, "Gecersiz",
+                        help="LSL >= USL - once yukaridaki spesifikasyon limitlerini duzeltin.",
+                    )
+                    st.warning(
+                        f"{cpk_label} hesaplanmadi: spesifikasyon gecersiz (LSL >= USL). "
+                        "Once yukaridaki LSL/USL degerlerini duzeltin."
+                    )
 
             st.write("")
 
@@ -1161,19 +1197,26 @@ with tab_chart:
             with st.container(border=True):
                 render_kpi_panel(
                     unit, x_bar, cpk, cpk_label, len(values), len(flagged_points), decimal_places,
-                    trend=compute_trend(values),
+                    trend=compute_trend(values), cpk_valid=spec_valid,
                 )
                 render_formula_method_card("I-MR", 2)
 
             st.write("")
 
-            imr_quick_summary = build_quick_summary("olcum", len(values), len(flagged_points), cpk, cpk_label)
+            if spec_valid:
+                imr_quick_summary = build_quick_summary("olcum", len(values), len(flagged_points), cpk, cpk_label)
+            else:
+                oos_text = "kontrol disi nokta yok" if not flagged_points else f"{len(flagged_points)} kontrol disi nokta var"
+                imr_quick_summary = (
+                    f"{len(values)} olcum analiz edildi, {oos_text}, "
+                    f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
+                )
             with st.container(border=True):
                 st.markdown(f"**\U0001F4CB Ozet:** {imr_quick_summary}")
                 st.code(imr_quick_summary, language=None)
                 render_last_analysis_card(
                     st.session_state.active_parameter, selected_product, "I-MR",
-                    len(values), cpk, cpk_label,
+                    len(values), cpk, cpk_label, cpk_valid=spec_valid,
                 )
 
             st.write("")
@@ -1185,14 +1228,14 @@ with tab_chart:
                 ax.plot(indices_i, values, marker="o", color="steelblue", linewidth=1, label="Olcum")
                 ax.axhline(x_bar, color="green", linestyle="-", label="Genel ortalama (x̄)")
                 ax.axhline(limits.ucl_i, color="red", linestyle="--", label="UCL")
-                annotate_hline(ax, indices_i[-1], limits.ucl_i, f"UCL={limits.ucl_i:.3f}", "red")
-                annotate_hline(ax, indices_i[-1], x_bar, f"x̄={x_bar:.3f}", "green")
+                annotate_hline(ax, indices_i[-1], limits.ucl_i, f"UCL={limits.ucl_i:.{decimal_places}f}", "red")
+                annotate_hline(ax, indices_i[-1], x_bar, f"x̄={x_bar:.{decimal_places}f}", "green")
                 if not one_sided:
                     # Tek tarafli (one_sided) analizde LSL/LCL anlamsizdir (bkz.
                     # Spesifikasyon limitleri karti) - grafik sadelestirmesi
                     # olarak bu durumda LCL cizgisi/etiketi cizilmez.
                     ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
-                    annotate_hline(ax, indices_i[-1], limits.lcl_i, f"LCL={limits.lcl_i:.3f}", "red")
+                    annotate_hline(ax, indices_i[-1], limits.lcl_i, f"LCL={limits.lcl_i:.{decimal_places}f}", "red")
                 if out_of_control_i:
                     ax.scatter(
                         [indices_i[i] for i in out_of_control_i],
@@ -1237,8 +1280,8 @@ with tab_chart:
                 ax2.axhline(mr_bar, color="green", linestyle="-", label="MR̄")
                 ax2.axhline(limits.ucl_mr, color="red", linestyle="--", label="UCL_MR")
                 ax2.axhline(limits.lcl_mr, color="red", linestyle="--", label="LCL_MR")
-                annotate_hline(ax2, indices_mr[-1], limits.ucl_mr, f"UCL={limits.ucl_mr:.3f}", "red")
-                annotate_hline(ax2, indices_mr[-1], mr_bar, f"MR̄={mr_bar:.3f}", "green")
+                annotate_hline(ax2, indices_mr[-1], limits.ucl_mr, f"UCL={limits.ucl_mr:.{decimal_places}f}", "red")
+                annotate_hline(ax2, indices_mr[-1], mr_bar, f"MR̄={mr_bar:.{decimal_places}f}", "green")
                 if out_of_control_mr:
                     ax2.scatter(
                         [indices_mr[i] for i in out_of_control_mr],
@@ -1254,11 +1297,17 @@ with tab_chart:
                 plt.close(fig2)
 
             with st.container(border=True):
-                render_pdf_download(
-                    st.session_state.active_parameter, selected_product, "I-MR",
-                    len(values), len(flagged_points), cpk, cpk_label, imr_quick_summary,
-                    imr_main_chart_png, key="pdf_imr",
-                )
+                if spec_valid:
+                    render_pdf_download(
+                        st.session_state.active_parameter, selected_product, "I-MR",
+                        len(values), len(flagged_points), cpk, cpk_label, imr_quick_summary,
+                        imr_main_chart_png, key="pdf_imr",
+                    )
+                else:
+                    st.info(
+                        "PDF raporu, spesifikasyon (LSL/USL) gecerli hale getirilene "
+                        "kadar devre disi - gecersiz bir Cpk iceren rapor uretilmez."
+                    )
 
             if flagged_points:
                 st.warning(
@@ -1364,15 +1413,23 @@ with tab_chart:
                     "UCL / LCL (X-bar)", f"{limits.ucl_x:.{decimal_places}f} / {limits.lcl_x:.{decimal_places}f}",
                     help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
                 )
-                m4.metric(
-                    cpk_label, format_cpk(cpk),
-                    help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
-                )
-
-                render_cpk_message(cpk, cpk_label)
-
-                with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
-                    render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+                if spec_valid:
+                    m4.metric(
+                        cpk_label, format_cpk(cpk),
+                        help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
+                    )
+                    render_cpk_message(cpk, cpk_label)
+                    with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                        render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+                else:
+                    m4.metric(
+                        cpk_label, "Gecersiz",
+                        help="LSL >= USL - once yukaridaki spesifikasyon limitlerini duzeltin.",
+                    )
+                    st.warning(
+                        f"{cpk_label} hesaplanmadi: spesifikasyon gecersiz (LSL >= USL). "
+                        "Once yukaridaki LSL/USL degerlerini duzeltin."
+                    )
 
             st.write("")
 
@@ -1384,26 +1441,41 @@ with tab_chart:
             with st.container(border=True):
                 render_kpi_panel(
                     unit, x_double_bar, cpk, cpk_label, len(means), len(groups), decimal_places,
-                    trend=compute_trend(means),
+                    trend=compute_trend(means), cpk_valid=spec_valid,
                 )
                 render_formula_method_card("X-bar/R", subgroup_n)
 
             st.write("")
 
-            xbar_quick_summary = build_quick_summary("alt grup", len(means), len(groups), cpk, cpk_label)
+            if spec_valid:
+                xbar_quick_summary = build_quick_summary("alt grup", len(means), len(groups), cpk, cpk_label)
+            else:
+                oos_text = "kontrol disi nokta yok" if not groups else f"{len(groups)} kontrol disi nokta var"
+                xbar_quick_summary = (
+                    f"{len(means)} alt grup analiz edildi, {oos_text}, "
+                    f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
+                )
             with st.container(border=True):
                 st.markdown(f"**\U0001F4CB Ozet:** {xbar_quick_summary}")
                 st.code(xbar_quick_summary, language=None)
                 render_last_analysis_card(
                     st.session_state.active_parameter, selected_product, "X-bar/R",
-                    len(means), cpk, cpk_label,
+                    len(means), cpk, cpk_label, cpk_valid=spec_valid,
                 )
 
             st.write("")
 
-            render_shift_comparison(
-                st.session_state.subgroups, subgroup_n, lsl, usl, one_sided, cpk_label, unit,
-            )
+            if spec_valid:
+                render_shift_comparison(
+                    st.session_state.subgroups, subgroup_n, lsl, usl, one_sided, cpk_label, unit,
+                )
+            else:
+                with st.container(border=True):
+                    st.subheader("Vardiya Karsilastirmasi")
+                    st.info(
+                        "Spesifikasyon (LSL/USL) gecerli hale getirilene kadar vardiya "
+                        "bazinda Cpk/Cpu karsilastirmasi gosterilmiyor."
+                    )
 
             st.write("")
 
@@ -1414,14 +1486,14 @@ with tab_chart:
                 ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
                 ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
                 ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
-                annotate_hline(ax, indices[-1], limits.ucl_x, f"UCL={limits.ucl_x:.3f}", "red")
-                annotate_hline(ax, indices[-1], x_double_bar, f"x̄̄={x_double_bar:.3f}", "green")
+                annotate_hline(ax, indices[-1], limits.ucl_x, f"UCL={limits.ucl_x:.{decimal_places}f}", "red")
+                annotate_hline(ax, indices[-1], x_double_bar, f"x̄̄={x_double_bar:.{decimal_places}f}", "green")
                 if not one_sided:
                     # Tek tarafli (one_sided) analizde LSL/LCL anlamsizdir (bkz.
                     # Spesifikasyon limitleri karti) - grafik sadelestirmesi
                     # olarak bu durumda LCL cizgisi/etiketi cizilmez.
                     ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
-                    annotate_hline(ax, indices[-1], limits.lcl_x, f"LCL={limits.lcl_x:.3f}", "red")
+                    annotate_hline(ax, indices[-1], limits.lcl_x, f"LCL={limits.lcl_x:.{decimal_places}f}", "red")
                 if out_of_control_x:
                     ax.scatter(
                         [indices[i] for i in out_of_control_x],
@@ -1465,8 +1537,8 @@ with tab_chart:
                 ax2.axhline(r_bar, color="green", linestyle="-", label="R̄")
                 ax2.axhline(limits.ucl_r, color="red", linestyle="--", label="UCL_R")
                 ax2.axhline(limits.lcl_r, color="red", linestyle="--", label="LCL_R")
-                annotate_hline(ax2, indices[-1], limits.ucl_r, f"UCL={limits.ucl_r:.3f}", "red")
-                annotate_hline(ax2, indices[-1], r_bar, f"R̄={r_bar:.3f}", "green")
+                annotate_hline(ax2, indices[-1], limits.ucl_r, f"UCL={limits.ucl_r:.{decimal_places}f}", "red")
+                annotate_hline(ax2, indices[-1], r_bar, f"R̄={r_bar:.{decimal_places}f}", "green")
                 if out_of_control_r:
                     ax2.scatter(
                         [indices[i] for i in out_of_control_r],
@@ -1482,11 +1554,17 @@ with tab_chart:
                 plt.close(fig2)
 
             with st.container(border=True):
-                render_pdf_download(
-                    st.session_state.active_parameter, selected_product, "X-bar/R",
-                    len(means), len(groups), cpk, cpk_label, xbar_quick_summary,
-                    xbar_main_chart_png, key="pdf_xbar",
-                )
+                if spec_valid:
+                    render_pdf_download(
+                        st.session_state.active_parameter, selected_product, "X-bar/R",
+                        len(means), len(groups), cpk, cpk_label, xbar_quick_summary,
+                        xbar_main_chart_png, key="pdf_xbar",
+                    )
+                else:
+                    st.info(
+                        "PDF raporu, spesifikasyon (LSL/USL) gecerli hale getirilene "
+                        "kadar devre disi - gecersiz bir Cpk iceren rapor uretilmez."
+                    )
 
             if groups:
                 st.warning(

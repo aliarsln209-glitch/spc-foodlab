@@ -83,6 +83,18 @@ def compute_xbar_r_limits(x_double_bar: float, r_bar: float, n: int) -> XbarRLim
     )
 
 
+def is_spec_valid(one_sided: bool, lsl: float, usl: float) -> bool:
+    """Bir Cpk/Cpu hesabinin ANLAMLI olup olmadigini kontrol eder - compute_cpk()
+    matematiksel olarak LSL >= USL icin de bir sayi doner (orn. -6.998), ama bu
+    sayi anlamsizdir (alt limit ust limitten buyukse spesifikasyonun kendisi
+    gecersizdir). Cagiran kod, spec_valid=False oldugunda Cpk/Cpu'yu HESAPLAMAMALI
+    veya en azindan GOSTERMEMELIDIR - bkz. app.py'deki 'spec_valid' kullanimi
+    (KPI karti, hesaplama adimlari, PDF export vb. gecersizken gizlenir/placeholder
+    gosterir). Tek tarafli (one_sided=True) parametrelerde LSL yok sayildigi icin
+    bu kontrol uygulanmaz - USL tek basina her zaman gecerlidir."""
+    return one_sided or lsl < usl
+
+
 def compute_cpk(
     x_double_bar: float, r_bar: float, n: int, lsl: float, usl: float, one_sided: bool = False
 ) -> float:
