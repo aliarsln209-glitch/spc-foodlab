@@ -1,6 +1,7 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
+import textwrap
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -475,7 +476,16 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     }}
     </style>
     """
-    st.markdown(css, unsafe_allow_html=True)
+    # KRITIK: css f-string'i, fonksiyonun kendi Python girinti seviyesini
+    # (4 bosluk) miras alir - textwrap.dedent() olmadan st.markdown() bu
+    # dizeyi CommonMark'in "girintili kod bloğu" kuraliyla (4+ bosluk
+    # girintili satirlar = kod bloğu) yorumlar ve '<style>' etiketini
+    # GERCEK HTML olarak degil, kacis karakterli DUZ METIN olarak basar -
+    # yani CSS hicbir zaman tarayicida yorumlanmaz. Bu, canli QA'da
+    # bulunan 'tema hicbir gorsel etki yaratmiyor' hatasinin kok nedeniydi
+    # (markdown-it-py ile dogrulandi: dedent olmadan <style> -> <pre><code>
+    # &lt;style&gt; olarak render ediliyordu).
+    st.markdown(textwrap.dedent(css).strip(), unsafe_allow_html=True)
 
 
 inject_theme_css(dark, accent_color)
