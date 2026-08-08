@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from fpdf import FPDF
 from scipy import stats
 
@@ -260,7 +261,6 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     color_scheme = "dark" if dark else "light"
 
     css = f"""
-    <style>
     @import url('{GOOGLE_FONTS_IMPORT}');
 
     .stApp {{
@@ -474,18 +474,47 @@ def inject_theme_css(dark: bool, accent: str) -> None:
             animation: none !important;
         }}
     }}
-    </style>
     """
-    # KRITIK: css f-string'i, fonksiyonun kendi Python girinti seviyesini
-    # (4 bosluk) miras alir - textwrap.dedent() olmadan st.markdown() bu
-    # dizeyi CommonMark'in "girintili kod bloğu" kuraliyla (4+ bosluk
-    # girintili satirlar = kod bloğu) yorumlar ve '<style>' etiketini
-    # GERCEK HTML olarak degil, kacis karakterli DUZ METIN olarak basar -
-    # yani CSS hicbir zaman tarayicida yorumlanmaz. Bu, canli QA'da
-    # bulunan 'tema hicbir gorsel etki yaratmiyor' hatasinin kok nedeniydi
-    # (markdown-it-py ile dogrulandi: dedent olmadan <style> -> <pre><code>
-    # &lt;style&gt; olarak render ediliyordu).
-    st.markdown(textwrap.dedent(css).strip(), unsafe_allow_html=True)
+    css = textwrap.dedent(css).strip()
+
+    # KRITIK - iki katmanli sorun tespit edildi (canli QA'da bulundu):
+    # 1) css f-string'i onceden fonksiyonun kendi Python girinti seviyesini
+    #    miras aliyordu (dedent ile cozuldu).
+    # 2) DAHA ONEMLISI: Streamlit 1.61.1, st.markdown(unsafe_allow_html=True)
+    #    icindeki <style> etiketinin ICERIGINI sessizce filtreliyor/etkisiz
+    #    kiliyor - canli tarayici DOM taramasi bunu kanitladi (bir "canary"
+    #    <div style="..."> render ediliyordu ama salt <style>body{...}</style>
+    #    kuralinin HICBIR etkisi yoktu, ne gercek ne kacis karakterli hali
+    #    DOM'da bulunamadi). st.markdown ile <style> enjeksiyonu bu Streamlit
+    #    surumunde GUVENILMEZ.
+    #
+    # COZUM: st.components.v1.html() - Streamlit'in ozel bilesenler icin
+    # sagladigi, SANITIZE EDILMEYEN gercek bir iframe/JS kacis kapisi
+    # (izolasyonun kendisi guvenlik siniri oldugu icin icerigi sansurlemez).
+    # Bu iframe icinden JavaScript ile window.parent.document.head'e
+    # GERCEK bir <style> DOM elemani ekleniyor - ust cerceve (Streamlit
+    # app'in kendisi) ile ayni origin'de calistigi icin bu erisim izinlidir.
+    # Her rerun'da eski enjekte edilmis stil (id ile) once kaldirilip
+    # yenisi eklenir, boylece <head> icinde tekrar tekrar birikmez.
+    css_js_safe = css.replace("\\", "\\\\").replace("`", "\\`")
+    injector_js = f"""
+    <script>
+    (function() {{
+        try {{
+            const doc = window.parent.document;
+            const existing = doc.getElementById('spc-foodlab-theme');
+            if (existing) {{ existing.remove(); }}
+            const style = doc.createElement('style');
+            style.id = 'spc-foodlab-theme';
+            style.textContent = `{css_js_safe}`;
+            doc.head.appendChild(style);
+        }} catch (e) {{
+            console.error('SPC FoodLab tema enjeksiyonu basarisiz:', e);
+        }}
+    }})();
+    </script>
+    """
+    components.html(injector_js, height=0, width=0)
 
 
 inject_theme_css(dark, accent_color)
