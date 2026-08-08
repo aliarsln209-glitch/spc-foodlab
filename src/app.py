@@ -490,6 +490,27 @@ def inject_theme_css(dark: bool, accent: str) -> None:
 
 inject_theme_css(dark, accent_color)
 
+# --- GECICI DEBUG CANARY (kaldirilacak) -------------------------------------
+# 3 ayri katmani test eder: (1) bu satir calisiyor mu - duz metin,
+# (2) unsafe_allow_html=True ile stilli <div> render ediliyor mu,
+# (3) <style> etiketinin KENDISI (herhangi bir CSS icerigi olmadan, sadece
+# sayfa arka planini kirmiziya boyayan tek satirlik bir kural) etkili oluyor
+# mu - fark buysa Streamlit surumu <style>/<script> etiketlerini
+# unsafe_allow_html=True icinde bile sessizce filtreliyor olabilir.
+st.caption("\U0001F527 DEBUG-CANARY-1: bu satir calisiyorsa metin gorunur")
+st.markdown(
+    '<div style="background:#ff00aa;color:white;padding:12px;'
+    'font-size:18px;font-weight:bold;">DEBUG-CANARY-2: bu pembe kutu '
+    'gorunuyorsa unsafe_allow_html HTML render calisiyor</div>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    "<style>body { background-color: red !important; }</style>",
+    unsafe_allow_html=True,
+)
+st.caption("DEBUG-CANARY-3: yukaridaki <style> calisiyorsa TUM SAYFA ARKA PLANI KIRMIZI olmali")
+# --- /GECICI DEBUG CANARY ----------------------------------------------------
+
 
 def compute_stats(subgroups):
     """Alt gruplardan ortalama/range listelerini ve genel ortalama/R-bar'i hesaplar.
