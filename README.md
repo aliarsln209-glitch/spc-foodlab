@@ -5,7 +5,10 @@
 Gıda üretiminde pH, Brix, aw (su aktivitesi), viskozite, nem/rutubet,
 tuz/NaCl, titrasyon asitliği, peroksit değeri veya HMF ölçümlerinden
 **istatistiksel proses kontrolü (SPC)** grafiği ve **süreç yeterlilik
-analizi (Cpk/Cpu)** üreten bir Streamlit uygulaması.
+analizi (Cpk/Cpu)** üreten bir Streamlit uygulaması. Bitmiş ürünlerin
+yanı sıra 16 hammadde (buğday unu, süt tozu, kakao tozu, tuz vb.) için
+ayrı bir **Hammadde QC Referansı** kütüphanesi de içerir (bkz.
+[METHODOLOGY.md](METHODOLOGY.md) "Hammadde Kütüphanesi Genişletmesi").
 
 🔗 **Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
@@ -26,7 +29,7 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (75 automated tests across 8 files, plus a data-driven
+  `tests/` (76 automated tests across 8 files, plus a data-driven
   `validation/` folder of reference CSVs, run on every push with
   coverage reporting via GitHub Actions — see badge above).
 - **Raw material (hammadde) library:** 16 raw materials mapped to the
@@ -42,6 +45,10 @@ SPC FoodLab turns routine food-quality lab measurements into proper
   SPC/quality-engineering coursework to a real, deployed tool).
 
 ## Ekran görüntüleri
+
+> Not: Aşağıdaki ekran görüntüleri v1.1.1'deki görsel kimlik
+> yenilemesinden (bkz. "Tasarım" bölümü) ÖNCE alındı, güncel değil —
+> bu ortamda tarayıcı erişimi olmadığı için yeniden alınamadı.
 
 | | |
 |---|---|
@@ -71,6 +78,13 @@ Bal'ın nem spesifikasyonunda sadece üst limit vardır); alt grup büyüklüğ�
 (n) sidebar'dan seçilebilir (varsayılan n=4, aralık n=2–10) — detaylı
 mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md).
 
+"Ürün / Hammadde" seçim listesinde bitmiş ürünlerin yanında 🌾 önekiyle
+16 hammadde de yer alır (her biri sadece ilgili olduğu parametrede
+görünür); bitmiş ürün (TGK uyumlu) spesifikasyonlarından ayrı, açıkça
+etiketlenmiş bir "Hammadde QC Referansı" kategorisidir — kaynağı
+doğrulanamayan kombinasyonlarda varsayılan sayı KONULMAZ, kullanıcı
+manuel girer (detay ve kaynak tablosu: [METHODOLOGY.md](METHODOLOGY.md)).
+
 **Kapsam dışı (v1'de yok):** çoklu parametre karşılaştırma, Western
 Electric kuralları, kullanıcı hesabı/çoklu kullanıcı sistemi, veritabanı
 entegrasyonu (session-state + CSV import/export yeterli).
@@ -98,8 +112,13 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 - **Streamlit** (Python) — form, hesaplama ve grafik tek pakette
 - **matplotlib + scipy** — kontrol grafikleri ve kapasite histogramı
 - **fpdf2** — tek sayfalık PDF analiz raporu export'u
-- Hafif CSS geçişleri/animasyonları (buton hover, kart hover gölgesi,
-  uyarı kutularında fade-in) — arayüzü canlandırır, dikkat dağıtmaz
+- **Tasarım:** özel bir CSS tema sistemi (`inject_theme_css`) ile
+  Streamlit'in varsayılan görünümünün ötesine geçilir — "Gıda-Bilim
+  Sıcak" paleti (koyu yeşil + amber, açık/koyu temada tutarlı), Outfit
+  (başlık) + Work Sans (gövde) tipografisi, kart gölgesi/border-radius
+  ve hafif hover/geçiş animasyonları. Cpk/istatistiksel sonuç renkleri
+  (mavi→mor→kırmızı) marka renginden bilinçli olarak ayrı tutulur —
+  "marka rengi mi sonuç mu iyi" karışıklığını önlemek için.
 - **Deploy:** Streamlit Community Cloud
 - Veri kalıcılığı: session-state (uygulama içi) + CSV import/export —
   v1'de veritabanı entegrasyonu yok
