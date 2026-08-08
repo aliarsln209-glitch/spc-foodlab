@@ -1,0 +1,2 @@
+source,input_x_bar,input_mr_bar,expected_ucl,expected_lcl,tolerance,notes
+"6Sigma Toolkit - I-MR Chart example (kahve sicakligi verisi)",87.2,2.889,94.88,79.52,0.01,"-"

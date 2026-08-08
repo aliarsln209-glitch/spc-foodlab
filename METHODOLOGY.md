@@ -153,14 +153,18 @@ başına Cpk/Cpu ve kontrol limitlerine bakılmalıdır.
 ## Doğrulama
 
 Her formül, kodlamadan önce elle çözülmüş literatür örnekleriyle test
-edildi (`pytest tests/` — 27 test, 4 dosya; her push'ta GitHub Actions
-ile otomatik çalışır). İlk 3 dosya (17 test) aşağıda anlatılan formül
-doğrulamalarını kapsar; 4. dosya (`test_result_helpers.py`, 10 test)
-`src/result_helpers.py`'daki hesaplama-DIŞI sunum yardımcılarını
-(Cpk rozet eşikleri, trend göstergesi, quick summary metni, demo
-senaryosu hedef hesaplaması) test eder — bunlar doğrulanacak
-istatistiksel formüller değil, mevcut sonuçların doğru sınıflandırılıp
-metne çevrildiğinin kontrolüdür.
+edildi (`pytest tests/` — 56 test, 7 dosya; her push'ta GitHub Actions
+ile otomatik çalışır, `pytest-cov` ile kapsam raporu üretir). İlk 3 dosya
+(17 test) aşağıda anlatılan formül doğrulamalarını kapsar;
+`test_result_helpers.py` (10 test) `src/result_helpers.py`'daki
+hesaplama-DIŞI sunum yardımcılarını (Cpk rozet eşikleri, trend
+göstergesi, quick summary metni, demo senaryosu hedef hesaplaması) test
+eder. v1.1 ile eklenen 3 dosya: `test_csv_io.py` (20 test — CSV şema
+doğrulama, hata mesajı üretimi, boş/yinelenen satır temizleme, export→
+import round-trip), `test_pdf_report.py` (6 test — PDF rapor üretiminin
+gerçekten çalıştığının otomatik kanıtı) ve `test_validation_suite.py`
+(3 test — aşağıdaki `validation/*.csv` referans dosyalarını okuyup
+`spc_core` fonksiyonlarına karşı çalıştırır, bkz. `validation/README.md`).
 
 ### X-bar/R
 
@@ -234,28 +238,46 @@ değil) olarak ikiye ayrılmıştır.
 
 ### Omurga
 
-**v1.1 — Sağlamlaştırma** (yeni özellik yok, sadece mevcut iddiaların
-gerçekten tutulduğunun kanıtı)
-- CSV schema validation (yanlış/eksik sütun adı, yanlış veri tipi)
-- Minimum veri sayısı uyarısı (yetersiz gözlemle Cpk hesaplanmasını
-  engelleme/uyarma)
-- NaN / duplicate / boş satır temizleme kontrolü
-- Spesifikasyon limitlerinin mantıksal doğrulanması (LSL < USL, fiziksel
-  aralık)
-- Export → import round-trip testi (verinin döngüde bozulmadığının
-  otomatik kanıtı)
-- PDF export testi (rapor üretiminin otomatik doğrulanması)
-- Test coverage raporu (pytest-cov)
-- Anlamlı rakam / ondalık basamak koruması: `constants.py`'deki her
-  parametreye `decimal_places` niteliği (pH=2, Brix=1, Aw=3 gibi);
-  tüm grafik etiketi/tablo/Cpk özeti buna göre yuvarlanır — laboratuvar
-  cihazının ölçüm hassasiyetinin ötesinde sahte kesinlik göstermemek için
-- **Validation Suite tohumu:** `validation/` klasörü açılır, her
-  formül için literatür referans veri setiyle karşılaştırma burada
-  toplanır (`xbar_r_reference.csv`, `imr_reference.csv`,
-  `cpk_reference.csv` vb.). Tek seferlik bir teslimat değil — v1.2'de
+**v1.1 — Sağlamlaştırma ✅ Tamamlandı** (yeni özellik yok, sadece mevcut
+iddiaların gerçekten tutulduğunun kanıtı)
+- CSV schema validation: sütun sayısı/adı uyuşmazlığı, sayısal olmayan
+  değer (virgüllü ondalık, boş hücre, metin) satır numarasıyla birlikte
+  Türkçe hata mesajına çevrilir (`src/csv_io.py`)
+- Minimum veri sayısı uyarısı: baseline dondurulduktan SONRA da (önceden
+  sadece dondurulmadan önce gösteriliyordu) örnek sayısı önerilen
+  minimumun (20) altındaysa Cpk/UCL-LCL güvenilirliği için uyarı kalıcı
+- NaN / duplicate / boş satır temizleme: tamamen boş satırlar otomatik
+  atlanır (sayısı raporlanır); tam yinelenen satırlar silinmez ama
+  bilgilendirme amaçlı sayılır (aynı ölçümün tekrar edilmesi istatistiksel
+  olarak geçerli olabileceği için sessizce veri kaybına yol açılmaz)
+- Spesifikasyon limitlerinin mantıksal doğrulanması: LSL/USL girişleri
+  artık parametrenin fiziksel aralığına (`min_value`/`max_value`) sınırlı;
+  iki taraflı parametrelerde LSL ≥ USL girilirse aşağıdaki tüm sonuçların
+  anlamsız olduğunu belirten açık bir uyarı gösterilir
+- Export → import round-trip testi: CSV olarak indirilen bir dosyanın
+  (ekstra "Ortalama"/"Range" sütunları dahil) aynen geri yüklendiğinde
+  orijinal verinin bozulmadığı otomatik test edilir
+- PDF export testi: rapor üretiminin gerçekten çalıştığı ve fpdf2'nin
+  Latin-1 dışı karakterlerde (∞, x̄̄ vb.) çökmediği otomatik doğrulanır
+- Test coverage raporu: `pytest-cov`, her push'ta CI'da çalışır
+- Anlamlı rakam / ondalık basamak koruması: her parametrede
+  `decimal_places` niteliği (pH=2, Brix=1, Aw=3, Viskozite=0 gibi,
+  laboratuvar cihazı hassasiyetine dayanır); tüm KPI kartı, hesaplama
+  adımı ve ham veri tablosu buna göre yuvarlanır — CSV export'u ise
+  kullanıcının girdiği tam değeri korur (sadece GÖRÜNÜM yuvarlanır)
+- **Validation Suite:** `validation/` klasörü (`xbar_r_reference.csv`,
+  `imr_reference.csv`, `cpk_reference.csv` + `README.md`) açıldı;
+  `tests/test_validation_suite.py` bu CSV'leri okuyup `spc_core`'a karşı
+  çalıştırır — yeni bir referans örneği eklemek artık kod değil veri
+  eklemek anlamına gelir. Tek seferlik bir teslimat değil — v1.2'de
   Nelson, v1.3'te mikrobiyoloji formülleri eklendikçe kendi referans
-  dosyasını buraya ekler; proje boyunca büyüyen bir disiplin.
+  dosyasını buraya ekleyecek, proje boyunca büyüyen bir disiplin.
+
+Mimari not: CSV içe/dışa aktarma mantığı (`src/csv_io.py`) ve PDF rapor
+üretimi (`src/pdf_report.py`) `app.py`'den ayrı, Streamlit'e bağımlı
+olmayan modüllere çıkarıldı — `spc_core.py`/`result_helpers.py` ile aynı
+gerekçe: pytest ile doğrudan test edilebilmeleri için (bkz. yukarıdaki
+"Doğrulama" bölümü).
 
 **v1.2 — İstatistiksel derinlik** (mevcut sürekli-veri motorunun
 genişletilmesi, yeni istatistik ailesi yok)

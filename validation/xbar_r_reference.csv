@@ -1,0 +1,2 @@
+source,input_x_double_bar,input_r_bar,input_n,expected_ucl,tolerance,lcl_check,notes
+"LibreTexts Engineering - Chemical Process Dynamics and Controls (Woolf) 13.2: SPC Basic Control Charts, pH X-bar/R example",7.01,0.12,4,7.0982,0.001,symmetry_only,"Kaynaktaki LCL=6.9251 x_double_bar etrafinda simetrik degil (muhtemel transkripsiyon hatasi) - sadece UCL kaynakla karsilastirilir, LCL formul simetrisinden (x_double_bar - A2*r_bar) ayrica dogrulanir"

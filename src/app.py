@@ -1,7 +1,6 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
-import re
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -11,6 +10,7 @@ import streamlit as st
 from fpdf import FPDF
 from scipy import stats
 
+import csv_io
 from constants import (
     DEFAULT_SUBGROUP_SIZE,
     MAX_SUBGROUP_SIZE,
@@ -22,6 +22,7 @@ from constants import (
     SHIFT_OPTIONS,
 )
 from demo_data import generate_demo_individual, generate_demo_subgroups
+from pdf_report import build_pdf_report
 from result_helpers import (
     build_quick_summary,
     compute_trend,
@@ -129,6 +130,10 @@ with st.sidebar:
 dark = chart_theme == "Koyu"
 param_config = PARAMETER_CONFIG[st.session_state.active_parameter]
 unit = param_config["unit"]
+# Laboratuvar cihazinin gercek olcum hassasiyetini yansitir (orn. pH metre
+# 2 basamak verirken ekranda 4.5512344 gostermek sahte kesinlik olur) -
+# tum grafik etiketi/tablo/Cpk-adim gosterimi buna gore yuvarlanir.
+decimal_places = param_config["decimal_places"]
 is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
 
 if not is_individual:
@@ -329,78 +334,6 @@ def render_formula_method_card(chart_type_label: str, n_val: int) -> None:
     )
 
 
-def _pdf_safe(text: str) -> str:
-    """PDF'in temel Latin-1 fontuyla uyumsuz karakterleri (orn. sonsuz
-    isareti) ASCII karsiliklarina cevirir - fpdf2'nin gomulu (base14)
-    fontlari Latin-1 disina cikan karakterleri kabul etmez."""
-    return (
-        text.replace("∞", "Inf")
-        .replace("x̄̄", "x-double-bar")
-        .replace("x̄", "x-bar")
-        .replace("σ̂", "sigma-hat")
-        .replace("R̄", "R-bar")
-        .replace("MR̄", "MR-bar")
-    )
-
-
-def build_pdf_report(parameter: str, product: str, chart_type_label: str,
-                      n_samples: int, n_out_of_control: int, cpk: float,
-                      cpk_label: str, quick_summary_text: str,
-                      chart_png_bytes: bytes | None) -> bytes:
-    """Grafik + KPI ozeti + Quick Summary'yi tek sayfalik bir PDF'e dokumler.
-    Mevcut PNG export'un (fig_to_png_bytes) genisletilmesi - ayni PNG byte'lari
-    burada da kullanilir, ek bir grafik render islemi yapilmaz."""
-    _, level_label, _ = get_cpk_level(cpk)
-
-    pdf = FPDF()
-    pdf.add_page()
-
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, "SPC FoodLab - Analiz Raporu", ln=True)
-
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(110, 110, 110)
-    pdf.cell(0, 6, f"Olusturma: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}", ln=True)
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(3)
-
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Analiz Bilgisi", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    for line in [
-        f"Parametre: {parameter}",
-        f"Urun: {product}",
-        f"Chart Tipi: {chart_type_label}",
-        f"Ornek Sayisi: {n_samples}",
-        f"Kontrol Disi Nokta: {n_out_of_control}",
-        f"{_pdf_safe(cpk_label)}: {_pdf_safe(format_cpk(cpk))} ({level_label})",
-    ]:
-        pdf.cell(0, 6, _pdf_safe(line), ln=True)
-    pdf.ln(3)
-
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, "Ozet", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 6, _pdf_safe(quick_summary_text))
-    pdf.ln(3)
-
-    if chart_png_bytes:
-        import os
-        import tempfile
-
-        tmp_path = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                tmp.write(chart_png_bytes)
-                tmp_path = tmp.name
-            pdf.image(tmp_path, w=180)
-        finally:
-            if tmp_path:
-                os.unlink(tmp_path)
-
-    return bytes(pdf.output())
-
-
 def render_pdf_download(parameter: str, product: str, chart_type_label: str,
                          n_samples: int, n_out_of_control: int, cpk: float,
                          cpk_label: str, quick_summary_text: str,
@@ -465,62 +398,13 @@ def render_png_download(fig, filename: str, key: str) -> None:
     )
 
 
-_DECIMAL_COMMA_RE = re.compile(r"^-?\d+,\d+$")
-
-
-def _find_first_bad_value(raw_series: pd.Series, numeric_series: pd.Series) -> tuple[int, str] | None:
-    """numeric_series icinde NaN olan ilk satirin (1-index CSV satir no,
-    bastaki baslik satiri haric) ve ham metin degerini dondurur. Kullaniciya
-    'hangi satirda ne yanlis' sorusuna somut cevap vermek icin - bare
-    'CSV okunamadi' yerine."""
-    for i, (raw, num) in enumerate(zip(raw_series, numeric_series), start=1):
-        if pd.isna(num):
-            return i, ("" if pd.isna(raw) else str(raw))
-    return None
-
-
-def _friendly_numeric_error(raw_series: pd.Series, numeric_series: pd.Series, unit: str) -> str:
-    """Sayisal donusturme hatasini somut Turkce mesaja cevirir. En yaygin uc
-    durumu (ondalik ayiraci olarak virgul kullanilmasi, orn. Excel'in TR
-    yerel ayarlarindan kaynaklanan '1,25') ozel olarak yakalayip cozumu
-    soyler; digerlerinde bos hucre / sayisal olmayan metin ayrimi yapar."""
-    found = _find_first_bad_value(raw_series, numeric_series)
-    if found is None:
-        return "CSV'de sayisal olmayan veya eksik bir deger bulundu. Lutfen dosyayi kontrol edin."
-    row_no, raw_value = found
-    stripped = raw_value.strip()
-    if stripped == "" or stripped.lower() == "nan":
-        return f"{row_no}. satirda bos bir hucre bulundu. Her olcum hucresi bir sayi icermelidir."
-    if _DECIMAL_COMMA_RE.match(stripped):
-        return (
-            f"{row_no}. satirda '{stripped}' bulundu - ondalik ayiraci nokta olmalidir "
-            f"(virgul yerine '{stripped.replace(',', '.')}' yazin)."
-        )
-    return (
-        f"{row_no}. satirda sayisal olmayan bir deger bulundu: '{stripped}'. "
-        f"Bu sutun yalnizca sayisal {unit} olcumleri icermelidir."
-    )
-
-
-def _friendly_csv_read_error(exc: Exception) -> str:
-    """CSV'nin kendisi (pandas.read_csv) parse edilemediginde gosterilecek
-    somut Turkce mesaj. Ham exception metni kullaniciya DOGRUDAN gosterilmez
-    (teknik/Ingilizce ve cogu kullanici icin anlamsizdir) - sadece bir
-    'Teknik detay' expander'inda saklanir (bkz. cagiran kod)."""
-    if isinstance(exc, pd.errors.EmptyDataError):
-        return "CSV dosyasi bos gorunuyor. Lutfen en az bir satir olcum verisi iceren bir dosya yukleyin."
-    if isinstance(exc, pd.errors.ParserError):
-        return (
-            "CSV dosyasi ayristirilamadi - satirlardaki sutun sayisi tutarsiz olabilir "
-            "veya dosya virgulden farkli bir ayrac kullaniyor olabilir."
-        )
-    if isinstance(exc, UnicodeDecodeError):
-        return "Dosyanin karakter kodlamasi okunamadi. Dosyayi UTF-8 formatinda kaydedip tekrar deneyin."
-    return "CSV dosyasi okunamadi. Dosyanin bozuk olmadigindan ve .csv uzantili oldugundan emin olun."
+# CSV ayristirma/dogrulama mantigi src/csv_io.py'de (Streamlit'ten bagimsiz,
+# pytest ile test edilebilir - bkz. tests/test_csv_io.py). Burada sadece
+# csv_io.* fonksiyonlari cagrilir.
 
 
 def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
-                      n_samples: int, n_out_of_control: int,
+                      n_samples: int, n_out_of_control: int, decimal_places: int,
                       trend: tuple[str, float] | None = None) -> None:
     """Chart'tan once gosterilen 4'lu hizli ozet paneli - detayli karti
     tekrar etmez, sadece en onemli 4 sayiyi renkli kart + ikon + (Cpk
@@ -537,10 +421,10 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
     if trend is not None:
         direction, delta = trend
         trend_icon = {"up": "▲", "down": "▼", "flat": "→"}[direction]
-        trend_badge = f"{trend_icon} {delta:+.4f} (son {min(6, n_samples // 2)} nokta)"
+        trend_badge = f"{trend_icon} {delta:+.{decimal_places}f} (son {min(6, n_samples // 2)} nokta)"
 
     cards = [
-        ("\U0001F4CA", f"Ortalama ({unit})", f"{center_value:.4f}", trend_badge, sub_color,
+        ("\U0001F4CA", f"Ortalama ({unit})", f"{center_value:.{decimal_places}f}", trend_badge, sub_color,
          accent_color, "Surecin genel ortalamasi (X-bar/R'de x-double-bar, I-MR'de x-bar) "
          "ve son verilere gore basit bir egilim (trend) gostergesi."),
         (emoji, cpk_label, format_cpk(cpk), level_label, color, color,
@@ -646,52 +530,57 @@ def _cpu_cpl_for_display(center: float, sigma_hat: float, lsl: float, usl: float
 
 def render_calculation_steps_xbar(x_double_bar: float, r_bar: float, limits,
                                    cpk: float, cpk_label: str, lsl: float, usl: float,
-                                   one_sided: bool, unit: str) -> None:
+                                   one_sided: bool, unit: str, decimal_places: int) -> None:
     """X-bar/R icin formul-adim-adim dokumu: bu sonuca nasil ulasildigini
-    rakamlarla gosterir (egitim amacli + guven verici seffaflik)."""
+    rakamlarla gosterir (egitim amacli + guven verici seffaflik). decimal_places,
+    olcumun laboratuvar hassasiyetiyle tutarli basamak sayisi icindir - Cpu/Cpl/Cpk
+    (format_cpk ile ayri formatlanir) buna dahil degildir, cunku onlar boyutsuz
+    bir oran, olcum biriminde bir deger degildir."""
+    d = decimal_places
     sigma_hat = r_bar / limits.d2 if limits.d2 else 0.0
     lines = [
-        f"x̄̄ = alt grup ortalamalarinin ortalamasi = **{x_double_bar:.4f} {unit}**",
-        f"R̄ = alt grup range'lerinin ortalamasi = **{r_bar:.4f} {unit}**",
+        f"x̄̄ = alt grup ortalamalarinin ortalamasi = **{x_double_bar:.{d}f} {unit}**",
+        f"R̄ = alt grup range'lerinin ortalamasi = **{r_bar:.{d}f} {unit}**",
         f"A2 (n={subgroup_n}) = {limits.a2}, D3 = {limits.d3}, D4 = {limits.d4}, d2 = {limits.d2}  *(Montgomery SPC sabit tablosu)*",
         "",
-        f"UCL = x̄̄ + A2·R̄ = {x_double_bar:.4f} + {limits.a2}×{r_bar:.4f} = **{limits.ucl_x:.4f}**",
-        f"LCL = x̄̄ - A2·R̄ = {x_double_bar:.4f} - {limits.a2}×{r_bar:.4f} = **{limits.lcl_x:.4f}**",
+        f"UCL = x̄̄ + A2·R̄ = {x_double_bar:.{d}f} + {limits.a2}×{r_bar:.{d}f} = **{limits.ucl_x:.{d}f}**",
+        f"LCL = x̄̄ - A2·R̄ = {x_double_bar:.{d}f} - {limits.a2}×{r_bar:.{d}f} = **{limits.lcl_x:.{d}f}**",
         "",
-        f"σ̂ = R̄ / d2 = {r_bar:.4f} / {limits.d2} = **{sigma_hat:.4f}**",
+        f"σ̂ = R̄ / d2 = {r_bar:.{d}f} / {limits.d2} = **{sigma_hat:.{d}f}**",
     ]
     if one_sided:
-        lines.append(f"{cpk_label} = (USL - x̄̄) / (3σ̂) = ({usl:.4f} - {x_double_bar:.4f}) / (3×{sigma_hat:.4f}) = **{format_cpk(cpk)}**")
+        lines.append(f"{cpk_label} = (USL - x̄̄) / (3σ̂) = ({usl:.{d}f} - {x_double_bar:.{d}f}) / (3×{sigma_hat:.{d}f}) = **{format_cpk(cpk)}**")
     else:
         cpu, cpl = _cpu_cpl_for_display(x_double_bar, sigma_hat, lsl, usl)
-        lines.append(f"Cpu = (USL - x̄̄) / (3σ̂) = ({usl:.4f} - {x_double_bar:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpu)}")
-        lines.append(f"Cpl = (x̄̄ - LSL) / (3σ̂) = ({x_double_bar:.4f} - {lsl:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpl)}")
+        lines.append(f"Cpu = (USL - x̄̄) / (3σ̂) = ({usl:.{d}f} - {x_double_bar:.{d}f}) / (3×{sigma_hat:.{d}f}) = {format_cpk(cpu)}")
+        lines.append(f"Cpl = (x̄̄ - LSL) / (3σ̂) = ({x_double_bar:.{d}f} - {lsl:.{d}f}) / (3×{sigma_hat:.{d}f}) = {format_cpk(cpl)}")
         lines.append(f"{cpk_label} = min(Cpu, Cpl) = **{format_cpk(cpk)}**")
     st.markdown("  \n".join(lines))
 
 
 def render_calculation_steps_imr(x_bar: float, mr_bar: float, limits,
                                   cpk: float, cpk_label: str, lsl: float, usl: float,
-                                  one_sided: bool, unit: str) -> None:
+                                  one_sided: bool, unit: str, decimal_places: int) -> None:
     """I-MR icin formul-adim-adim dokumu - X-bar/R'ye benzer ama I-MR'ye ozgu
     sabitlerle (2.66, D4=3.267, d2=1.128, n=2)."""
+    d = decimal_places
     sigma_hat = mr_bar / MR_CHART_D2 if MR_CHART_D2 else 0.0
     lines = [
-        f"x̄ = tum olcumlerin ortalamasi = **{x_bar:.4f} {unit}**",
-        f"MR̄ = ardisik olcumler arasi ortalama fark = **{mr_bar:.4f} {unit}**",
+        f"x̄ = tum olcumlerin ortalamasi = **{x_bar:.{d}f} {unit}**",
+        f"MR̄ = ardisik olcumler arasi ortalama fark = **{mr_bar:.{d}f} {unit}**",
         f"I chart sabiti = {I_CHART_CONSTANT}, MR chart D4 = {MR_CHART_D4}, d2 = {MR_CHART_D2}  *(n=2, Montgomery SPC sabit tablosu)*",
         "",
-        f"UCL = x̄ + 2.66×MR̄ = {x_bar:.4f} + {I_CHART_CONSTANT}×{mr_bar:.4f} = **{limits.ucl_i:.4f}**",
-        f"LCL = x̄ - 2.66×MR̄ = {x_bar:.4f} - {I_CHART_CONSTANT}×{mr_bar:.4f} = **{limits.lcl_i:.4f}**",
+        f"UCL = x̄ + 2.66×MR̄ = {x_bar:.{d}f} + {I_CHART_CONSTANT}×{mr_bar:.{d}f} = **{limits.ucl_i:.{d}f}**",
+        f"LCL = x̄ - 2.66×MR̄ = {x_bar:.{d}f} - {I_CHART_CONSTANT}×{mr_bar:.{d}f} = **{limits.lcl_i:.{d}f}**",
         "",
-        f"σ̂ = MR̄ / d2 = {mr_bar:.4f} / {MR_CHART_D2} = **{sigma_hat:.4f}**",
+        f"σ̂ = MR̄ / d2 = {mr_bar:.{d}f} / {MR_CHART_D2} = **{sigma_hat:.{d}f}**",
     ]
     if one_sided:
-        lines.append(f"{cpk_label} = (USL - x̄) / (3σ̂) = ({usl:.4f} - {x_bar:.4f}) / (3×{sigma_hat:.4f}) = **{format_cpk(cpk)}**")
+        lines.append(f"{cpk_label} = (USL - x̄) / (3σ̂) = ({usl:.{d}f} - {x_bar:.{d}f}) / (3×{sigma_hat:.{d}f}) = **{format_cpk(cpk)}**")
     else:
         cpu, cpl = _cpu_cpl_for_display(x_bar, sigma_hat, lsl, usl)
-        lines.append(f"Cpu = (USL - x̄) / (3σ̂) = ({usl:.4f} - {x_bar:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpu)}")
-        lines.append(f"Cpl = (x̄ - LSL) / (3σ̂) = ({x_bar:.4f} - {lsl:.4f}) / (3×{sigma_hat:.4f}) = {format_cpk(cpl)}")
+        lines.append(f"Cpu = (USL - x̄) / (3σ̂) = ({usl:.{d}f} - {x_bar:.{d}f}) / (3×{sigma_hat:.{d}f}) = {format_cpk(cpu)}")
+        lines.append(f"Cpl = (x̄ - LSL) / (3σ̂) = ({x_bar:.{d}f} - {lsl:.{d}f}) / (3×{sigma_hat:.{d}f}) = {format_cpk(cpl)}")
         lines.append(f"{cpk_label} = min(Cpu, Cpl) = **{format_cpk(cpk)}**")
     st.markdown("  \n".join(lines))
 
@@ -883,60 +772,38 @@ with tab_data:
                 try:
                     import_df = pd.read_csv(uploaded_file)
                 except Exception as exc:
-                    st.error(_friendly_csv_read_error(exc))
+                    st.error(csv_io.friendly_csv_read_error(exc))
                     with st.expander("Teknik detay"):
                         st.code(f"{type(exc).__name__}: {exc}")
                     import_df = None
 
                 if import_df is not None:
-                    measurement_cols = [c for c in import_df.columns if c.startswith("Olcum")]
+                    import_df, dropped_blank = csv_io.drop_blank_rows(import_df)
+                    if dropped_blank:
+                        st.info(f"{dropped_blank} tamamen bos satir bulundu ve atlandi.")
 
-                    if is_individual:
-                        if len(measurement_cols) != 1:
-                            st.error(
-                                f"Beklenen sutun bulunamadi: I-MR icin 1 'Olcum' sutunu bekleniyor, "
-                                f"{len(measurement_cols)} bulundu. CSV'deki sutunlar: "
-                                f"{', '.join(import_df.columns) or '(sutun yok)'}. Yukaridaki "
-                                "'Bos sablon indir' butonuyla dogru formati indirebilirsiniz."
-                            )
-                        else:
-                            raw_series = import_df[measurement_cols[0]]
-                            numeric_vals = pd.to_numeric(raw_series, errors="coerce")
-                            if numeric_vals.isna().any():
-                                st.error(_friendly_numeric_error(raw_series, numeric_vals, unit))
-                            else:
-                                st.session_state.subgroups = [
-                                    {"shift": "-", "values": [float(v)]} for v in numeric_vals
-                                ]
-                                st.session_state.baseline = None
-                                st.success(f"{len(numeric_vals)} olcum CSV'den yuklendi.")
+                    if len(import_df) == 0:
+                        st.error("CSV'de veri satiri bulunamadi (sadece baslik satiri var gibi gorunuyor).")
                     else:
-                        if len(measurement_cols) != subgroup_n:
-                            st.error(
-                                f"Beklenen sutun bulunamadi: {subgroup_n} 'Olcum' sutunu bekleniyor, "
-                                f"{len(measurement_cols)} bulundu. CSV'deki sutunlar: "
-                                f"{', '.join(import_df.columns) or '(sutun yok)'}. Yukaridaki "
-                                "'Bos sablon indir' butonuyla dogru formati indirebilirsiniz."
+                        dup_count = csv_io.count_duplicate_rows(import_df)
+                        if dup_count:
+                            st.info(
+                                f"{dup_count} yinelenen satir tespit edildi (tum sutunlarda ayni "
+                                "deger) - veri oldugu gibi ice aktarildi; ardisik olcumlerin "
+                                "birebir ayni cikmasi (orn. cok kararli bir surecte) gecerli bir "
+                                "sonuc olabilecegi icin otomatik silinmedi."
                             )
+
+                        new_subgroups, err = csv_io.parse_uploaded_dataframe(
+                            import_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit
+                        )
+                        if err:
+                            st.error(err)
                         else:
-                            numeric_block = import_df[measurement_cols].apply(pd.to_numeric, errors="coerce")
-                            if numeric_block.isna().any().any():
-                                bad_col = next(
-                                    c for c in measurement_cols if numeric_block[c].isna().any()
-                                )
-                                st.error(_friendly_numeric_error(import_df[bad_col], numeric_block[bad_col], unit))
-                            else:
-                                shift_col = import_df["Vardiya"] if "Vardiya" in import_df.columns else None
-                                new_subgroups = []
-                                for i in range(len(import_df)):
-                                    vals = [float(numeric_block.iloc[i][c]) for c in measurement_cols]
-                                    shift_val = str(shift_col.iloc[i]) if shift_col is not None else SHIFT_OPTIONS[0]
-                                    if shift_val not in SHIFT_OPTIONS:
-                                        shift_val = SHIFT_OPTIONS[0]
-                                    new_subgroups.append({"shift": shift_val, "values": vals})
-                                st.session_state.subgroups = new_subgroups
-                                st.session_state.baseline = None
-                                st.success(f"{len(new_subgroups)} alt grup CSV'den yuklendi.")
+                            st.session_state.subgroups = new_subgroups
+                            st.session_state.baseline = None
+                            label = "olcum" if is_individual else "alt grup"
+                            st.success(f"{len(new_subgroups)} {label} CSV'den yuklendi.")
 
     st.write("")
 
@@ -949,38 +816,29 @@ with tab_data:
             if is_individual:
                 _, _, summary_x_bar, summary_mr_bar = compute_individual_stats(st.session_state.subgroups)
                 sm1, sm2 = st.columns(2)
-                sm1.metric(f"Genel Ortalama (x̄, {unit})", f"{summary_x_bar:.4f}")
+                sm1.metric(f"Genel Ortalama (x̄, {unit})", f"{summary_x_bar:.{decimal_places}f}")
                 sm2.metric(
                     f"Ortalama Moving Range (MR̄, {unit})",
-                    f"{summary_mr_bar:.4f}" if summary_mr_bar is not None else "—",
+                    f"{summary_mr_bar:.{decimal_places}f}" if summary_mr_bar is not None else "—",
                 )
             else:
                 _, _, summary_x_double_bar, summary_r_bar = compute_stats(st.session_state.subgroups)
                 sm1, sm2 = st.columns(2)
-                sm1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{summary_x_double_bar:.4f}")
-                sm2.metric(f"Ortalama Range (R̄, {unit})", f"{summary_r_bar:.4f}")
+                sm1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{summary_x_double_bar:.{decimal_places}f}")
+                sm2.metric(f"Ortalama Range (R̄, {unit})", f"{summary_r_bar:.{decimal_places}f}")
 
             st.divider()
 
             with st.expander("\U0001F4CB Ham verileri goruntule", expanded=False):
-                rows = []
-                for i, sg in enumerate(st.session_state.subgroups, start=1):
-                    vals = sg["values"]
-                    if is_individual:
-                        rows.append({
-                            "Sira": i,
-                            **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
-                        })
-                    else:
-                        rows.append({
-                            "Grup": i,
-                            "Vardiya": sg["shift"],
-                            **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
-                            "Ortalama": sum(vals) / len(vals),
-                            "Range": max(vals) - min(vals),
-                        })
+                rows = csv_io.subgroups_to_records(st.session_state.subgroups, is_individual)
                 df = pd.DataFrame(rows)
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                # Sadece GORUNUMU laboratuvar hassasiyetine yuvarlar - alttaki veri
+                # (ve CSV export'u) kullanicinin girdigi tam degerleri korur.
+                numeric_cols = [c for c in df.columns if c not in ("Sira", "Grup", "Vardiya")]
+                column_config = {
+                    c: st.column_config.NumberColumn(format=f"%.{decimal_places}f") for c in numeric_cols
+                }
+                st.dataframe(df, use_container_width=True, hide_index=True, column_config=column_config)
 
                 csv = df.to_csv(index=False).encode("utf-8")
                 st.download_button(
@@ -1156,6 +1014,7 @@ with tab_chart:
             with col1:
                 lsl = st.number_input(
                     f"Alt spesifikasyon limiti (LSL, {unit})", step=0.01, format="%.2f",
+                    min_value=param_config["min_value"], max_value=param_config["max_value"],
                     key="lsl_input", disabled=one_sided,
                     help=(
                         "Bu urun/parametrede LSL kullanilmiyor (bkz. yukaridaki not)."
@@ -1166,7 +1025,15 @@ with tab_chart:
             with col2:
                 usl = st.number_input(
                     f"Ust spesifikasyon limiti (USL, {unit})", step=0.01, format="%.2f", key="usl_input",
+                    min_value=param_config["min_value"], max_value=param_config["max_value"],
                     help="Surecin kabul edilebilir ust siniri - Cpk/Cpu hesabinda kullanilir.",
+                )
+
+            if not one_sided and lsl >= usl:
+                st.error(
+                    f"Gecersiz spesifikasyon: LSL ({lsl:.2f}) >= USL ({usl:.2f}). "
+                    "Alt limit ust limitten kucuk olmalidir - asagidaki Cpk/kontrol "
+                    "semasi sonuclari bu duzeltilene kadar anlamsizdir."
                 )
 
         st.write("")
@@ -1228,6 +1095,12 @@ with tab_chart:
                         "hesaplandi. UCL/LCL artik sabit; yeni eklenen olcumler bu "
                         "limitlerle karsilastirilir, limitleri degistirmez."
                     )
+                    if baseline["n_baseline"] < MIN_RECOMMENDED_BASELINE:
+                        st.warning(
+                            f"Bu baseline yalnizca {baseline['n_baseline']} olcume dayaniyor "
+                            f"(onerilen minimum: {MIN_RECOMMENDED_BASELINE}) - UCL/LCL ve Cpk/Cpu "
+                            "guvenilirligi sinirlidir, yorumlarken dikkatli olun."
+                        )
 
                     if not st.session_state.confirm_reset_baseline:
                         if st.button("\U0001F513 Baseline'i sifirla"):
@@ -1259,10 +1132,10 @@ with tab_chart:
 
             with st.container(border=True):
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.4f}")
-                m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.4f}")
+                m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.{decimal_places}f}")
+                m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.{decimal_places}f}")
                 m3.metric(
-                    "UCL / LCL (I chart)", f"{limits.ucl_i:.4f} / {limits.lcl_i:.4f}",
+                    "UCL / LCL (I chart)", f"{limits.ucl_i:.{decimal_places}f} / {limits.lcl_i:.{decimal_places}f}",
                     help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
                 )
                 m4.metric(
@@ -1273,7 +1146,7 @@ with tab_chart:
                 render_cpk_message(cpk, cpk_label)
 
                 with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
-                    render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit)
+                    render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
 
             st.write("")
 
@@ -1287,7 +1160,7 @@ with tab_chart:
 
             with st.container(border=True):
                 render_kpi_panel(
-                    unit, x_bar, cpk, cpk_label, len(values), len(flagged_points),
+                    unit, x_bar, cpk, cpk_label, len(values), len(flagged_points), decimal_places,
                     trend=compute_trend(values),
                 )
                 render_formula_method_card("I-MR", 2)
@@ -1448,6 +1321,12 @@ with tab_chart:
                         "hesaplandi. UCL/LCL artik sabit; yeni eklenen alt gruplar bu "
                         "limitlerle karsilastirilir, limitleri degistirmez."
                     )
+                    if baseline["n_baseline"] < MIN_RECOMMENDED_BASELINE:
+                        st.warning(
+                            f"Bu baseline yalnizca {baseline['n_baseline']} alt gruba dayaniyor "
+                            f"(onerilen minimum: {MIN_RECOMMENDED_BASELINE}) - UCL/LCL ve Cpk/Cpu "
+                            "guvenilirligi sinirlidir, yorumlarken dikkatli olun."
+                        )
 
                     if not st.session_state.confirm_reset_baseline:
                         if st.button("\U0001F513 Baseline'i sifirla"):
@@ -1479,10 +1358,10 @@ with tab_chart:
 
             with st.container(border=True):
                 m1, m2, m3, m4 = st.columns(4)
-                m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.4f}")
-                m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.4f}")
+                m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.{decimal_places}f}")
+                m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.{decimal_places}f}")
                 m3.metric(
-                    "UCL / LCL (X-bar)", f"{limits.ucl_x:.4f} / {limits.lcl_x:.4f}",
+                    "UCL / LCL (X-bar)", f"{limits.ucl_x:.{decimal_places}f} / {limits.lcl_x:.{decimal_places}f}",
                     help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
                 )
                 m4.metric(
@@ -1493,7 +1372,7 @@ with tab_chart:
                 render_cpk_message(cpk, cpk_label)
 
                 with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
-                    render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit)
+                    render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
 
             st.write("")
 
@@ -1504,7 +1383,7 @@ with tab_chart:
 
             with st.container(border=True):
                 render_kpi_panel(
-                    unit, x_double_bar, cpk, cpk_label, len(means), len(groups),
+                    unit, x_double_bar, cpk, cpk_label, len(means), len(groups), decimal_places,
                     trend=compute_trend(means),
                 )
                 render_formula_method_card("X-bar/R", subgroup_n)

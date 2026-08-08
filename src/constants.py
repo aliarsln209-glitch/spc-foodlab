@@ -261,6 +261,7 @@ PARAMETER_CONFIG = {
         "unit": "pH",
         "min_value": 0.0,
         "max_value": 14.0,
+        "decimal_places": 2,  # tipik pH metre hassasiyeti (orn. 4.55)
         "products": PRODUCT_PH_RANGES,
         "default_lsl": 6.8,
         "default_usl": 7.2,
@@ -274,6 +275,7 @@ PARAMETER_CONFIG = {
         "unit": "°Bx",
         "min_value": 0.0,
         "max_value": 100.0,
+        "decimal_places": 1,  # tipik refraktometre hassasiyeti (orn. 12.5)
         "products": BRIX_PRODUCT_RANGES,
         "default_lsl": 10.0,
         "default_usl": 14.0,
@@ -287,6 +289,7 @@ PARAMETER_CONFIG = {
         "unit": "aw",
         "min_value": 0.0,
         "max_value": 1.0,
+        "decimal_places": 3,  # tipik aw metre hassasiyeti (orn. 0.850)
         "products": AW_PRODUCT_RANGES,
         "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
         "default_usl": 0.95,
@@ -305,6 +308,7 @@ PARAMETER_CONFIG = {
         "unit": "cP",
         "min_value": 0.0,
         "max_value": 300000.0,
+        "decimal_places": 0,  # viskozimetre olcumleri buyuk tam sayilar (orn. 50000 cP)
         "products": VISCOSITY_PRODUCT_RANGES,
         "default_lsl": 40000.0,
         "default_usl": 60000.0,
@@ -318,6 +322,7 @@ PARAMETER_CONFIG = {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 100.0,
+        "decimal_places": 1,  # tipik nem tayin cihazi hassasiyeti (orn. 37.5)
         "products": MOISTURE_PRODUCT_RANGES,
         "default_lsl": 35.0,
         "default_usl": 40.0,
@@ -331,6 +336,7 @@ PARAMETER_CONFIG = {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 20.0,
+        "decimal_places": 2,  # tipik titrasyon/klorur analizi hassasiyeti (orn. 1.75)
         "products": SALT_PRODUCT_RANGES,
         "default_lsl": 1.5,
         "default_usl": 2.0,
@@ -344,6 +350,7 @@ PARAMETER_CONFIG = {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 5.0,
+        "decimal_places": 2,  # tipik titrasyon hassasiyeti (orn. 0.15)
         "products": TITRATABLE_ACIDITY_PRODUCT_RANGES,
         "default_lsl": 0.14,
         "default_usl": 0.16,
@@ -357,6 +364,7 @@ PARAMETER_CONFIG = {
         "unit": "meq O2/kg",
         "min_value": 0.0,
         "max_value": 50.0,
+        "decimal_places": 1,  # tipik titrasyon hassasiyeti (orn. 5.2)
         "products": PEROXIDE_PRODUCT_RANGES,
         "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
         "default_usl": 20.0,
@@ -370,6 +378,7 @@ PARAMETER_CONFIG = {
         "unit": "mg/kg",
         "min_value": 0.0,
         "max_value": 150.0,
+        "decimal_places": 1,  # tipik HPLC/spektrofotometrik olcum hassasiyeti (orn. 18.4)
         "products": HMF_PRODUCT_RANGES,
         "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
         "default_usl": 40.0,

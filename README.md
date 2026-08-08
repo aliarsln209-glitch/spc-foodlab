@@ -26,8 +26,9 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (27 automated tests across 4 files, run on every push via
-  GitHub Actions — see badge above).
+  `tests/` (56 automated tests across 7 files, plus a data-driven
+  `validation/` folder of reference CSVs, run on every push with
+  coverage reporting via GitHub Actions — see badge above).
 - Result dashboard with a Cpk/Cpu level badge, an auto-generated plain-text
   summary, a shift-by-shift comparison table, and a one-page PDF report
   export — on top of the existing PNG chart export and CSV import/export.
@@ -108,15 +109,21 @@ spc-foodlab/
 │   ├── app.py             # Streamlit arayüzü (4 sekme)
 │   ├── spc_core.py        # X-bar/R, I-MR ve Cpk hesaplama çekirdeği
 │   ├── result_helpers.py  # Cpk rozeti, trend göstergesi, quick summary, demo senaryosu hedefleri
+│   ├── csv_io.py          # CSV içe/dışa aktarma: şema doğrulama, hata mesajları, round-trip
+│   ├── pdf_report.py      # Tek sayfalık PDF analiz raporu üretimi
 │   ├── demo_data.py       # Kontrollü simülasyon veri üreteci (alt grup + bireysel)
 │   └── constants.py       # Sabit yapılandırma (varsayılan n=4, parametre/ürün/kaynak tabloları)
 ├── tests/
-│   ├── test_validation.py       # X-bar/R formül doğrulama testi (pH örneği)
-│   ├── test_imr_validation.py   # I-MR formül doğrulama testi (kahve sıcaklığı örneği)
-│   ├── test_cpk_edge_cases.py   # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
-│   └── test_result_helpers.py   # Rozet/trend/özet/demo-senaryosu testleri (result_helpers.py)
+│   ├── test_validation.py        # X-bar/R formül doğrulama testi (pH örneği)
+│   ├── test_imr_validation.py    # I-MR formül doğrulama testi (kahve sıcaklığı örneği)
+│   ├── test_cpk_edge_cases.py    # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
+│   ├── test_result_helpers.py    # Rozet/trend/özet/demo-senaryosu testleri (result_helpers.py)
+│   ├── test_csv_io.py            # CSV şema/hata/temizleme + export→import round-trip testleri
+│   ├── test_pdf_report.py        # PDF rapor üretiminin otomatik doğrulanması
+│   └── test_validation_suite.py  # validation/*.csv referans dosyalarını çalıştıran testler
+├── validation/           # Formül doğrulama referans veri seti (bkz. validation/README.md)
 ├── screenshots/         # README ekran görüntüleri
-├── METHODOLOGY.md       # Formüller, doğrulama, ürün referans kaynakları
+├── METHODOLOGY.md       # Formüller, doğrulama, ürün referans kaynakları, sürüm yol haritası
 └── requirements.txt
 ```
 

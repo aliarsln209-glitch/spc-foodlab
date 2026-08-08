@@ -1,0 +1,6 @@
+source,x_double_bar,r_bar,n,lsl,usl,one_sided,expected_cpk,tolerance,notes
+"LibreTexts pH X-bar/R ornegi + gosterge amacli LSL/USL (6.8-7.2) ile Cpk hesabi",7.01,0.12,4,6.8,7.2,False,1.0867,0.001,"Normal (sigma_hat>0) durum - sigma_hat=0.0583, Cpu=1.0867, Cpl=1.2011, Cpk=min=1.0867"
+"Dahili matematiksel tutarlilik kontrolu (dis kaynak gerektirmez) - iki tarafli, sifir varyasyon, ortalama spesifikasyon icinde",7.0,0.0,4,6.8,7.2,False,inf,0.0,"Tum degerler 7.0, spesifikasyon 6.8-7.2 icinde -> surec kusursuz"
+"Dahili matematiksel tutarlilik kontrolu - iki tarafli, sifir varyasyon, ortalama spesifikasyon disinda",7.5,0.0,4,6.8,7.2,False,-inf,0.0,"Tum degerler 7.5, spesifikasyon 6.8-7.2 disinda -> varyasyon olmasa da yetersiz"
+"Dahili matematiksel tutarlilik kontrolu - tek tarafli, sifir varyasyon, ortalama spesifikasyon icinde",5.0,0.0,2,0.0,20.0,True,inf,0.0,"aw/peroksit gibi tek tarafli: tum degerler USL altinda -> kusursuz"
+"Dahili matematiksel tutarlilik kontrolu - tek tarafli, sifir varyasyon, ortalama spesifikasyon disinda",25.0,0.0,2,0.0,20.0,True,-inf,0.0,"-"
