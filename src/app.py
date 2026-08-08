@@ -113,23 +113,24 @@ with st.sidebar:
 
     if selected_param_radio != st.session_state.active_parameter:
         if st.session_state.subgroups:
-            st.warning(
-                f"Mevcut veri ({st.session_state.active_parameter}) silinecek. "
-                "Emin misiniz?"
-            )
-            pc1, pc2 = st.columns(2)
-            with pc1:
-                with st.container(key="danger_param_switch"):
-                    if st.button("Evet, degistir", type="primary", key="param_switch_yes"):
-                        st.session_state.active_parameter = selected_param_radio
-                        st.session_state.subgroups = []
-                        st.session_state.baseline = None
-                        reset_parameter_scoped_state()
+            with st.container(key="confirm_reveal_paramswitch"):
+                st.warning(
+                    f"Mevcut veri ({st.session_state.active_parameter}) silinecek. "
+                    "Emin misiniz?"
+                )
+                pc1, pc2 = st.columns(2)
+                with pc1:
+                    with st.container(key="danger_param_switch"):
+                        if st.button("Evet, degistir", type="primary", key="param_switch_yes"):
+                            st.session_state.active_parameter = selected_param_radio
+                            st.session_state.subgroups = []
+                            st.session_state.baseline = None
+                            reset_parameter_scoped_state()
+                            st.rerun()
+                with pc2:
+                    if st.button("Vazgec", key="param_switch_no"):
+                        st.session_state._reset_parameter_radio = True
                         st.rerun()
-            with pc2:
-                if st.button("Vazgec", key="param_switch_no"):
-                    st.session_state._reset_parameter_radio = True
-                    st.rerun()
         else:
             st.session_state.active_parameter = selected_param_radio
             reset_parameter_scoped_state()
@@ -173,23 +174,24 @@ if not is_individual:
         )
         if selected_n != st.session_state.subgroup_size:
             if st.session_state.subgroups:
-                st.warning(
-                    f"n degeri {st.session_state.subgroup_size} -> {selected_n} olarak "
-                    "degistirilirse mevcut alt gruplar ve baseline silinecek "
-                    "(mevcut veri eski n'e gore girildi). Emin misiniz?"
-                )
-                nc1, nc2 = st.columns(2)
-                with nc1:
-                    with st.container(key="danger_n_change"):
-                        if st.button("Evet, degistir", type="primary", key="n_change_yes"):
-                            st.session_state.subgroup_size = selected_n
-                            st.session_state.subgroups = []
-                            st.session_state.baseline = None
+                with st.container(key="confirm_reveal_nchange"):
+                    st.warning(
+                        f"n degeri {st.session_state.subgroup_size} -> {selected_n} olarak "
+                        "degistirilirse mevcut alt gruplar ve baseline silinecek "
+                        "(mevcut veri eski n'e gore girildi). Emin misiniz?"
+                    )
+                    nc1, nc2 = st.columns(2)
+                    with nc1:
+                        with st.container(key="danger_n_change"):
+                            if st.button("Evet, degistir", type="primary", key="n_change_yes"):
+                                st.session_state.subgroup_size = selected_n
+                                st.session_state.subgroups = []
+                                st.session_state.baseline = None
+                                st.rerun()
+                    with nc2:
+                        if st.button("Vazgec", key="n_change_no"):
+                            st.session_state._reset_subgroup_n_input = True
                             st.rerun()
-                with nc2:
-                    if st.button("Vazgec", key="n_change_no"):
-                        st.session_state._reset_subgroup_n_input = True
-                        st.rerun()
             else:
                 st.session_state.subgroup_size = selected_n
                 st.rerun()
@@ -340,9 +342,107 @@ def inject_theme_css(dark: bool, accent: str) -> None:
         border-color: {destructive} !important;
     }}
 
+    /* ============================================================
+       DERIN WIDGET RESKIN - native Streamlit/BaseWeb bilesenlerinin
+       gorsel 'imzasini' (varsayilan radio/tab/select gorunumu)
+       degistirir. Ak-fonksiyon/yerlesim AYNI kalir - sadece stil.
+       NOT: bu selektorler Streamlit'in ic (data-testid/data-baseweb)
+       DOM yapisina dayanir, resmi/garantili bir API degildir - bir
+       Streamlit surum guncellemesi bu yapiyi degistirirse (ozellikle
+       :has() destegi veya data-baseweb attribute'leri) bu blok
+       gozden gecirilmeli. Tarayicida canli test edilemedigi icin
+       (bu gelistirme ortaminda tarayici yok) goruntuyu ilk deploy
+       sonrasi kontrol et.
+       ============================================================ */
+
+    /* Radio -> pill/chip liste (sidebar parametre secici) */
+    [data-testid="stRadio"] > div[role="radiogroup"] {{
+        gap: 6px;
+    }}
+    [data-testid="stRadio"] label {{
+        background: {t["card_bg"]};
+        border: 1px solid {t["border"]};
+        border-radius: 999px;
+        padding: 4px 14px;
+        margin: 0;
+        transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }}
+    [data-testid="stRadio"] label:hover {{
+        border-color: {accent};
+    }}
+    [data-testid="stRadio"] label:has(input:checked) {{
+        background: {accent};
+        border-color: {accent};
+    }}
+    [data-testid="stRadio"] label:has(input:checked) p {{
+        color: #ffffff !important;
+        font-weight: 600;
+    }}
+    [data-testid="stRadio"] label > div:first-child {{
+        display: none;
+    }}
+
+    /* Tab seridi -> segment/pill nav (varsayilan alt cizgi kaldirilir) */
+    [data-testid="stTabs"] [data-baseweb="tab-list"] {{
+        gap: 4px;
+        background: {t["sidebar_bg"]};
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid {t["border"]};
+    }}
+    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {{
+        display: none;
+    }}
+    [data-testid="stTabs"] button[data-baseweb="tab"] {{
+        border-radius: 8px;
+        color: {t["text_secondary"]};
+        transition: background 0.15s ease, color 0.15s ease;
+    }}
+    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {{
+        background: {t["card_bg"]};
+        color: {t["primary"]} !important;
+        box-shadow: 0 1px 4px {t["shadow"]};
+    }}
+    [data-testid="stTabs"] button[data-baseweb="tab"]:hover {{
+        color: {accent};
+    }}
+    [data-baseweb="tab-panel"] {{
+        animation: spcFadeIn 0.18s ease;
+    }}
+
+    /* Selectbox -> yuvarlatilmis kenar + marka rengiyle odak halkasi */
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {{
+        border-radius: 10px;
+        border-color: {t["border"]} !important;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }}
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {{
+        border-color: {accent} !important;
+        box-shadow: 0 0 0 2px {accent}33;
+    }}
+    [data-baseweb="popover"] [role="listbox"] {{
+        border-radius: 10px;
+        border: 1px solid {t["border"]};
+        box-shadow: 0 6px 20px {t["shadow"]};
+    }}
+    [data-baseweb="popover"] [role="option"]:hover {{
+        background: {accent}22 !important;
+    }}
+
+    /* st.columns grid - tutarli bosluk */
+    [data-testid="stHorizontalBlock"] {{ gap: 1rem; }}
+
+    /* Erisilebilirlik: klavye ile gezinirken gorunur odak halkasi
+       (bkz. ui-ux-pro-max Priority 1 - Accessibility) */
+    :focus-visible {{
+        outline: 2px solid {accent};
+        outline-offset: 2px;
+    }}
+
     /* Hafif hover/gecis animasyonlari - agir hareket yok, sadece kucuk
-       buyume/golge/fade. */
-    button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
+       buyume/golge/fade; hicbiri 200ms'yi asmaz (profesyonel his, oyun
+       hissi degil - confetti/bounce yok). */
+    button {{ transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }}
     button:hover {{ transform: translateY(-1px) scale(1.01); }}
 
     .kpi-card {{ transition: transform 0.15s ease, box-shadow 0.15s ease; }}
@@ -352,10 +452,23 @@ def inject_theme_css(dark: bool, accent: str) -> None:
         from {{ opacity: 0; transform: translateY(-4px); }}
         to {{ opacity: 1; transform: translateY(0); }}
     }}
-    .stAlert {{ animation: spcFadeIn 0.35s ease; }}
+    .stAlert {{ animation: spcFadeIn 0.3s ease; }}
+
+    /* Iki adimli onay akislarinin (Evet/Vazgec) yumusak acilis efekti -
+       st.container(key='confirm_reveal_...') ile sarilan bloklar. */
+    @keyframes spcRevealDown {{
+        from {{ opacity: 0; transform: translateY(-6px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+    [class*="st-key-confirm_reveal_"] {{
+        animation: spcRevealDown 0.18s ease;
+    }}
 
     @media (prefers-reduced-motion: reduce) {{
-        button, [data-testid="stVerticalBlockBorderWrapper"], .kpi-card, .stAlert {{
+        button, [data-testid="stVerticalBlockBorderWrapper"], .kpi-card, .stAlert,
+        [data-testid="stRadio"] label, [data-testid="stTabs"] button[data-baseweb="tab"],
+        [data-testid="stSelectbox"] [data-baseweb="select"] > div,
+        [data-baseweb="tab-panel"], [class*="st-key-confirm_reveal_"] {{
             transition: none !important;
             animation: none !important;
         }}
@@ -868,19 +981,20 @@ with tab_data:
                     st.session_state.confirm_clear = True
                     st.rerun()
             else:
-                st.warning("Emin misiniz? Tum alt gruplar ve baseline silinecek, bu islem geri alinamaz.")
-                cc1, cc2 = st.columns(2)
-                with cc1:
-                    with st.container(key="danger_clear_confirm"):
-                        if st.button("Evet, sil", type="primary", key="confirm_clear_yes"):
-                            st.session_state.subgroups = []
-                            st.session_state.baseline = None
+                with st.container(key="confirm_reveal_clear"):
+                    st.warning("Emin misiniz? Tum alt gruplar ve baseline silinecek, bu islem geri alinamaz.")
+                    cc1, cc2 = st.columns(2)
+                    with cc1:
+                        with st.container(key="danger_clear_confirm"):
+                            if st.button("Evet, sil", type="primary", key="confirm_clear_yes"):
+                                st.session_state.subgroups = []
+                                st.session_state.baseline = None
+                                st.session_state.confirm_clear = False
+                                st.rerun()
+                    with cc2:
+                        if st.button("Vazgec", key="confirm_clear_no"):
                             st.session_state.confirm_clear = False
                             st.rerun()
-                with cc2:
-                    if st.button("Vazgec", key="confirm_clear_no"):
-                        st.session_state.confirm_clear = False
-                        st.rerun()
 
     st.write("")
 
@@ -1257,25 +1371,26 @@ with tab_chart:
                             st.session_state.confirm_freeze = True
                             st.rerun()
                     else:
-                        st.warning(
-                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
-                        )
-                        fc1, fc2 = st.columns(2)
-                        with fc1:
-                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                                st.session_state.baseline = {
-                                    "x_bar": live_x_bar,
-                                    "mr_bar": live_mr_bar,
-                                    "n_baseline": n_current,
-                                }
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
-                        with fc2:
-                            if st.button("Vazgec", key="confirm_freeze_no"):
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
+                        with st.container(key="confirm_reveal_freeze_imr"):
+                            st.warning(
+                                "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                                "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                                "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                            )
+                            fc1, fc2 = st.columns(2)
+                            with fc1:
+                                if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                    st.session_state.baseline = {
+                                        "x_bar": live_x_bar,
+                                        "mr_bar": live_mr_bar,
+                                        "n_baseline": n_current,
+                                    }
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
+                            with fc2:
+                                if st.button("Vazgec", key="confirm_freeze_no"):
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
 
                     x_bar = live_x_bar
                     mr_bar = live_mr_bar
@@ -1297,20 +1412,21 @@ with tab_chart:
                             st.session_state.confirm_reset_baseline = True
                             st.rerun()
                     else:
-                        st.warning(
-                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                            "mevcut TUM veriden canli hesaplanmaya baslar."
-                        )
-                        rc1, rc2 = st.columns(2)
-                        with rc1:
-                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                                st.session_state.baseline = None
-                                st.session_state.confirm_reset_baseline = False
-                                st.rerun()
-                        with rc2:
-                            if st.button("Vazgec", key="confirm_reset_no"):
-                                st.session_state.confirm_reset_baseline = False
-                                st.rerun()
+                        with st.container(key="confirm_reveal_reset_imr"):
+                            st.warning(
+                                "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                                "mevcut TUM veriden canli hesaplanmaya baslar."
+                            )
+                            rc1, rc2 = st.columns(2)
+                            with rc1:
+                                if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                    st.session_state.baseline = None
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
+                            with rc2:
+                                if st.button("Vazgec", key="confirm_reset_no"):
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
 
                     x_bar = baseline["x_bar"]
                     mr_bar = baseline["mr_bar"]
@@ -1504,25 +1620,26 @@ with tab_chart:
                             st.session_state.confirm_freeze = True
                             st.rerun()
                     else:
-                        st.warning(
-                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
-                        )
-                        fc1, fc2 = st.columns(2)
-                        with fc1:
-                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                                st.session_state.baseline = {
-                                    "x_double_bar": live_x_double_bar,
-                                    "r_bar": live_r_bar,
-                                    "n_baseline": n_current,
-                                }
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
-                        with fc2:
-                            if st.button("Vazgec", key="confirm_freeze_no"):
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
+                        with st.container(key="confirm_reveal_freeze_xbar"):
+                            st.warning(
+                                "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                                "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                                "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                            )
+                            fc1, fc2 = st.columns(2)
+                            with fc1:
+                                if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                    st.session_state.baseline = {
+                                        "x_double_bar": live_x_double_bar,
+                                        "r_bar": live_r_bar,
+                                        "n_baseline": n_current,
+                                    }
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
+                            with fc2:
+                                if st.button("Vazgec", key="confirm_freeze_no"):
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
 
                     x_double_bar = live_x_double_bar
                     r_bar = live_r_bar
@@ -1544,20 +1661,21 @@ with tab_chart:
                             st.session_state.confirm_reset_baseline = True
                             st.rerun()
                     else:
-                        st.warning(
-                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                            "mevcut TUM veriden canli hesaplanmaya baslar."
-                        )
-                        rc1, rc2 = st.columns(2)
-                        with rc1:
-                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                                st.session_state.baseline = None
-                                st.session_state.confirm_reset_baseline = False
-                                st.rerun()
-                        with rc2:
-                            if st.button("Vazgec", key="confirm_reset_no"):
-                                st.session_state.confirm_reset_baseline = False
-                                st.rerun()
+                        with st.container(key="confirm_reveal_reset_xbar"):
+                            st.warning(
+                                "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                                "mevcut TUM veriden canli hesaplanmaya baslar."
+                            )
+                            rc1, rc2 = st.columns(2)
+                            with rc1:
+                                if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                    st.session_state.baseline = None
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
+                            with rc2:
+                                if st.button("Vazgec", key="confirm_reset_no"):
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
 
                     x_double_bar = baseline["x_double_bar"]
                     r_bar = baseline["r_bar"]
