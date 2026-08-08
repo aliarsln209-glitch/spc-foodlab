@@ -48,7 +48,7 @@ GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
 
 def raw_material_name(product_name: str) -> str | None:
     """Urun secim listesindeki bir girdi hammadde ise (RAW_MATERIAL_PREFIX ile
-    baslar) duz hammadde adini dondurur, degilse (bitmiş urun/'Ozel/Manuel
+    baslar) duz hammadde adini dondurur, degilse (bitmis urun/'Ozel/Manuel
     gir') None dondurur - Cpk/istatistik motorunu etkilemez, sadece hammadde
     icin ayri 'Hammadde QC Referansi' notunun gosterilip gosterilmeyecegine
     karar vermek icin kullanilir."""
@@ -119,12 +119,13 @@ with st.sidebar:
             )
             pc1, pc2 = st.columns(2)
             with pc1:
-                if st.button("Evet, degistir", type="primary", key="param_switch_yes"):
-                    st.session_state.active_parameter = selected_param_radio
-                    st.session_state.subgroups = []
-                    st.session_state.baseline = None
-                    reset_parameter_scoped_state()
-                    st.rerun()
+                with st.container(key="danger_param_switch"):
+                    if st.button("Evet, degistir", type="primary", key="param_switch_yes"):
+                        st.session_state.active_parameter = selected_param_radio
+                        st.session_state.subgroups = []
+                        st.session_state.baseline = None
+                        reset_parameter_scoped_state()
+                        st.rerun()
             with pc2:
                 if st.button("Vazgec", key="param_switch_no"):
                     st.session_state._reset_parameter_radio = True
@@ -137,9 +138,11 @@ with st.sidebar:
     st.divider()
     chart_theme = st.selectbox("Tema (grafik + arayuz)", ["Acik", "Koyu"], key="chart_theme")
     accent_color = st.color_picker(
-        "Vurgu rengi", value=st.session_state.get("accent_color", "#4c6ef5"),
+        # Varsayilan marka birincil rengi (koyu yesil, v1.1.1 "Gida-Bilim
+        # Sicak" temasi) - kullanici degistirebilir.
+        "Vurgu rengi", value=st.session_state.get("accent_color", "#15803D"),
         key="accent_color",
-        help="Butonlar ve KPI kartlarindaki vurgu rengini degistirir (basari/uyari/hata renkleri sabit kalir).",
+        help="Butonlar ve KPI kartlarindaki vurgu rengini degistirir (Cpk sonuc/uyari/hata renkleri sabit kalir, bkz. METHODOLOGY.md).",
     )
 
 dark = chart_theme == "Koyu"
@@ -177,11 +180,12 @@ if not is_individual:
                 )
                 nc1, nc2 = st.columns(2)
                 with nc1:
-                    if st.button("Evet, degistir", type="primary", key="n_change_yes"):
-                        st.session_state.subgroup_size = selected_n
-                        st.session_state.subgroups = []
-                        st.session_state.baseline = None
-                        st.rerun()
+                    with st.container(key="danger_n_change"):
+                        if st.button("Evet, degistir", type="primary", key="n_change_yes"):
+                            st.session_state.subgroup_size = selected_n
+                            st.session_state.subgroups = []
+                            st.session_state.baseline = None
+                            st.rerun()
                 with nc2:
                     if st.button("Vazgec", key="n_change_no"):
                         st.session_state._reset_subgroup_n_input = True
@@ -193,77 +197,169 @@ if not is_individual:
 subgroup_n = st.session_state.subgroup_size
 
 
+# --- Tasarim tokenlari (v1.1.1 - "Gida-Bilim Sicak" teması) ----------------
+# Palet: koyu yesil (marka/birincil) + amber (ikincil vurgu) + kirmizi
+# (yikici islem). BILINCLI OLARAK istatistiksel sonuc renklerinden (Cpk
+# rozeti - bkz. result_helpers.get_cpk_level: mavi/mor/kirmizi) AYRI tutulur,
+# aksi halde kullanici 'bu marka rengi mi yoksa Cpk sonucu mu iyi' diye
+# karisir. Tipografi: Outfit (baslik, karakterli ama olcculu) + Work Sans
+# (govde/etiket, okunakli) - varsayilan Streamlit fontunun jenerik hissini
+# kirmak icin Google Fonts uzerinden yuklenir.
+LIGHT_TOKENS = {
+    "bg": "#F7FBF8",
+    "sidebar_bg": "#EAF4EC",
+    "card_bg": "#FFFFFF",
+    "border": "#D7EADB",
+    "text": "#16241C",
+    "text_secondary": "#5B6F62",
+    "input_bg": "#FFFFFF",
+    "primary": "#15803D",
+    "accent": "#B45309",  # amber, metin/link icin koyulastirilmis (kontrast)
+    "accent_fill": "#D97706",  # amber, buton/dolgu icin
+    "shadow": "rgba(20, 60, 40, 0.08)",
+}
+DARK_TOKENS = {
+    "bg": "#0B140F",
+    "sidebar_bg": "#0F1B14",
+    "card_bg": "#142019",
+    "border": "#24352B",
+    "text": "#EAF3EC",
+    "text_secondary": "#9FB6A7",
+    "input_bg": "#1A281F",
+    "primary": "#34D399",
+    "accent": "#F59E0B",
+    "accent_fill": "#F59E0B",
+    "shadow": "rgba(0, 0, 0, 0.35)",
+}
+DESTRUCTIVE = {"light": "#DC2626", "dark": "#EF4444"}
+
+GOOGLE_FONTS_IMPORT = (
+    "https://fonts.googleapis.com/css2?"
+    "family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap"
+)
+
+
 def inject_theme_css(dark: bool, accent: str) -> None:
     """Secilen acik/koyu temayi + vurgu rengini grafiklerin otesinde tum
     arayuze (sidebar, kartlar, metrikler, uyari kutulari) uygular. Streamlit'in
     kendi config.toml temasi Community Cloud'da calisma anindan
     degistirilemedigi icin bu, custom CSS injection ile yapiliyor.
 
+    Acik ve koyu tema ARTIK AYNI tasarim dilini (kart golgesi/border-radius/
+    spacing/tipografi) paylasir - onceden sadece koyu temada tam ozel CSS
+    vardi, acik temada Streamlit'in varsayilan gorunumu kaliyordu.
+
     Ayrica hafif (agir olmayan) hover/gecis animasyonlari icerir - buton
-    hover'da kucuk buyume, karti gecisi, uyari kutularinda fade-in. Amac
+    hover'da kucuk buyume, kart gecisi, uyari kutularinda fade-in. Amac
     sadece arayuzu biraz daha 'canli' hissettirmek, dikkat dagitmamak."""
-    if dark:
-        theme_css = """
-        .stApp { background-color: #0e1117; }
-        [data-testid="stSidebar"] { background-color: #161a23; }
-        .stApp, .stApp p, .stApp span, .stApp label,
-        h1, h2, h3, h4, h5, h6 { color: #fafafa; }
-        [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #fafafa; }
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #161a23;
-            border-color: #333c4a !important;
-        }
-        [data-testid="stNumberInput"] input,
-        [data-testid="stTextInput"] input,
-        [data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-            background-color: #262d3d;
-            color: #fafafa;
-        }
-        [data-testid="stDataFrame"] { color-scheme: dark; }
-        .stAlert { background-color: #1c2230; }
-        button[kind="secondary"], [data-testid="stFormSubmitButton"] button {
-            background-color: #262d3d;
-            color: #fafafa !important;
-            border-color: #333c4a;
-        }
-        """
-    else:
-        theme_css = """
-        .stApp { background-color: #ffffff; }
-        """
+    t = DARK_TOKENS if dark else LIGHT_TOKENS
+    destructive = DESTRUCTIVE["dark"] if dark else DESTRUCTIVE["light"]
+    color_scheme = "dark" if dark else "light"
 
     css = f"""
     <style>
-    {theme_css}
+    @import url('{GOOGLE_FONTS_IMPORT}');
 
-    /* Vurgu rengi (kullanici secimi) - primary butonlar + slider */
+    .stApp {{
+        background-color: {t["bg"]};
+        color: {t["text"]};
+        font-family: 'Work Sans', sans-serif;
+        color-scheme: {color_scheme};
+    }}
+    .stApp p, .stApp span, .stApp label, .stApp li {{ color: {t["text"]}; }}
+    [data-testid="stCaptionContainer"], .stCaption {{ color: {t["text_secondary"]} !important; }}
+
+    h1, h2, h3, h4, h5, h6,
+    [data-testid="stMetricValue"] {{
+        font-family: 'Outfit', sans-serif;
+        font-weight: 600;
+        color: {t["primary"]};
+    }}
+    [data-testid="stMetricLabel"] {{ color: {t["text_secondary"]}; }}
+
+    /* Sidebar / ana panel gorsel ayrimi - farkli zemin rengi + hafif kenar */
+    [data-testid="stSidebar"] {{
+        background-color: {t["sidebar_bg"]};
+        border-right: 1px solid {t["border"]};
+    }}
+    [data-testid="stSidebar"] * {{ color: {t["text"]}; }}
+
+    /* Kart/container tasarim dili: tutarli border-radius + golge + spacing -
+       tek tek widget yamalamak yerine tum st.container(border=True) bloklarina
+       uygulanir. */
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        background-color: {t["card_bg"]};
+        border: 1px solid {t["border"]} !important;
+        border-radius: 14px !important;
+        box-shadow: 0 1px 3px {t["shadow"]};
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+        box-shadow: 0 4px 16px {t["shadow"]};
+    }}
+
+    [data-testid="stNumberInput"] input,
+    [data-testid="stTextInput"] input,
+    [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+    [data-testid="stTextArea"] textarea {{
+        background-color: {t["input_bg"]};
+        color: {t["text"]};
+        border-radius: 8px;
+    }}
+    [data-testid="stDataFrame"] {{ color-scheme: {color_scheme}; }}
+    .stAlert {{ background-color: {t["card_bg"]}; border-radius: 10px; }}
+
+    button[kind="secondary"], [data-testid="stFormSubmitButton"] button {{
+        background-color: {t["card_bg"]};
+        color: {t["text"]} !important;
+        border-color: {t["border"]};
+        border-radius: 8px;
+        font-family: 'Work Sans', sans-serif;
+        font-weight: 500;
+    }}
+
+    /* Vurgu rengi (kullanici secimi, sidebar'daki 'Vurgu rengi' - primary
+       butonlar + slider). Varsayilani marka birincil rengidir ama kullanici
+       degistirebilir. */
     button[kind="primary"] {{
         background-color: {accent} !important;
         border-color: {accent} !important;
+        border-radius: 8px;
+        font-family: 'Work Sans', sans-serif;
+        font-weight: 500;
     }}
     [data-testid="stSlider"] div[role="slider"] {{ background-color: {accent} !important; }}
-    a {{ color: {accent}; }}
+    a {{ color: {t["accent"]}; }}
+
+    /* Yikici onaylar (mevcut veriyi silen 'Evet, degistir/sil') - marka veya
+       kullanicinin sectigi vurgu renginden BAGIMSIZ, sabit kirmizi. Hedef
+       buton, cevresi st.container(key='danger_...') ile sarilarak
+       'st-key-danger_...' sinifiyla scope ediliyor - bkz. cagrilar. */
+    [class*="st-key-danger_"] button[kind="primary"] {{
+        background-color: {destructive} !important;
+        border-color: {destructive} !important;
+    }}
 
     /* Hafif hover/gecis animasyonlari - agir hareket yok, sadece kucuk
        buyume/golge/fade. */
     button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
     button:hover {{ transform: translateY(-1px) scale(1.01); }}
 
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        transition: box-shadow 0.2s ease;
-    }}
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        box-shadow: 0 2px 12px rgba(0,0,0,0.10);
-    }}
-
     .kpi-card {{ transition: transform 0.15s ease, box-shadow 0.15s ease; }}
-    .kpi-card:hover {{ transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }}
+    .kpi-card:hover {{ transform: translateY(-2px); box-shadow: 0 4px 14px {t["shadow"]}; }}
 
     @keyframes spcFadeIn {{
         from {{ opacity: 0; transform: translateY(-4px); }}
         to {{ opacity: 1; transform: translateY(0); }}
     }}
     .stAlert {{ animation: spcFadeIn 0.35s ease; }}
+
+    @media (prefers-reduced-motion: reduce) {{
+        button, [data-testid="stVerticalBlockBorderWrapper"], .kpi-card, .stAlert {{
+            transition: none !important;
+            animation: none !important;
+        }}
+    }}
     </style>
     """
     st.markdown(css, unsafe_allow_html=True)
@@ -301,26 +397,26 @@ def render_cpk_message(cpk: float, cpk_label: str) -> None:
     ortak fonksiyon haline getirildi."""
     if cpk == float("inf"):
         st.success(
-            f"{cpk_label} = ∞: ölçülen değerlerde hiç varyasyon yok (R̄/MR̄ = 0) "
-            "ve ortalama spesifikasyon içinde - süreç kusursuz (Mükemmel)."
+            f"{cpk_label} = ∞: olculen degerlerde hic varyasyon yok (R̄/MR̄ = 0) "
+            "ve ortalama spesifikasyon icinde - surec kusursuz (Mukemmel)."
         )
     elif cpk == float("-inf"):
         st.error(
-            f"{cpk_label} = -∞: ölçülen değerlerde varyasyon yok ama ortalama "
-            "zaten spesifikasyon dışında - süreç yeterli değil (Yetersiz)."
+            f"{cpk_label} = -∞: olculen degerlerde varyasyon yok ama ortalama "
+            "zaten spesifikasyon disinda - surec yeterli degil (Yetersiz)."
         )
     elif abs(cpk) > CPK_SANITY_THRESHOLD:
         st.warning(
-            f"{cpk_label} anlamsız derecede yüksek/düşük çıktı. Seçtiğin "
-            "ürünün spesifikasyon aralığı, girdiğin verilerle örtüşmüyor "
-            "olabilir - LSL/USL değerlerini kontrol et."
+            f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
+            "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
+            "olabilir - LSL/USL degerlerini kontrol et."
         )
     elif cpk < 1.0:
-        st.error(f"{cpk_label} < 1.0: Süreç yeterli değil (Yetersiz), spesifikasyon limitlerine göre.")
+        st.error(f"{cpk_label} < 1.0: Surec yeterli degil (Yetersiz), spesifikasyon limitlerine gore.")
     elif cpk < 1.33:
-        st.warning(f"{cpk_label} 1.0-1.33 arası: Süreç sınırda düzeyde yeterli (Sınırda).")
+        st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec sinirda duzeyde yeterli (Sinirda).")
     else:
-        st.success(f"{cpk_label} >= 1.33: Süreç yeterli (Yeterli).")
+        st.success(f"{cpk_label} >= 1.33: Surec yeterli (Yeterli).")
 
 
 def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
@@ -446,13 +542,20 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
             "Genel kabul: >=1.67 excellent, 1.33-1.67 capable, 1.0-1.33 marginal, <1.0 not capable."
         )
     else:
-        emoji, level_label, color = "⚠️", "Gecersiz", "#f08c00"
+        # Notr gri ton: bu marka rengiyle (yesil/amber) VEYA Cpk sonuc
+        # renkleriyle (mavi/mor/kirmizi) cakismasin - 'gecersiz spesifikasyon'
+        # bir sonuc DEGIL, hesaplanamama durumudur, ayri bir renk ailesi hak eder.
+        emoji, level_label, color = "⚠️", "Gecersiz", "#64748b"
         cpk_value_str = "—"
         cpk_tooltip = "LSL >= USL - spesifikasyon gecersiz oldugu icin Cpk/Cpu hesaplanmadi."
-    card_bg = "#161a23" if dark else "#f8f9fa"
-    text_color = "#fafafa" if dark else "#31333f"
-    sub_color = "#9aa4b2" if dark else "#666666"
-    oos_color = "#e03131" if n_out_of_control else "#2f9e44"
+    _t = DARK_TOKENS if dark else LIGHT_TOKENS
+    card_bg = _t["card_bg"]
+    text_color = _t["text"]
+    sub_color = _t["text_secondary"]
+    # Kontrol disi nokta sayisi da Cpk gibi istatistiksel bir sonuctur - ayni
+    # mavi(iyi)/kirmizi(kotu) ailesini kullanir (bkz. get_cpk_level docstring),
+    # marka yesiliyle (#15803D) karismasin diye.
+    oos_color = DESTRUCTIVE["dark" if dark else "light"] if n_out_of_control else "#2563eb"
     oos_icon = "⚠️" if n_out_of_control else "✅"
 
     trend_badge = None
@@ -663,7 +766,7 @@ tab_data, tab_chart, tab_calc, tab_about = st.tabs([
 # DOM'u gostermeye devam ederdi (bir sonraki gercek rerun'a kadar) - bu da
 # "demo veri yukledim ama grafik hala 'yetersiz veri' diyor" seklinde gozlemlenen
 # bir hataya yol acmisti. Dogru sira budur; lsl_input/usl_input widget'larinin
-# ara run'larda (ör. onay akislarindaki rerun'lar) render edilmeyip Streamlit
+# ara run'larda (orn. onay akislarindaki rerun'lar) render edilmeyip Streamlit
 # tarafindan temizlenmesi ihtimaline karsi asagida setdefault() kullaniliyor -
 # bu, sirlamaya bagli olmadan 0.0'a dusmeyi onluyor.
 
@@ -768,11 +871,12 @@ with tab_data:
                 st.warning("Emin misiniz? Tum alt gruplar ve baseline silinecek, bu islem geri alinamaz.")
                 cc1, cc2 = st.columns(2)
                 with cc1:
-                    if st.button("Evet, sil", type="primary", key="confirm_clear_yes"):
-                        st.session_state.subgroups = []
-                        st.session_state.baseline = None
-                        st.session_state.confirm_clear = False
-                        st.rerun()
+                    with st.container(key="danger_clear_confirm"):
+                        if st.button("Evet, sil", type="primary", key="confirm_clear_yes"):
+                            st.session_state.subgroups = []
+                            st.session_state.baseline = None
+                            st.session_state.confirm_clear = False
+                            st.rerun()
                 with cc2:
                     if st.button("Vazgec", key="confirm_clear_no"):
                         st.session_state.confirm_clear = False
@@ -941,7 +1045,7 @@ with tab_chart:
                 help=(
                     "Secilen urune gore LSL/USL degerleri asagida otomatik "
                     "doldurulur (elle degistirilebilir). \U0001F33E ile "
-                    "baslayan girdiler hammadde QC referanslaridir - bitmiş "
+                    "baslayan girdiler hammadde QC referanslaridir - bitmis "
                     "urun (TGK uyumlu) spesifikasyonlarindan ayri bir "
                     "kategoridir, listede en altta 'Ozel/Manuel gir' "
                     "oncesinde grupludur."
@@ -979,7 +1083,7 @@ with tab_chart:
 
             active_param = st.session_state.active_parameter
             if raw_name is not None:
-                # Hammadde secildi: bitmiş urun (TGK uyumlulugu iddiasi tasiyan)
+                # Hammadde secildi: bitmis urun (TGK uyumlulugu iddiasi tasiyan)
                 # per-parametre notlari yerine, ayri "Hammadde QC Referansi"
                 # kategorisini acikca etiketleyen bir not gosterilir - bkz.
                 # RAW_MATERIAL_QC_REFERENCE (constants.py) ve METHODOLOGY.md
@@ -990,17 +1094,17 @@ with tab_chart:
                 _note = _spec.get("note")
                 if _verified is True:
                     st.success(
-                        f"\U0001F33E **Hammadde QC Referansi** (bitmiş urun TGK "
+                        f"\U0001F33E **Hammadde QC Referansi** (bitmis urun TGK "
                         f"uyumlulugu ile ILGILI DEGILDIR, ayri bir kategoridir). "
                         f"Kaynak: {_source}"
                     )
                 elif _verified == "kismi":
                     st.warning(
-                        f"\U0001F33E **Hammadde QC Referansi** (bitmiş urun TGK "
+                        f"\U0001F33E **Hammadde QC Referansi** (bitmis urun TGK "
                         f"uyumlulugu ile ILGILI DEGILDIR). Kaynak: {_source} — "
                         "arama motoru sonucuyla dogrulandi, tam metin taranmis "
                         "PDF oldugu icin dogrudan okunamadi; kritik kullanimdan "
-                        "once tebligin orijinal metniyle çapraz kontrol onerilir."
+                        "once tebligin orijinal metniyle capraz kontrol onerilir."
                     )
                 else:
                     st.warning(
@@ -1023,7 +1127,7 @@ with tab_chart:
                 )
             elif active_param == "Brix":
                 st.caption(
-                    "Bu degerler 19 CFR 151.91 (ABD federal regülasyonu, meyve "
+                    "Bu degerler 19 CFR 151.91 (ABD federal regulasyonu, meyve "
                     "sulari icin resmi ortalama Brix tablosu) ve sektor pratigine "
                     "dayanir; resmi tek nokta ortalamaya ±0.5 tolerans eklenerek "
                     "aralik haline getirildi. Turk Gida Kodeksi'nin yerini tutmaz - "

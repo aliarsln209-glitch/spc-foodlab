@@ -36,9 +36,9 @@ def test_format_cpk_normal():
 # --- get_cpk_level -------------------------------------------------------
 
 def test_cpk_level_excellent_at_and_above_threshold():
-    assert get_cpk_level(1.67)[1] == "Mükemmel"
-    assert get_cpk_level(2.5)[1] == "Mükemmel"
-    assert get_cpk_level(float("inf"))[1] == "Mükemmel"
+    assert get_cpk_level(1.67)[1] == "Mukemmel"
+    assert get_cpk_level(2.5)[1] == "Mukemmel"
+    assert get_cpk_level(float("inf"))[1] == "Mukemmel"
 
 
 def test_cpk_level_capable_band():
@@ -47,8 +47,22 @@ def test_cpk_level_capable_band():
 
 
 def test_cpk_level_marginal_band():
-    assert get_cpk_level(1.0)[1] == "Sınırda"
-    assert get_cpk_level(1.32)[1] == "Sınırda"
+    assert get_cpk_level(1.0)[1] == "Sinirda"
+    assert get_cpk_level(1.32)[1] == "Sinirda"
+
+
+def test_cpk_level_colors_are_outside_the_brand_green_amber_family():
+    # v1.1.1 tema paleti marka rengi olarak yesil+amber kullaniyor (bkz.
+    # inject_theme_css) - Cpk/istatistiksel sonuc renkleri kullanicinin
+    # 'marka rengi mi yoksa sonuc mu iyi' diye karismamasi icin BILINCLI
+    # OLARAK farkli bir renk ailesinden (mavi->mor->kirmizi) secildi.
+    brand_green_amber_prefixes = ("#15", "#22", "#2f", "#d9", "#f0", "#bb")
+    for cpk in (2.5, 1.4, 1.1, 0.5):
+        _, _, color = get_cpk_level(cpk)
+        assert color.lower().startswith(("#25", "#7c", "#dc")), (
+            f"Cpk={cpk} rengi ({color}) beklenen mavi/mor/kirmizi ailesinde degil"
+        )
+        assert not color.lower().startswith(brand_green_amber_prefixes)
 
 
 def test_cpk_level_not_capable_band():
@@ -99,7 +113,7 @@ def test_quick_summary_mentions_no_out_of_control_points():
 def test_quick_summary_mentions_out_of_control_count():
     text = build_quick_summary("olcum", 24, 3, 0.8, "Cpu (tek tarafli)")
     assert "3 kontrol disi nokta var" in text
-    assert "süreç yeterli değil" in text
+    assert "surec yeterli degil" in text
 
 
 # --- demo_scenario_targets --------------------------------------------------
@@ -159,6 +173,7 @@ if __name__ == "__main__":
     test_cpk_level_capable_band()
     test_cpk_level_marginal_band()
     test_cpk_level_not_capable_band()
+    test_cpk_level_colors_are_outside_the_brand_green_amber_family()
     test_trend_insufficient_data_returns_none()
     test_trend_detects_upward_direction()
     test_trend_detects_downward_direction()

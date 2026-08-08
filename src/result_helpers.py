@@ -22,19 +22,26 @@ def format_cpk(cpk: float) -> str:
 
 def get_cpk_level(cpk: float) -> tuple[str, str, str]:
     """Cpk/Cpu degerine gore (emoji, seviye etiketi, renk) rozet bilgisi.
-    Esikler: >=1.67 Mükemmel, 1.33-1.67 Yeterli, 1.0-1.33 Sınırda, <1.0
+    Esikler: >=1.67 Mukemmel, 1.33-1.67 Yeterli, 1.0-1.33 Sinirda, <1.0
     Yetersiz - yaygin SPC kabulu (bkz. render_cpk_message esikleri).
     Etiketler Turkce'dir (tum arayuzde tek dil kullanmak icin - bkz.
-    build_quick_summary'deki yorum cumleleri de ayni etiketlerle eslesir)."""
+    build_quick_summary'deki yorum cumleleri de ayni etiketlerle eslesir).
+
+    Renkler BILINCLI OLARAK mavi->mor->kirmizi ailesinden secildi (yesil
+    DEGIL) - v1.1.1 tema paleti marka rengi olarak yesil (#15803D) kullaniyor;
+    Cpk 'iyi' sonucu da yesil olsaydi kullanici 'bu marka rengi mi yoksa
+    istatistiksel sonuc mu iyi' diye karistirabilirdi. Istatistiksel anlam
+    tasiyan renkler bu yuzden marka paletinden (yesil/amber) tamamen ayri
+    tutuldu."""
     if cpk == float("-inf"):
-        return "\U0001F534", "Yetersiz", "#e03131"
+        return "\U0001F534", "Yetersiz", "#dc2626"
     if cpk == float("inf") or cpk >= 1.67:
-        return "\U0001F7E2", "Mükemmel", "#2f9e44"
+        return "\U0001F535", "Mukemmel", "#2563eb"
     if cpk >= 1.33:
-        return "\U0001F7E2", "Yeterli", "#2f9e44"
+        return "\U0001F535", "Yeterli", "#2563eb"
     if cpk >= 1.0:
-        return "\U0001F7E1", "Sınırda", "#f08c00"
-    return "\U0001F534", "Yetersiz", "#e03131"
+        return "\U0001F7E3", "Sinirda", "#7c3aed"
+    return "\U0001F534", "Yetersiz", "#dc2626"
 
 
 def compute_trend(series: list[float], window: int = 6) -> tuple[str, float] | None:
@@ -62,10 +69,10 @@ def build_quick_summary(sample_word: str, n_samples: int, n_out_of_control: int,
         else f"{n_out_of_control} kontrol disi nokta var"
     )
     level_text = {
-        "Mükemmel": "süreç mükemmel yeterli",
-        "Yeterli": "süreç yeterli",
-        "Sınırda": "süreç sınırda yeterli",
-        "Yetersiz": "süreç yeterli değil",
+        "Mukemmel": "surec mukemmel yeterli",
+        "Yeterli": "surec yeterli",
+        "Sinirda": "surec sinirda yeterli",
+        "Yetersiz": "surec yeterli degil",
     }[level_label]
     return (
         f"{n_samples} {sample_word} analiz edildi, {oos_text}, "
