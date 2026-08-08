@@ -27,12 +27,11 @@ def get_cpk_level(cpk: float) -> tuple[str, str, str]:
     Etiketler Turkce'dir (tum arayuzde tek dil kullanmak icin - bkz.
     build_quick_summary'deki yorum cumleleri de ayni etiketlerle eslesir).
 
-    Renkler BILINCLI OLARAK mavi->mor->kirmizi ailesinden secildi (yesil
-    DEGIL) - v1.1.1 tema paleti marka rengi olarak yesil (#15803D) kullaniyor;
-    Cpk 'iyi' sonucu da yesil olsaydi kullanici 'bu marka rengi mi yoksa
-    istatistiksel sonuc mu iyi' diye karistirabilirdi. Istatistiksel anlam
-    tasiyan renkler bu yuzden marka paletinden (yesil/amber) tamamen ayri
-    tutuldu."""
+    Renkler mavi->mor->kirmizi ailesinden secildi (klasik yesil/turuncu/
+    kirmizi degil) - kullanicinin sidebar'dan sectigi 'Vurgu rengi' (varsayilan
+    mavi, ama serbestce degistirilebilir) ile bu istatistiksel sonuc renkleri
+    arasinda olasi bir karisikligi onlemek icin ayri bir renk ailesi
+    kullanilir."""
     if cpk == float("-inf"):
         return "\U0001F534", "Yetersiz", "#dc2626"
     if cpk == float("inf") or cpk >= 1.67:

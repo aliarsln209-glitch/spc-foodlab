@@ -1,14 +1,12 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
-import textwrap
 from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 from fpdf import FPDF
 from scipy import stats
 
@@ -115,24 +113,22 @@ with st.sidebar:
 
     if selected_param_radio != st.session_state.active_parameter:
         if st.session_state.subgroups:
-            with st.container(key="confirm_reveal_paramswitch"):
-                st.warning(
-                    f"Mevcut veri ({st.session_state.active_parameter}) silinecek. "
-                    "Emin misiniz?"
-                )
-                pc1, pc2 = st.columns(2)
-                with pc1:
-                    with st.container(key="danger_param_switch"):
-                        if st.button("Evet, degistir", type="primary", key="param_switch_yes"):
-                            st.session_state.active_parameter = selected_param_radio
-                            st.session_state.subgroups = []
-                            st.session_state.baseline = None
-                            reset_parameter_scoped_state()
-                            st.rerun()
-                with pc2:
-                    if st.button("Vazgec", key="param_switch_no"):
-                        st.session_state._reset_parameter_radio = True
-                        st.rerun()
+            st.warning(
+                f"Mevcut veri ({st.session_state.active_parameter}) silinecek. "
+                "Emin misiniz?"
+            )
+            pc1, pc2 = st.columns(2)
+            with pc1:
+                if st.button("Evet, degistir", type="primary", key="param_switch_yes"):
+                    st.session_state.active_parameter = selected_param_radio
+                    st.session_state.subgroups = []
+                    st.session_state.baseline = None
+                    reset_parameter_scoped_state()
+                    st.rerun()
+            with pc2:
+                if st.button("Vazgec", key="param_switch_no"):
+                    st.session_state._reset_parameter_radio = True
+                    st.rerun()
         else:
             st.session_state.active_parameter = selected_param_radio
             reset_parameter_scoped_state()
@@ -141,11 +137,9 @@ with st.sidebar:
     st.divider()
     chart_theme = st.selectbox("Tema (grafik + arayuz)", ["Acik", "Koyu"], key="chart_theme")
     accent_color = st.color_picker(
-        # Varsayilan marka birincil rengi (koyu yesil, v1.1.1 "Gida-Bilim
-        # Sicak" temasi) - kullanici degistirebilir.
-        "Vurgu rengi", value=st.session_state.get("accent_color", "#15803D"),
+        "Vurgu rengi", value=st.session_state.get("accent_color", "#4c6ef5"),
         key="accent_color",
-        help="Butonlar ve KPI kartlarindaki vurgu rengini degistirir (Cpk sonuc/uyari/hata renkleri sabit kalir, bkz. METHODOLOGY.md).",
+        help="Butonlar ve KPI kartlarindaki vurgu rengini degistirir (basari/uyari/hata renkleri sabit kalir).",
     )
 
 dark = chart_theme == "Koyu"
@@ -176,71 +170,27 @@ if not is_individual:
         )
         if selected_n != st.session_state.subgroup_size:
             if st.session_state.subgroups:
-                with st.container(key="confirm_reveal_nchange"):
-                    st.warning(
-                        f"n degeri {st.session_state.subgroup_size} -> {selected_n} olarak "
-                        "degistirilirse mevcut alt gruplar ve baseline silinecek "
-                        "(mevcut veri eski n'e gore girildi). Emin misiniz?"
-                    )
-                    nc1, nc2 = st.columns(2)
-                    with nc1:
-                        with st.container(key="danger_n_change"):
-                            if st.button("Evet, degistir", type="primary", key="n_change_yes"):
-                                st.session_state.subgroup_size = selected_n
-                                st.session_state.subgroups = []
-                                st.session_state.baseline = None
-                                st.rerun()
-                    with nc2:
-                        if st.button("Vazgec", key="n_change_no"):
-                            st.session_state._reset_subgroup_n_input = True
-                            st.rerun()
+                st.warning(
+                    f"n degeri {st.session_state.subgroup_size} -> {selected_n} olarak "
+                    "degistirilirse mevcut alt gruplar ve baseline silinecek "
+                    "(mevcut veri eski n'e gore girildi). Emin misiniz?"
+                )
+                nc1, nc2 = st.columns(2)
+                with nc1:
+                    if st.button("Evet, degistir", type="primary", key="n_change_yes"):
+                        st.session_state.subgroup_size = selected_n
+                        st.session_state.subgroups = []
+                        st.session_state.baseline = None
+                        st.rerun()
+                with nc2:
+                    if st.button("Vazgec", key="n_change_no"):
+                        st.session_state._reset_subgroup_n_input = True
+                        st.rerun()
             else:
                 st.session_state.subgroup_size = selected_n
                 st.rerun()
 
 subgroup_n = st.session_state.subgroup_size
-
-
-# --- Tasarim tokenlari (v1.1.1 - "Gida-Bilim Sicak" teması) ----------------
-# Palet: koyu yesil (marka/birincil) + amber (ikincil vurgu) + kirmizi
-# (yikici islem). BILINCLI OLARAK istatistiksel sonuc renklerinden (Cpk
-# rozeti - bkz. result_helpers.get_cpk_level: mavi/mor/kirmizi) AYRI tutulur,
-# aksi halde kullanici 'bu marka rengi mi yoksa Cpk sonucu mu iyi' diye
-# karisir. Tipografi: Outfit (baslik, karakterli ama olcculu) + Work Sans
-# (govde/etiket, okunakli) - varsayilan Streamlit fontunun jenerik hissini
-# kirmak icin Google Fonts uzerinden yuklenir.
-LIGHT_TOKENS = {
-    "bg": "#F7FBF8",
-    "sidebar_bg": "#EAF4EC",
-    "card_bg": "#FFFFFF",
-    "border": "#D7EADB",
-    "text": "#16241C",
-    "text_secondary": "#5B6F62",
-    "input_bg": "#FFFFFF",
-    "primary": "#15803D",
-    "accent": "#B45309",  # amber, metin/link icin koyulastirilmis (kontrast)
-    "accent_fill": "#D97706",  # amber, buton/dolgu icin
-    "shadow": "rgba(20, 60, 40, 0.08)",
-}
-DARK_TOKENS = {
-    "bg": "#0B140F",
-    "sidebar_bg": "#0F1B14",
-    "card_bg": "#142019",
-    "border": "#24352B",
-    "text": "#EAF3EC",
-    "text_secondary": "#9FB6A7",
-    "input_bg": "#1A281F",
-    "primary": "#34D399",
-    "accent": "#F59E0B",
-    "accent_fill": "#F59E0B",
-    "shadow": "rgba(0, 0, 0, 0.35)",
-}
-DESTRUCTIVE = {"light": "#DC2626", "dark": "#EF4444"}
-
-GOOGLE_FONTS_IMPORT = (
-    "https://fonts.googleapis.com/css2?"
-    "family=Outfit:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap"
-)
 
 
 def inject_theme_css(dark: bool, accent: str) -> None:
@@ -249,297 +199,77 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     kendi config.toml temasi Community Cloud'da calisma anindan
     degistirilemedigi icin bu, custom CSS injection ile yapiliyor.
 
-    Acik ve koyu tema ARTIK AYNI tasarim dilini (kart golgesi/border-radius/
-    spacing/tipografi) paylasir - onceden sadece koyu temada tam ozel CSS
-    vardi, acik temada Streamlit'in varsayilan gorunumu kaliyordu.
-
     Ayrica hafif (agir olmayan) hover/gecis animasyonlari icerir - buton
-    hover'da kucuk buyume, kart gecisi, uyari kutularinda fade-in. Amac
+    hover'da kucuk buyume, karti gecisi, uyari kutularinda fade-in. Amac
     sadece arayuzu biraz daha 'canli' hissettirmek, dikkat dagitmamak."""
-    t = DARK_TOKENS if dark else LIGHT_TOKENS
-    destructive = DESTRUCTIVE["dark"] if dark else DESTRUCTIVE["light"]
-    color_scheme = "dark" if dark else "light"
+    if dark:
+        theme_css = """
+        .stApp { background-color: #0e1117; }
+        [data-testid="stSidebar"] { background-color: #161a23; }
+        .stApp, .stApp p, .stApp span, .stApp label,
+        h1, h2, h3, h4, h5, h6 { color: #fafafa; }
+        [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #fafafa; }
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: #161a23;
+            border-color: #333c4a !important;
+        }
+        [data-testid="stNumberInput"] input,
+        [data-testid="stTextInput"] input,
+        [data-testid="stSelectbox"] div[data-baseweb="select"] > div {
+            background-color: #262d3d;
+            color: #fafafa;
+        }
+        [data-testid="stDataFrame"] { color-scheme: dark; }
+        .stAlert { background-color: #1c2230; }
+        button[kind="secondary"], [data-testid="stFormSubmitButton"] button {
+            background-color: #262d3d;
+            color: #fafafa !important;
+            border-color: #333c4a;
+        }
+        """
+    else:
+        theme_css = """
+        .stApp { background-color: #ffffff; }
+        """
 
     css = f"""
-    @import url('{GOOGLE_FONTS_IMPORT}');
+    <style>
+    {theme_css}
 
-    .stApp {{
-        background-color: {t["bg"]};
-        color: {t["text"]};
-        font-family: 'Work Sans', sans-serif;
-        color-scheme: {color_scheme};
-    }}
-    .stApp p, .stApp span, .stApp label, .stApp li {{ color: {t["text"]}; }}
-    [data-testid="stCaptionContainer"], .stCaption {{ color: {t["text_secondary"]} !important; }}
-
-    h1, h2, h3, h4, h5, h6,
-    [data-testid="stMetricValue"] {{
-        font-family: 'Outfit', sans-serif;
-        font-weight: 600;
-        color: {t["primary"]};
-    }}
-    [data-testid="stMetricLabel"] {{ color: {t["text_secondary"]}; }}
-
-    /* Sidebar / ana panel gorsel ayrimi - farkli zemin rengi + hafif kenar */
-    [data-testid="stSidebar"] {{
-        background-color: {t["sidebar_bg"]};
-        border-right: 1px solid {t["border"]};
-    }}
-    [data-testid="stSidebar"] * {{ color: {t["text"]}; }}
-
-    /* Kart/container tasarim dili: tutarli border-radius + golge + spacing -
-       tek tek widget yamalamak yerine tum st.container(border=True) bloklarina
-       uygulanir. */
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        background-color: {t["card_bg"]};
-        border: 1px solid {t["border"]} !important;
-        border-radius: 14px !important;
-        box-shadow: 0 1px 3px {t["shadow"]};
-        transition: box-shadow 0.2s ease, transform 0.2s ease;
-    }}
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        box-shadow: 0 4px 16px {t["shadow"]};
-    }}
-
-    [data-testid="stNumberInput"] input,
-    [data-testid="stTextInput"] input,
-    [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
-    [data-testid="stTextArea"] textarea {{
-        background-color: {t["input_bg"]};
-        color: {t["text"]};
-        border-radius: 8px;
-    }}
-    [data-testid="stDataFrame"] {{ color-scheme: {color_scheme}; }}
-    .stAlert {{ background-color: {t["card_bg"]}; border-radius: 10px; }}
-
-    button[kind="secondary"], [data-testid="stFormSubmitButton"] button {{
-        background-color: {t["card_bg"]};
-        color: {t["text"]} !important;
-        border-color: {t["border"]};
-        border-radius: 8px;
-        font-family: 'Work Sans', sans-serif;
-        font-weight: 500;
-    }}
-
-    /* Vurgu rengi (kullanici secimi, sidebar'daki 'Vurgu rengi' - primary
-       butonlar + slider). Varsayilani marka birincil rengidir ama kullanici
-       degistirebilir. */
+    /* Vurgu rengi (kullanici secimi) - primary butonlar + slider */
     button[kind="primary"] {{
         background-color: {accent} !important;
         border-color: {accent} !important;
-        border-radius: 8px;
-        font-family: 'Work Sans', sans-serif;
-        font-weight: 500;
     }}
     [data-testid="stSlider"] div[role="slider"] {{ background-color: {accent} !important; }}
-    a {{ color: {t["accent"]}; }}
-
-    /* Yikici onaylar (mevcut veriyi silen 'Evet, degistir/sil') - marka veya
-       kullanicinin sectigi vurgu renginden BAGIMSIZ, sabit kirmizi. Hedef
-       buton, cevresi st.container(key='danger_...') ile sarilarak
-       'st-key-danger_...' sinifiyla scope ediliyor - bkz. cagrilar. */
-    [class*="st-key-danger_"] button[kind="primary"] {{
-        background-color: {destructive} !important;
-        border-color: {destructive} !important;
-    }}
-
-    /* ============================================================
-       DERIN WIDGET RESKIN - native Streamlit/BaseWeb bilesenlerinin
-       gorsel 'imzasini' (varsayilan radio/tab/select gorunumu)
-       degistirir. Ak-fonksiyon/yerlesim AYNI kalir - sadece stil.
-       NOT: bu selektorler Streamlit'in ic (data-testid/data-baseweb)
-       DOM yapisina dayanir, resmi/garantili bir API degildir - bir
-       Streamlit surum guncellemesi bu yapiyi degistirirse (ozellikle
-       :has() destegi veya data-baseweb attribute'leri) bu blok
-       gozden gecirilmeli. Tarayicida canli test edilemedigi icin
-       (bu gelistirme ortaminda tarayici yok) goruntuyu ilk deploy
-       sonrasi kontrol et.
-       ============================================================ */
-
-    /* Radio -> pill/chip liste (sidebar parametre secici) */
-    [data-testid="stRadio"] > div[role="radiogroup"] {{
-        gap: 6px;
-    }}
-    [data-testid="stRadio"] label {{
-        background: {t["card_bg"]};
-        border: 1px solid {t["border"]};
-        border-radius: 999px;
-        padding: 4px 14px;
-        margin: 0;
-        transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
-    }}
-    [data-testid="stRadio"] label:hover {{
-        border-color: {accent};
-    }}
-    [data-testid="stRadio"] label:has(input:checked) {{
-        background: {accent};
-        border-color: {accent};
-    }}
-    [data-testid="stRadio"] label:has(input:checked) p {{
-        color: #ffffff !important;
-        font-weight: 600;
-    }}
-    [data-testid="stRadio"] label > div:first-child {{
-        display: none;
-    }}
-
-    /* Tab seridi -> segment/pill nav (varsayilan alt cizgi kaldirilir) */
-    [data-testid="stTabs"] [data-baseweb="tab-list"] {{
-        gap: 4px;
-        background: {t["sidebar_bg"]};
-        padding: 4px;
-        border-radius: 12px;
-        border: 1px solid {t["border"]};
-    }}
-    [data-testid="stTabs"] [data-baseweb="tab-highlight"] {{
-        display: none;
-    }}
-    [data-testid="stTabs"] button[data-baseweb="tab"] {{
-        border-radius: 8px;
-        color: {t["text_secondary"]};
-        transition: background 0.15s ease, color 0.15s ease;
-    }}
-    [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {{
-        background: {t["card_bg"]};
-        color: {t["primary"]} !important;
-        box-shadow: 0 1px 4px {t["shadow"]};
-    }}
-    [data-testid="stTabs"] button[data-baseweb="tab"]:hover {{
-        color: {accent};
-    }}
-    [data-baseweb="tab-panel"] {{
-        animation: spcFadeIn 0.18s ease;
-    }}
-
-    /* Selectbox -> yuvarlatilmis kenar + marka rengiyle odak halkasi */
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div {{
-        border-radius: 10px;
-        border-color: {t["border"]} !important;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    }}
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div:focus-within {{
-        border-color: {accent} !important;
-        box-shadow: 0 0 0 2px {accent}33;
-    }}
-    [data-baseweb="popover"] [role="listbox"] {{
-        border-radius: 10px;
-        border: 1px solid {t["border"]};
-        box-shadow: 0 6px 20px {t["shadow"]};
-    }}
-    [data-baseweb="popover"] [role="option"]:hover {{
-        background: {accent}22 !important;
-    }}
-
-    /* st.columns grid - tutarli bosluk */
-    [data-testid="stHorizontalBlock"] {{ gap: 1rem; }}
-
-    /* Erisilebilirlik: klavye ile gezinirken gorunur odak halkasi
-       (bkz. ui-ux-pro-max Priority 1 - Accessibility) */
-    :focus-visible {{
-        outline: 2px solid {accent};
-        outline-offset: 2px;
-    }}
+    a {{ color: {accent}; }}
 
     /* Hafif hover/gecis animasyonlari - agir hareket yok, sadece kucuk
-       buyume/golge/fade; hicbiri 200ms'yi asmaz (profesyonel his, oyun
-       hissi degil - confetti/bounce yok). */
-    button {{ transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }}
+       buyume/golge/fade. */
+    button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
     button:hover {{ transform: translateY(-1px) scale(1.01); }}
 
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        transition: box-shadow 0.2s ease;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+        box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    }}
+
     .kpi-card {{ transition: transform 0.15s ease, box-shadow 0.15s ease; }}
-    .kpi-card:hover {{ transform: translateY(-2px); box-shadow: 0 4px 14px {t["shadow"]}; }}
+    .kpi-card:hover {{ transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }}
 
     @keyframes spcFadeIn {{
         from {{ opacity: 0; transform: translateY(-4px); }}
         to {{ opacity: 1; transform: translateY(0); }}
     }}
-    .stAlert {{ animation: spcFadeIn 0.3s ease; }}
-
-    /* Iki adimli onay akislarinin (Evet/Vazgec) yumusak acilis efekti -
-       st.container(key='confirm_reveal_...') ile sarilan bloklar. */
-    @keyframes spcRevealDown {{
-        from {{ opacity: 0; transform: translateY(-6px); }}
-        to {{ opacity: 1; transform: translateY(0); }}
-    }}
-    [class*="st-key-confirm_reveal_"] {{
-        animation: spcRevealDown 0.18s ease;
-    }}
-
-    @media (prefers-reduced-motion: reduce) {{
-        button, [data-testid="stVerticalBlockBorderWrapper"], .kpi-card, .stAlert,
-        [data-testid="stRadio"] label, [data-testid="stTabs"] button[data-baseweb="tab"],
-        [data-testid="stSelectbox"] [data-baseweb="select"] > div,
-        [data-baseweb="tab-panel"], [class*="st-key-confirm_reveal_"] {{
-            transition: none !important;
-            animation: none !important;
-        }}
-    }}
+    .stAlert {{ animation: spcFadeIn 0.35s ease; }}
+    </style>
     """
-    css = textwrap.dedent(css).strip()
-
-    # KRITIK - iki katmanli sorun tespit edildi (canli QA'da bulundu):
-    # 1) css f-string'i onceden fonksiyonun kendi Python girinti seviyesini
-    #    miras aliyordu (dedent ile cozuldu).
-    # 2) DAHA ONEMLISI: Streamlit 1.61.1, st.markdown(unsafe_allow_html=True)
-    #    icindeki <style> etiketinin ICERIGINI sessizce filtreliyor/etkisiz
-    #    kiliyor - canli tarayici DOM taramasi bunu kanitladi (bir "canary"
-    #    <div style="..."> render ediliyordu ama salt <style>body{...}</style>
-    #    kuralinin HICBIR etkisi yoktu, ne gercek ne kacis karakterli hali
-    #    DOM'da bulunamadi). st.markdown ile <style> enjeksiyonu bu Streamlit
-    #    surumunde GUVENILMEZ.
-    #
-    # COZUM: st.components.v1.html() - Streamlit'in ozel bilesenler icin
-    # sagladigi, SANITIZE EDILMEYEN gercek bir iframe/JS kacis kapisi
-    # (izolasyonun kendisi guvenlik siniri oldugu icin icerigi sansurlemez).
-    # Bu iframe icinden JavaScript ile window.parent.document.head'e
-    # GERCEK bir <style> DOM elemani ekleniyor - ust cerceve (Streamlit
-    # app'in kendisi) ile ayni origin'de calistigi icin bu erisim izinlidir.
-    # Her rerun'da eski enjekte edilmis stil (id ile) once kaldirilip
-    # yenisi eklenir, boylece <head> icinde tekrar tekrar birikmez.
-    css_js_safe = css.replace("\\", "\\\\").replace("`", "\\`")
-    injector_js = f"""
-    <script>
-    (function() {{
-        try {{
-            const doc = window.parent.document;
-            const existing = doc.getElementById('spc-foodlab-theme');
-            if (existing) {{ existing.remove(); }}
-            const style = doc.createElement('style');
-            style.id = 'spc-foodlab-theme';
-            style.textContent = `{css_js_safe}`;
-            doc.head.appendChild(style);
-        }} catch (e) {{
-            console.error('SPC FoodLab tema enjeksiyonu basarisiz:', e);
-        }}
-    }})();
-    </script>
-    """
-    components.html(injector_js, height=0, width=0)
+    st.markdown(css, unsafe_allow_html=True)
 
 
 inject_theme_css(dark, accent_color)
-
-# --- GECICI DEBUG CANARY (kaldirilacak) -------------------------------------
-# 3 ayri katmani test eder: (1) bu satir calisiyor mu - duz metin,
-# (2) unsafe_allow_html=True ile stilli <div> render ediliyor mu,
-# (3) <style> etiketinin KENDISI (herhangi bir CSS icerigi olmadan, sadece
-# sayfa arka planini kirmiziya boyayan tek satirlik bir kural) etkili oluyor
-# mu - fark buysa Streamlit surumu <style>/<script> etiketlerini
-# unsafe_allow_html=True icinde bile sessizce filtreliyor olabilir.
-st.caption("\U0001F527 DEBUG-CANARY-1: bu satir calisiyorsa metin gorunur")
-st.markdown(
-    '<div style="background:#ff00aa;color:white;padding:12px;'
-    'font-size:18px;font-weight:bold;">DEBUG-CANARY-2: bu pembe kutu '
-    'gorunuyorsa unsafe_allow_html HTML render calisiyor</div>',
-    unsafe_allow_html=True,
-)
-st.markdown(
-    "<style>body { background-color: red !important; }</style>",
-    unsafe_allow_html=True,
-)
-st.caption("DEBUG-CANARY-3: yukaridaki <style> calisiyorsa TUM SAYFA ARKA PLANI KIRMIZI olmali")
-# --- /GECICI DEBUG CANARY ----------------------------------------------------
-
 
 def compute_stats(subgroups):
     """Alt gruplardan ortalama/range listelerini ve genel ortalama/R-bar'i hesaplar.
@@ -715,20 +445,13 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
             "Genel kabul: >=1.67 excellent, 1.33-1.67 capable, 1.0-1.33 marginal, <1.0 not capable."
         )
     else:
-        # Notr gri ton: bu marka rengiyle (yesil/amber) VEYA Cpk sonuc
-        # renkleriyle (mavi/mor/kirmizi) cakismasin - 'gecersiz spesifikasyon'
-        # bir sonuc DEGIL, hesaplanamama durumudur, ayri bir renk ailesi hak eder.
-        emoji, level_label, color = "⚠️", "Gecersiz", "#64748b"
+        emoji, level_label, color = "⚠️", "Gecersiz", "#f08c00"
         cpk_value_str = "—"
         cpk_tooltip = "LSL >= USL - spesifikasyon gecersiz oldugu icin Cpk/Cpu hesaplanmadi."
-    _t = DARK_TOKENS if dark else LIGHT_TOKENS
-    card_bg = _t["card_bg"]
-    text_color = _t["text"]
-    sub_color = _t["text_secondary"]
-    # Kontrol disi nokta sayisi da Cpk gibi istatistiksel bir sonuctur - ayni
-    # mavi(iyi)/kirmizi(kotu) ailesini kullanir (bkz. get_cpk_level docstring),
-    # marka yesiliyle (#15803D) karismasin diye.
-    oos_color = DESTRUCTIVE["dark" if dark else "light"] if n_out_of_control else "#2563eb"
+    card_bg = "#161a23" if dark else "#f8f9fa"
+    text_color = "#fafafa" if dark else "#31333f"
+    sub_color = "#9aa4b2" if dark else "#666666"
+    oos_color = "#e03131" if n_out_of_control else "#2f9e44"
     oos_icon = "⚠️" if n_out_of_control else "✅"
 
     trend_badge = None
@@ -1041,20 +764,18 @@ with tab_data:
                     st.session_state.confirm_clear = True
                     st.rerun()
             else:
-                with st.container(key="confirm_reveal_clear"):
-                    st.warning("Emin misiniz? Tum alt gruplar ve baseline silinecek, bu islem geri alinamaz.")
-                    cc1, cc2 = st.columns(2)
-                    with cc1:
-                        with st.container(key="danger_clear_confirm"):
-                            if st.button("Evet, sil", type="primary", key="confirm_clear_yes"):
-                                st.session_state.subgroups = []
-                                st.session_state.baseline = None
-                                st.session_state.confirm_clear = False
-                                st.rerun()
-                    with cc2:
-                        if st.button("Vazgec", key="confirm_clear_no"):
-                            st.session_state.confirm_clear = False
-                            st.rerun()
+                st.warning("Emin misiniz? Tum alt gruplar ve baseline silinecek, bu islem geri alinamaz.")
+                cc1, cc2 = st.columns(2)
+                with cc1:
+                    if st.button("Evet, sil", type="primary", key="confirm_clear_yes"):
+                        st.session_state.subgroups = []
+                        st.session_state.baseline = None
+                        st.session_state.confirm_clear = False
+                        st.rerun()
+                with cc2:
+                    if st.button("Vazgec", key="confirm_clear_no"):
+                        st.session_state.confirm_clear = False
+                        st.rerun()
 
     st.write("")
 
@@ -1431,26 +1152,25 @@ with tab_chart:
                             st.session_state.confirm_freeze = True
                             st.rerun()
                     else:
-                        with st.container(key="confirm_reveal_freeze_imr"):
-                            st.warning(
-                                "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                                "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                                "sonradan 'Baseline'i sifirla' kullanman gerekir."
-                            )
-                            fc1, fc2 = st.columns(2)
-                            with fc1:
-                                if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                                    st.session_state.baseline = {
-                                        "x_bar": live_x_bar,
-                                        "mr_bar": live_mr_bar,
-                                        "n_baseline": n_current,
-                                    }
-                                    st.session_state.confirm_freeze = False
-                                    st.rerun()
-                            with fc2:
-                                if st.button("Vazgec", key="confirm_freeze_no"):
-                                    st.session_state.confirm_freeze = False
-                                    st.rerun()
+                        st.warning(
+                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                        )
+                        fc1, fc2 = st.columns(2)
+                        with fc1:
+                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                st.session_state.baseline = {
+                                    "x_bar": live_x_bar,
+                                    "mr_bar": live_mr_bar,
+                                    "n_baseline": n_current,
+                                }
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
+                        with fc2:
+                            if st.button("Vazgec", key="confirm_freeze_no"):
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
 
                     x_bar = live_x_bar
                     mr_bar = live_mr_bar
@@ -1472,21 +1192,20 @@ with tab_chart:
                             st.session_state.confirm_reset_baseline = True
                             st.rerun()
                     else:
-                        with st.container(key="confirm_reveal_reset_imr"):
-                            st.warning(
-                                "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                                "mevcut TUM veriden canli hesaplanmaya baslar."
-                            )
-                            rc1, rc2 = st.columns(2)
-                            with rc1:
-                                if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                                    st.session_state.baseline = None
-                                    st.session_state.confirm_reset_baseline = False
-                                    st.rerun()
-                            with rc2:
-                                if st.button("Vazgec", key="confirm_reset_no"):
-                                    st.session_state.confirm_reset_baseline = False
-                                    st.rerun()
+                        st.warning(
+                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                            "mevcut TUM veriden canli hesaplanmaya baslar."
+                        )
+                        rc1, rc2 = st.columns(2)
+                        with rc1:
+                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                st.session_state.baseline = None
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
+                        with rc2:
+                            if st.button("Vazgec", key="confirm_reset_no"):
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
 
                     x_bar = baseline["x_bar"]
                     mr_bar = baseline["mr_bar"]
@@ -1680,26 +1399,25 @@ with tab_chart:
                             st.session_state.confirm_freeze = True
                             st.rerun()
                     else:
-                        with st.container(key="confirm_reveal_freeze_xbar"):
-                            st.warning(
-                                "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                                "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                                "sonradan 'Baseline'i sifirla' kullanman gerekir."
-                            )
-                            fc1, fc2 = st.columns(2)
-                            with fc1:
-                                if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                                    st.session_state.baseline = {
-                                        "x_double_bar": live_x_double_bar,
-                                        "r_bar": live_r_bar,
-                                        "n_baseline": n_current,
-                                    }
-                                    st.session_state.confirm_freeze = False
-                                    st.rerun()
-                            with fc2:
-                                if st.button("Vazgec", key="confirm_freeze_no"):
-                                    st.session_state.confirm_freeze = False
-                                    st.rerun()
+                        st.warning(
+                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                        )
+                        fc1, fc2 = st.columns(2)
+                        with fc1:
+                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                st.session_state.baseline = {
+                                    "x_double_bar": live_x_double_bar,
+                                    "r_bar": live_r_bar,
+                                    "n_baseline": n_current,
+                                }
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
+                        with fc2:
+                            if st.button("Vazgec", key="confirm_freeze_no"):
+                                st.session_state.confirm_freeze = False
+                                st.rerun()
 
                     x_double_bar = live_x_double_bar
                     r_bar = live_r_bar
@@ -1721,21 +1439,20 @@ with tab_chart:
                             st.session_state.confirm_reset_baseline = True
                             st.rerun()
                     else:
-                        with st.container(key="confirm_reveal_reset_xbar"):
-                            st.warning(
-                                "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                                "mevcut TUM veriden canli hesaplanmaya baslar."
-                            )
-                            rc1, rc2 = st.columns(2)
-                            with rc1:
-                                if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                                    st.session_state.baseline = None
-                                    st.session_state.confirm_reset_baseline = False
-                                    st.rerun()
-                            with rc2:
-                                if st.button("Vazgec", key="confirm_reset_no"):
-                                    st.session_state.confirm_reset_baseline = False
-                                    st.rerun()
+                        st.warning(
+                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                            "mevcut TUM veriden canli hesaplanmaya baslar."
+                        )
+                        rc1, rc2 = st.columns(2)
+                        with rc1:
+                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                st.session_state.baseline = None
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
+                        with rc2:
+                            if st.button("Vazgec", key="confirm_reset_no"):
+                                st.session_state.confirm_reset_baseline = False
+                                st.rerun()
 
                     x_double_bar = baseline["x_double_bar"]
                     r_bar = baseline["r_bar"]

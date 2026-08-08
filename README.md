@@ -46,10 +46,6 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 
 ## Ekran görüntüleri
 
-> Not: Aşağıdaki ekran görüntüleri v1.1.1'deki görsel kimlik
-> yenilemesinden (bkz. "Tasarım" bölümü) ÖNCE alındı, güncel değil —
-> bu ortamda tarayıcı erişimi olmadığı için yeniden alınamadı.
-
 | | |
 |---|---|
 | ![Veri girişi](screenshots/01_veri_girisi.png) | ![KPI paneli ve X-bar chart](screenshots/02_kpi_ve_xbar_chart.png) |
@@ -112,13 +108,8 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
 - **Streamlit** (Python) — form, hesaplama ve grafik tek pakette
 - **matplotlib + scipy** — kontrol grafikleri ve kapasite histogramı
 - **fpdf2** — tek sayfalık PDF analiz raporu export'u
-- **Tasarım:** özel bir CSS tema sistemi (`inject_theme_css`) ile
-  Streamlit'in varsayılan görünümünün ötesine geçilir — "Gıda-Bilim
-  Sıcak" paleti (koyu yeşil + amber, açık/koyu temada tutarlı), Outfit
-  (başlık) + Work Sans (gövde) tipografisi, kart gölgesi/border-radius
-  ve hafif hover/geçiş animasyonları. Cpk/istatistiksel sonuç renkleri
-  (mavi→mor→kırmızı) marka renginden bilinçli olarak ayrı tutulur —
-  "marka rengi mi sonuç mu iyi" karışıklığını önlemek için.
+- Hafif CSS geçişleri/animasyonları (buton hover, kart hover gölgesi,
+  uyarı kutularında fade-in) — arayüzü canlandırır, dikkat dağıtmaz
 - **Deploy:** Streamlit Community Cloud
 - Veri kalıcılığı: session-state (uygulama içi) + CSV import/export —
   v1'de veritabanı entegrasyonu yok
