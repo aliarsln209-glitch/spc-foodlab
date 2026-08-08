@@ -222,6 +222,65 @@ istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 | Peroksit Değeri | Codex Alimentarius / IOC (International Olive Council) | Natürel sızma zeytinyağı için ≤20 meq O2/kg; sadece USL anlamlıdır |
 | HMF | TGK Bal Tebliği (≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (sıvı ≤75, katı ≤100 mg/kg), sektör pratiği (meyve suyu konsantresi ≤20 mg/kg) | Sadece USL anlamlıdır |
 
+## Hammadde Kütüphanesi Genişletmesi (v1.1.1)
+
+Yukarıdaki "Ürün referans tabloları" **bitmiş ürünler** içindir. v1.1.1
+ile 16 hammadde, mevcut 9 parametrenin ilgili olanlarına ("Ürün / Hammadde"
+seçim listesine 🌾 önekiyle, `src/constants.py`
+`RAW_MATERIAL_QC_REFERENCE`) eklendi — **yeni bir istatistik motoru veya
+seçim akışı eklenmedi**, X-bar/R, I-MR ve Cpk/Cpu hesaplama mantığı
+(`spc_core.py`) bu değişiklikte hiç dokunulmadı.
+
+**Kritik ayrım:** bu tablo **"Hammadde QC Referansı"**dır, bitmiş ürün
+TGK uyumluluğu iddiasını hammaddelere GENİŞLETMEZ. Bir hammadde-parametre
+kombinasyonu için güvenilir kaynak (TGK tebliği, Codex/JECFA monografı)
+bulunamadığında **rastgele/varsayılan bir sayı konulmadı** — kullanıcı
+"Özel/Manuel gir" davranışıyla kendi değerini girer.
+
+### Sonuç özeti
+
+- Toplam hammadde-parametre kombinasyonu: **61**
+- Tam kaynaklı (tebliğ/monograf numarası + sayı doğrulandı): **3**
+- Kısmi kaynaklı (tebliğ doğru tespit edildi, sayı arama motoru
+  snippet'i ile doğrulandı — tam metin taranmış/OCR'siz PDF olduğu için
+  doğrudan okunamadı, kritik kullanımdan önce orijinal metinle çapraz
+  kontrol önerilir): **1**
+- Kaynak bulunamadı → manuel giriş: **57**
+
+### Tam/kısmi kaynaklı 4 çift
+
+| Hammadde | Parametre | Limit | Kaynak | Durum |
+|---|---|---|---|---|
+| Buğday unu | Nem/Rutubet | USL ≈ %14,5 | TGK Buğday Unu Tebliği (No: 2013/9) | Kısmi — arama snippet'i, tam metin doğrulanmadı |
+| Peynir altı suyu tozu | Nem/Rutubet | USL = %5 | TGK Peynir Tebliği (No: 2015/6) | Doğrulandı |
+| Kakao tozu | Nem/Rutubet | USL = %9 | TGK Kakao ve Çikolata Ürünleri Tebliği (No: 2017/29) | Doğrulandı |
+| Tuz | Tuz/NaCl | LSL = %98 (diğer tuzlar) / %97 (kayatuzu); USL=100 matematiksel tavan | TGK Tuz Tebliği (No: 2013/48) | Doğrulandı (USL mevzuattan değil, yüzdenin matematiksel üst sınırı) |
+
+### Kaynak bulunamayan / manuel giriş gereken hammadde-parametre çiftleri (57)
+
+| Hammadde | Parametreler (manuel giriş) | Not |
+|---|---|---|
+| Buğday unu | Aw, pH | — |
+| Süt tozu | Nem/Rutubet, Aw, pH, Tuz/NaCl (opsiyonel), Titrasyon Asitliği (opsiyonel) | Nem için TGK Fermente Süt Ürünleri Tebliği (2022/44) bulundu ama yanlış ürün kategorisinden (fermente süt tozu) geldiği için sayı KULLANILMADI |
+| Glikoz şurubu | Brix, Viskozite, pH, Aw, Nem/Rutubet, Titrasyon Asitliği (opsiyonel) | Brix çözelti bazlı ölçümdür (toz değil, zaten sıvı ürün) |
+| Maltodekstrin | Nem/Rutubet, Aw, Brix (opsiyonel), Viskozite (opsiyonel) | Brix/Viskozite toz üründe **çözelti hazırlanarak** ölçülür — metodoloji notu UI'da gösterilir |
+| Maltitol | Nem/Rutubet, Aw, Brix (opsiyonel), Viskozite (opsiyonel) | Aynı çözelti-bazlı not |
+| Nişasta | Nem/Rutubet, Aw, pH (opsiyonel) | Ayrı bir TGK Nişasta Tebliği tespit edilemedi |
+| Bitkisel yağ | Peroksit Değeri, Viskozite | Peroksit için doğru tebliğ (2012/29, değişiklik 2026/14) bulundu ama sayı doğrulanamadı; viskozite genelde mevzuat değil, işletme içi QC parametresi |
+| Peynir altı suyu tozu | Aw, pH, Tuz/NaCl (opsiyonel), Titrasyon Asitliği (opsiyonel) | — |
+| Kakao tozu | Aw, pH (opsiyonel) | — |
+| Toz şeker | Nem/Rutubet, Brix (opsiyonel), Aw (opsiyonel) | Brix çözelti hazırlanarak ölçülür |
+| Fruktoz | Nem/Rutubet, Brix (opsiyonel), Aw (opsiyonel) | Brix çözelti hazırlanarak ölçülür |
+| Pektin | Nem/Rutubet, Aw, Viskozite, pH (opsiyonel) | Viskozite standart çözelti/jel sisteminde ölçülür, koşullar tesise göre değişir |
+| Jelatin | Nem/Rutubet, Aw, Viskozite, pH (opsiyonel) | Aynı çözelti/jel notu |
+| Konsantre meyve suyu | Brix, pH, Viskozite, Titrasyon Asitliği, HMF | **HMF için ürün tipine (elma/üzüm/portakal vb.) bağlı genel bir mevzuat limiti bulunamadı — bal/pekmez HMF limitleri buraya uygulanmaz, farklı ürün kategorileridir** |
+| Yumurta tozu | Nem/Rutubet, Aw, Peroksit Değeri, pH (opsiyonel), Titrasyon Asitliği (opsiyonel) | TGK Yumurta Tebliği (2024/7) mevcut ama sayısal tablo taranmış PDF'lerden okunamadı |
+| Tuz | Aw (opsiyonel) | — |
+
+Detaylı kaynak notları (her çift için tam metin) `src/constants.py`
+`RAW_MATERIAL_QC_REFERENCE` sözlüğünde tutulur — bu tablo onun okunabilir
+özetidir.
+
 ## Yol Haritası (v1.1 → v3)
 
 v1, aşağıdaki sürümlerin hiçbiri olmadan da kendi başına tamamlanmış ve
@@ -278,6 +337,21 @@ Mimari not: CSV içe/dışa aktarma mantığı (`src/csv_io.py`) ve PDF rapor
 olmayan modüllere çıkarıldı — `spc_core.py`/`result_helpers.py` ile aynı
 gerekçe: pytest ile doğrudan test edilebilmeleri için (bkz. yukarıdaki
 "Doğrulama" bölümü).
+
+**v1.1.1 — Hammadde Kütüphanesi ✅ Tamamlandı** (yeni özellik: veri
+genişletmesi, yeni istatistik motoru yok)
+- 16 hammadde, mevcut 9 parametrenin ilgili olanlarına eklendi (bkz.
+  yukarıdaki "Hammadde Kütüphanesi Genişletmesi" bölümü) — X-bar/R, I-MR,
+  Cpk/Cpu hesaplama mantığı DEĞİŞMEDİ.
+- "Hammadde seçilince parametre listesi filtrelenir" gereksinimi, ayrı
+  bir filtreleme fonksiyonu yazmadan, hammaddenin sadece ilgili olduğu
+  parametrenin ürün sözlüğünde bulunmasıyla (mimari düzeyde) sağlandı.
+- Bitmiş ürün (TGK uyumlu) spesifikasyonlarından ayrı, açıkça etiketlenmiş
+  "Hammadde QC Referansı" kategorisi: kaynağı doğrulanamayan hiçbir
+  kombinasyon için varsayılan sayı konulmadı (61 çiftin 57'si manuel giriş).
+- Kapsam dışı bırakıldı (bilinçli): hammadde kabul sistemi, tedarikçi
+  yönetimi, COA yükleme/doğrulama, lot/parti yönetimi, veritabanı — bkz.
+  aşağıdaki "Bilinçli olarak reddedilenler".
 
 **v1.2 — İstatistiksel derinlik** (mevcut sürekli-veri motorunun
 genişletilmesi, yeni istatistik ailesi yok)

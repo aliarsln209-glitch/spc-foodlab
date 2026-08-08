@@ -26,9 +26,14 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (56 automated tests across 7 files, plus a data-driven
+  `tests/` (75 automated tests across 8 files, plus a data-driven
   `validation/` folder of reference CSVs, run on every push with
   coverage reporting via GitHub Actions — see badge above).
+- **Raw material (hammadde) library:** 16 raw materials mapped to the
+  relevant subset of the 9 parameters, kept as a clearly separate
+  "Raw Material QC Reference" category from finished-product specs — no
+  fabricated limits; combinations without a verified regulatory/technical
+  source are left as manual entry (see `METHODOLOGY.md`).
 - Result dashboard with a Cpk/Cpu level badge, an auto-generated plain-text
   summary, a shift-by-shift comparison table, and a one-page PDF report
   export — on top of the existing PNG chart export and CSV import/export.
@@ -116,7 +121,9 @@ spc-foodlab/
 ├── tests/
 │   ├── test_validation.py        # X-bar/R formül doğrulama testi (pH örneği)
 │   ├── test_imr_validation.py    # I-MR formül doğrulama testi (kahve sıcaklığı örneği)
-│   ├── test_cpk_edge_cases.py    # Sıfır-varyasyon (R̄/MR̄=0) edge case testleri
+│   ├── test_cpk_edge_cases.py    # Sıfır-varyasyon (R̄/MR̄=0) + geçersiz spesifikasyon (LSL≥USL) testleri
+│   ├── test_chart_label_formatting.py  # Grafik etiketi decimal_places testi (statik kaynak taraması)
+│   ├── test_raw_materials.py     # Hammadde kütüphanesi: ürün→parametre filtreleme, kaynak dürüstlüğü
 │   ├── test_result_helpers.py    # Rozet/trend/özet/demo-senaryosu testleri (result_helpers.py)
 │   ├── test_csv_io.py            # CSV şema/hata/temizleme + export→import round-trip testleri
 │   ├── test_pdf_report.py        # PDF rapor üretiminin otomatik doğrulanması

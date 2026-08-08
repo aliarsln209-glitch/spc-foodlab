@@ -255,6 +255,193 @@ HMF_PRODUCT_RANGES = {
     "Ozel/Manuel gir": None,
 }
 
+# --- Hammadde Kutuphanesi (v1.1.1) -----------------------------------------
+# Bitmiş urun spesifikasyonlarindan (yukaridaki PRODUCT_*_RANGES) AYRI bir
+# kategori: hammadde QC referanslari. Bitmiş urun tablolari TGK/sektor
+# pratigine dayanip cogu zaman dogrudan urun tebligleriyle eslesirken,
+# hammadde girdileri buyuk olcude ayri arastirmayla (web arama, TGK
+# tebligleri, JECFA/Codex monograflari) toplandi ve COGUNUN sayisal
+# kaynagi DOGRULANAMADI - bu durumda range=None birakildi (kullanici
+# "Ozel/Manuel gir" davranisiyla kendi degerini girer, UYDURMA SAYI
+# KONULMADI). "source"/"note" alanlari her hammadde-parametre ciftinin
+# durumunu (dogrulandi / kaynak bulunamadi) app.py'de kullaniciya gosterir.
+# Detay ve tam kaynak listesi icin bkz. METHODOLOGY.md "Hammadde
+# Kutuphanesi Genislemesi".
+RAW_MATERIAL_PREFIX = "\U0001F33E "  # 🌾 - secim listesinde bitmiş urunlerden gorsel ayrim
+
+RAW_MATERIAL_QC_REFERENCE = {
+    "Bugday unu": {
+        "Nem/Rutubet": {
+            "range": (None, 14.5),
+            "source": "TGK Bugday Unu Tebligi (No: 2013/9)",
+            "verified": "kismi",  # arama motoru snippet'i ile dogrulandi, tam metin taranmis PDF oldugu icin tablo dogrudan okunamadi
+            "note": None,
+        },
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": None},
+    },
+    "Sut tozu": {
+        "Nem/Rutubet": {
+            "range": None,
+            "source": "TGK Fermente Sut Urunleri Tebligi (No: 2022/44) - 'toz fermente sut urunu' tanimindan; klasik sut tozu icin ayri tebligi bulunamadi",
+            "verified": False,  # yanlis urun kategorisinden gelme riski var, sayi kullanilmadi
+            "note": None,
+        },
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": None},
+        "Tuz/NaCl": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+        "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Glikoz surubu": {
+        "Brix": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) glikoz surubunu tanimliyor, sayisal tablo dogrulanamadi", "verified": False, "note": None},
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Olcum kosullari (sicaklik, kayma hizi) urune/tesise bagli."},
+        "pH": {"range": None, "source": None, "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "Nem/Rutubet": {"range": None, "source": None, "verified": False, "note": None},
+        "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Maltodekstrin": {
+        "Nem/Rutubet": {"range": None, "source": "JECFA/FCC genel tanimi tipik ~%5 nem belirtiyor, spesifik monograf sayisi dogrulanamadi", "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur, metodoloji standardize edilmelidir."},
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Opsiyonel; cozelti/surup halinde olculur."},
+    },
+    "Maltitol": {
+        "Nem/Rutubet": {"range": None, "source": "JECFA Food Additives Series 40 'Maltitol syrup' monografi mevcut, sayisal loss-on-drying degeri dogrulanamadi", "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur."},
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Opsiyonel; cozelti/surup halinde olculur."},
+    },
+    "Nisasta": {
+        "Nem/Rutubet": {"range": None, "source": "Ayri bir 'TGK Nisasta Tebligi' tespit edilemedi", "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Bitkisel yag": {
+        "Peroksit Degeri": {
+            "range": None,
+            "source": "TGK Bitki Adi ile Anilan Yaglar Tebligi (No: 2012/29, degisiklik No: 2026/14) peroksit degeri limiti iceriyor, sayisal meq O2/kg degeri metinden dogrulanamadi",
+            "verified": False,
+            "note": None,
+        },
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Mevzuatta genelde zorunlu spesifikasyon degil, isletme ici QC parametresidir."},
+    },
+    "Peynir alti suyu tozu": {
+        "Nem/Rutubet": {
+            "range": (None, 5.0),
+            "source": "TGK Peynir Tebligi (No: 2015/6)",
+            "verified": True,
+            "note": None,
+        },
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": None},
+        "Tuz/NaCl": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+        "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Kakao tozu": {
+        "Nem/Rutubet": {
+            "range": (None, 9.0),
+            "source": "TGK Kakao ve Cikolata Urunleri Tebligi (No: 2017/29)",
+            "verified": True,
+            "note": None,
+        },
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Toz seker": {
+        "Nem/Rutubet": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) 'Bilesim ve Kalite Ozellikleri' bolumunde olabilir, sayisal deger metinden dogrulanamadi", "verified": False, "note": None},
+        "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur, metodoloji standardize edilmelidir."},
+        "Aw": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Fruktoz": {
+        "Nem/Rutubet": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) fruktozu kapsiyor, sayisal nem limiti dogrulanamadi", "verified": False, "note": None},
+        "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur, metodoloji standardize edilmelidir."},
+        "Aw": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Pektin": {
+        "Nem/Rutubet": {"range": None, "source": "JECFA/Codex GSFA Pectins (INS 440) monografinda 'loss on drying' spesifikasyonu bulunuyor, sayisal deger dogrulanamadi", "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Dogrudan olculmez - standart cozelti/jel sisteminde olculur, kosullar tesise gore degisir."},
+        "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Jelatin": {
+        "Nem/Rutubet": {"range": None, "source": "Ayri bir 'TGK Jelatin Tebligi' tespit edilemedi", "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Dogrudan olculmez - standart cozelti/jel sisteminde olculur, kosullar tesise gore degisir."},
+        "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Konsantre meyve suyu": {
+        "Brix": {"range": None, "source": "TGK Meyve Suyu ve Benzeri Urunler Tebligi mevcut, sayisal Brix tablosu dogrulanamadi", "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": None},
+        "Viskozite": {"range": None, "source": None, "verified": False, "note": "Olcum kosullari urune (meyve turu, konsantrasyon) baglidir."},
+        "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": None},
+        "HMF": {
+            "range": None,
+            "source": None,
+            "verified": False,
+            "note": (
+                "ONEMLI: HMF limiti meyve suyu urun tipine (elma/uzum/portakal vb.) "
+                "gore degisir; genel/tek bir mevzuat limiti bulunamadi. Bal (TGK Bal "
+                "Tebligi, USL=40 mg/kg) veya pekmez (TGK Pekmez Tebligi) limitleri "
+                "BURAYA UYGULANMAMALIDIR - farkli urun kategorileridir."
+            ),
+        },
+    },
+    "Yumurta tozu": {
+        "Nem/Rutubet": {"range": None, "source": "TGK Yumurta ve Yumurta Urunleri Tebligi (2024/7) mevcut, sayisal tablo taranmis PDF'lerden dogrulanamadi", "verified": False, "note": None},
+        "Aw": {"range": None, "source": None, "verified": False, "note": None},
+        "Peroksit Degeri": {"range": None, "source": None, "verified": False, "note": None},
+        "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+        "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+    "Tuz": {
+        "Tuz/NaCl": {
+            "range": (98.0, 100.0),
+            "source": (
+                "TGK Tuz Tebligi (No: 2013/48) - LSL: kuru maddede NaCl orani "
+                "en az %98 (kayatuzu/yeralti kaynakli tuzda %97); USL=100.0 "
+                "mevzuattan degil, yuzdenin matematiksel ust siniridir (tebligde "
+                "bir ust limit belirtilmez)."
+            ),
+            "verified": True,
+            "note": None,
+        },
+        "Aw": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
+    },
+}
+
+# Yukaridaki referansi ilgili PRODUCT_*_RANGES sozluklerine enjekte eder -
+# her hammadde, sadece PARAMETRE EŞLEŞTİRMESİ tablosunda tanimlandigi
+# parametrenin urun listesine "🌾 " onekiyle eklenir (baska parametrede
+# GORUNMEZ - "hammadde secilince parametre filtrelenir" gereksinimi boylece
+# ayri bir filtreleme mantigi yazmadan, mevcut parametre-once-urun mimarisi
+# ile saglanmis olur). "Ozel/Manuel gir" her zaman listenin sonunda kalsin
+# diye once cikarilip enjeksiyondan sonra geri eklenir.
+_RAW_MATERIAL_TARGET_DICTS = {
+    "pH": PRODUCT_PH_RANGES,
+    "Brix": BRIX_PRODUCT_RANGES,
+    "Aw": AW_PRODUCT_RANGES,
+    "Viskozite": VISCOSITY_PRODUCT_RANGES,
+    "Nem/Rutubet": MOISTURE_PRODUCT_RANGES,
+    "Tuz/NaCl": SALT_PRODUCT_RANGES,
+    "Titrasyon Asitligi": TITRATABLE_ACIDITY_PRODUCT_RANGES,
+    "Peroksit Degeri": PEROXIDE_PRODUCT_RANGES,
+    "HMF": HMF_PRODUCT_RANGES,
+}
+
+for _target in _RAW_MATERIAL_TARGET_DICTS.values():
+    _target.pop("Ozel/Manuel gir", None)
+
+for _material, _params in RAW_MATERIAL_QC_REFERENCE.items():
+    for _param_name, _spec in _params.items():
+        _RAW_MATERIAL_TARGET_DICTS[_param_name][f"{RAW_MATERIAL_PREFIX}{_material}"] = _spec["range"]
+
+for _target in _RAW_MATERIAL_TARGET_DICTS.values():
+    _target["Ozel/Manuel gir"] = None
+
+del _target, _material, _params, _param_name, _spec
+
+
 # Parametre bazli yapilandirma - Sekme 2'deki urun/birim/aralik mantigi buna gore dallanir.
 PARAMETER_CONFIG = {
     "pH": {
@@ -335,7 +522,11 @@ PARAMETER_CONFIG = {
     "Tuz/NaCl": {
         "unit": "%",
         "min_value": 0.0,
-        "max_value": 20.0,
+        # NOT: bitmiş urunlerde tuz orani tipik olarak %0-10 arasindayken, "Tuz"
+        # HAMMADDESININ kendisi (RAW_MATERIAL_QC_REFERENCE) %98-100 NaCl saflik
+        # araliginda olabilir - bu yuzden max_value 20'den 100'e cikarildi.
+        # Mevcut bitmiş urun degerleri (1.5-10 arasi) bu degisiklikten etkilenmez.
+        "max_value": 100.0,
         "decimal_places": 2,  # tipik titrasyon/klorur analizi hassasiyeti (orn. 1.75)
         "products": SALT_PRODUCT_RANGES,
         "default_lsl": 1.5,

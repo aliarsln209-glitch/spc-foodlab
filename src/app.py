@@ -19,6 +19,8 @@ from constants import (
     PARAMETER_DESCRIPTIONS,
     PARAMETER_INFO,
     PARAMETER_SOURCES,
+    RAW_MATERIAL_PREFIX,
+    RAW_MATERIAL_QC_REFERENCE,
     SHIFT_OPTIONS,
 )
 from demo_data import generate_demo_individual, generate_demo_subgroups
@@ -42,6 +44,18 @@ from spc_core import (
 )
 
 GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
+
+
+def raw_material_name(product_name: str) -> str | None:
+    """Urun secim listesindeki bir girdi hammadde ise (RAW_MATERIAL_PREFIX ile
+    baslar) duz hammadde adini dondurur, degilse (bitmiş urun/'Ozel/Manuel
+    gir') None dondurur - Cpk/istatistik motorunu etkilemez, sadece hammadde
+    icin ayri 'Hammadde QC Referansi' notunun gosterilip gosterilmeyecegine
+    karar vermek icin kullanilir."""
+    if product_name.startswith(RAW_MATERIAL_PREFIX):
+        return product_name[len(RAW_MATERIAL_PREFIX):]
+    return None
+
 
 MIN_RECOMMENDED_BASELINE = 20
 CPK_SANITY_THRESHOLD = 10  # |Cpk| bu esigi asarsa LSL/USL-veri uyumsuzlugu uyarisi goster
@@ -923,15 +937,24 @@ with tab_chart:
             st.subheader(f"Spesifikasyon limitleri ({unit}, {cpk_label} icin)")
 
             selected_product = st.selectbox(
-                "Urun", products, index=default_index, key="product_select",
-                help="Secilen urune gore LSL/USL degerleri asagida otomatik doldurulur (elle degistirilebilir).",
+                "Urun / Hammadde", products, index=default_index, key="product_select",
+                help=(
+                    "Secilen urune gore LSL/USL degerleri asagida otomatik "
+                    "doldurulur (elle degistirilebilir). \U0001F33E ile "
+                    "baslayan girdiler hammadde QC referanslaridir - bitmiş "
+                    "urun (TGK uyumlu) spesifikasyonlarindan ayri bir "
+                    "kategoridir, listede en altta 'Ozel/Manuel gir' "
+                    "oncesinde grupludur."
+                ),
             )
             one_sided = _resolve_one_sided(selected_product)
             cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
-            st.caption(
-                f"\U0001F3F7️ Kaynak: **{PARAMETER_SOURCES.get(st.session_state.active_parameter, '-')}** "
-                f"— detay: [METHODOLOGY.md]({GITHUB_URL}/blob/main/METHODOLOGY.md)"
-            )
+            raw_name = raw_material_name(selected_product)
+            if raw_name is None:
+                st.caption(
+                    f"\U0001F3F7️ Kaynak: **{PARAMETER_SOURCES.get(st.session_state.active_parameter, '-')}** "
+                    f"— detay: [METHODOLOGY.md]({GITHUB_URL}/blob/main/METHODOLOGY.md)"
+                )
 
             if (
                 "prev_product" not in st.session_state
@@ -955,7 +978,42 @@ with tab_chart:
                 st.session_state.prev_product = selected_product
 
             active_param = st.session_state.active_parameter
-            if active_param == "pH":
+            if raw_name is not None:
+                # Hammadde secildi: bitmiş urun (TGK uyumlulugu iddiasi tasiyan)
+                # per-parametre notlari yerine, ayri "Hammadde QC Referansi"
+                # kategorisini acikca etiketleyen bir not gosterilir - bkz.
+                # RAW_MATERIAL_QC_REFERENCE (constants.py) ve METHODOLOGY.md
+                # "Hammadde Kutuphanesi Genislemesi".
+                _spec = RAW_MATERIAL_QC_REFERENCE.get(raw_name, {}).get(active_param, {})
+                _source = _spec.get("source")
+                _verified = _spec.get("verified")
+                _note = _spec.get("note")
+                if _verified is True:
+                    st.success(
+                        f"\U0001F33E **Hammadde QC Referansi** (bitmiş urun TGK "
+                        f"uyumlulugu ile ILGILI DEGILDIR, ayri bir kategoridir). "
+                        f"Kaynak: {_source}"
+                    )
+                elif _verified == "kismi":
+                    st.warning(
+                        f"\U0001F33E **Hammadde QC Referansi** (bitmiş urun TGK "
+                        f"uyumlulugu ile ILGILI DEGILDIR). Kaynak: {_source} — "
+                        "arama motoru sonucuyla dogrulandi, tam metin taranmis "
+                        "PDF oldugu icin dogrudan okunamadi; kritik kullanimdan "
+                        "once tebligin orijinal metniyle çapraz kontrol onerilir."
+                    )
+                else:
+                    st.warning(
+                        "\U0001F33E **Hammadde QC Referansi** — bu hammadde/parametre "
+                        "kombinasyonu icin guvenilir bir kaynak (TGK tebligi, Codex/"
+                        "JECFA monografi) DOGRULANAMADI. Rastgele/varsayilan bir "
+                        "limit KONULMADI — LSL/USL alanlarini kendi spesifikasyonuna "
+                        "gore elle gir."
+                        + (f" (arastirma notu: {_source})" if _source else "")
+                    )
+                if _note:
+                    st.caption(f"ℹ️ {_note}")
+            elif active_param == "pH":
                 st.caption(
                     "Bu degerler literatur/sektor pratiginden alinan gosterge "
                     "degerlerdir. Turk Gida Kodeksi cogu urunde sayisal bir pH "
