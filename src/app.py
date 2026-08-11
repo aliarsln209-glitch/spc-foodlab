@@ -379,6 +379,35 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
 
     css = f"""
     <style>
+    /* Tipografi: sistem fontu yerine Inter (web font) - @import CSS
+       spesifikasyonu geregi stylesheet'in EN BASINDA olmak ZORUNDA
+       (@charset disinda baska herhangi bir kuraldan ONCE gelmezse
+       tarayici tarafindan yok sayilir), bu yuzden {{theme_css}}'den bile
+       once, <style>'den hemen sonra yerlestirildi. Google Fonts CDN'i
+       kullanir - tarayici (kullanicinin cihazi) bu istegi yapar, sunucu
+       tarafinda internet erisimi gerektirmez. Font yuklenene kadar (veya
+       CDN engelliyse) tarayici otomatik olarak sans-serif yedegine
+       (sistem fontu) duser - bkz. font-family zincirindeki fallback'ler. */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    /* .stApp * KULLANILMADI: font-family zaten miras alinan (inherited) bir
+       ozellik - tum alt elemanlar bunu otomatik devralir. "*" ile HER
+       elemani (SVG/ikon elemanlari dahil) zorla ezmek, Streamlit'in olasi
+       font-tabanli ikonlarini (checkmark/chevron/help sembolleri gibi)
+       bozma riski tasirdi - inheritance ile bu risk yok, cunku bir ikonun
+       KENDI font-family kurali (varsa) her zaman miras alinan degerden
+       oncelikli olur. */
+    html, body,
+    .stApp,
+    .stApp[data-testid="stApp"],
+    [data-testid="stAppViewContainer"] {{
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    }}
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6 {{
+        font-weight: 700 !important;
+        letter-spacing: -0.01em;
+    }}
+
     {theme_css}
 
     /* Vurgu rengi (kullanici secimi) - primary butonlar + slider */
