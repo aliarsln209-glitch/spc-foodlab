@@ -76,6 +76,80 @@ for _flag in ("confirm_clear", "confirm_freeze", "confirm_reset_baseline", "conf
         st.session_state[_flag] = False
 
 
+def compute_stats(subgroups):
+    """Alt gruplardan ortalama/range listelerini ve genel ortalama/R-bar'i hesaplar.
+    Her kullanim yerinde taze cagrilir, boylece ayni script run'i icindeki veri
+    mutasyonlarindan hemen sonra dogru sonuc verir."""
+    means = [sum(sg["values"]) / len(sg["values"]) for sg in subgroups]
+    ranges = [max(sg["values"]) - min(sg["values"]) for sg in subgroups]
+    x_double_bar = sum(means) / len(means) if means else None
+    r_bar = sum(ranges) / len(ranges) if ranges else None
+    return means, ranges, x_double_bar, r_bar
+
+
+def compute_individual_stats(subgroups):
+    """I-MR (alt grup olmayan) parametreler icin: her 'subgroup' tek bir olcum
+    degeri icerir (values listesi uzunlugu 1). Ardisik degerler arasindaki
+    moving range'i ve ozet istatistikleri hesaplar. compute_stats'a benzer
+    sekilde her kullanim yerinde taze cagrilir."""
+    values = [sg["values"][0] for sg in subgroups]
+    moving_ranges = compute_moving_ranges(values)
+    x_bar = sum(values) / len(values) if values else None
+    mr_bar = sum(moving_ranges) / len(moving_ranges) if moving_ranges else None
+    return values, moving_ranges, x_bar, mr_bar
+
+
+def compute_active_parameter_status() -> tuple[str, float | None]:
+    """Sidebar'daki parametre secici icin: SADECE su an aktif olan parametrenin
+    guncel Cpk/Cpu'suna gore ('green'/'red'/'gray') basit bir durum dondurur.
+
+    ADIM 2 kapsam karari (kullanici ile teyit edildi): session_state.subgroups
+    tek parametreye ozgu (parametre degisince veri silinir) - bu yuzden diger
+    8 parametre icin ANLAMLI bir durum hesaplanamaz, sadece aktif parametre
+    icin gosterilir. Tum 9 parametrenin es zamanli takibi (veri modelini
+    {parametre: veri} sozlugune cevirmeyi gerektiren daha buyuk bir refactor)
+    kasitli olarak ayri bir goreve birakildi.
+
+    'gray': durum HESAPLANAMIYOR (yetersiz veri VEYA LSL>=USL gecersiz
+    spesifikasyon VEYA anlamsiz Cpk) - iyi/kotu degil, notr.
+    Esik (yesil: Cpk>=1.33) kullanici ile teyit edildi - render_cpk_message'daki
+    ayni "Yeterli" esigiyle tutarlidir."""
+    if len(st.session_state.subgroups) < 2:
+        return "gray", None
+
+    active_param = st.session_state.active_parameter
+    param_cfg = PARAMETER_CONFIG[active_param]
+    is_indiv = param_cfg.get("is_individual", False)
+
+    lsl = st.session_state.get("lsl_input", param_cfg["default_lsl"])
+    usl = st.session_state.get("usl_input", param_cfg["default_usl"])
+    selected_product = st.session_state.get("product_select")
+    product_range = param_cfg["products"].get(selected_product)
+    if product_range is not None:
+        one_sided = product_range[0] is None
+    else:
+        one_sided = param_cfg.get("one_sided", False)
+
+    if not is_spec_valid(one_sided, lsl, usl):
+        return "gray", None
+
+    if is_indiv:
+        _, _, center, spread = compute_individual_stats(st.session_state.subgroups)
+        n_val = 2
+    else:
+        _, _, center, spread = compute_stats(st.session_state.subgroups)
+        n_val = st.session_state.subgroup_size
+
+    cpk = compute_cpk(center, spread, n_val, lsl, usl, one_sided=one_sided)
+    if cpk == float("inf"):
+        return "green", cpk
+    if cpk == float("-inf"):
+        return "red", cpk
+    if cpk != cpk or abs(cpk) > CPK_SANITY_THRESHOLD:  # NaN veya anlamsiz deger
+        return "gray", cpk
+    return ("green" if cpk >= 1.33 else "red"), cpk
+
+
 def reset_parameter_scoped_state() -> None:
     """Parametre degistiginde (pH<->Brix) urun/limit widget'larini temizler.
     Degeri direkt yeni parametrenin varsayilanina ATAMAK yerine SILMEK tercih
@@ -105,10 +179,23 @@ with st.sidebar:
     st.subheader("Ayarlar")
 
     param_options = list(PARAMETER_CONFIG.keys())
+
+    # Durum noktasi: SADECE aktif parametre icin guncel Cpk'ye gore yesil/kirmizi,
+    # digerleri notr gri ('bu parametre icin henuz veri yok/gosterilmiyor' -
+    # veri modeli tek seferde tek parametreyi tuttugu icin, bkz.
+    # compute_active_parameter_status() docstring'i). Esik: Cpk >= 1.33 yesil.
+    _status, _status_cpk = compute_active_parameter_status()
+    _status_dot = {"green": "\U0001F7E2", "red": "\U0001F534", "gray": "\U000026AA"}[_status]
+
+    def _param_radio_label(p: str) -> str:
+        dot = _status_dot if p == st.session_state.active_parameter else "\U000026AA"
+        return f"{dot} {p}"
+
     selected_param_radio = st.radio(
         "Parametre", param_options,
         index=param_options.index(st.session_state.active_parameter),
         key="parameter_radio",
+        format_func=_param_radio_label,
         captions=[PARAMETER_DESCRIPTIONS.get(p, "") for p in param_options],
     )
 
@@ -309,29 +396,6 @@ def inject_theme_css(dark: bool, accent: str) -> None:
 
 
 inject_theme_css(dark, accent_color)
-
-def compute_stats(subgroups):
-    """Alt gruplardan ortalama/range listelerini ve genel ortalama/R-bar'i hesaplar.
-    Her kullanim yerinde taze cagrilir, boylece ayni script run'i icindeki veri
-    mutasyonlarindan hemen sonra dogru sonuc verir."""
-    means = [sum(sg["values"]) / len(sg["values"]) for sg in subgroups]
-    ranges = [max(sg["values"]) - min(sg["values"]) for sg in subgroups]
-    x_double_bar = sum(means) / len(means) if means else None
-    r_bar = sum(ranges) / len(ranges) if ranges else None
-    return means, ranges, x_double_bar, r_bar
-
-
-def compute_individual_stats(subgroups):
-    """I-MR (alt grup olmayan) parametreler icin: her 'subgroup' tek bir olcum
-    degeri icerir (values listesi uzunlugu 1). Ardisik degerler arasindaki
-    moving range'i ve ozet istatistikleri hesaplar. compute_stats'a benzer
-    sekilde her kullanim yerinde taze cagrilir."""
-    values = [sg["values"][0] for sg in subgroups]
-    moving_ranges = compute_moving_ranges(values)
-    x_bar = sum(values) / len(values) if values else None
-    mr_bar = sum(moving_ranges) / len(moving_ranges) if moving_ranges else None
-    return values, moving_ranges, x_bar, mr_bar
-
 
 def render_cpk_message(cpk: float, cpk_label: str) -> None:
     """Cpk/Cpu degerine gore uygun basari/uyari/hata mesajini gosterir.
