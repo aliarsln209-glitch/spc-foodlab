@@ -290,6 +290,31 @@ if not is_individual:
 subgroup_n = st.session_state.subgroup_size
 
 
+def contrasting_sidebar_text_colors(hex_color: str) -> tuple[str, str, str]:
+    """Sidebar rengi SERBESTCE secilebildigi icin (acik tonlar dahil), metin
+    rengini SABIT acik birakmak kullanici acik bir sidebar rengi sectiginde
+    yaziyi okunmaz hale getiriyordu. Bunun yerine secilen zeminin
+    parlakligina gore (YIQ formulu - bkz. https://24ways.org/2010/calculating-color-contrast)
+    ana metin + soluk caption + renk-secici-swatch cercevesi rengi otomatik
+    hesaplanir; boylece renk secici kisitlanmadan (herhangi bir ton
+    secilebilir) her zaman okunakli kalir. Gecersiz/eksik hex girisinde
+    (ör. renk secici henuz tam yazilmamisken) guvenli varsayilan olarak
+    koyu-zemin varsayimiyla acik metin dondurulur."""
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return "#E8EAF0", "#A8B0C3", "rgba(232,234,240,0.35)"
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return "#E8EAF0", "#A8B0C3", "rgba(232,234,240,0.35)"
+    yiq = (r * 299 + g * 587 + b * 114) / 1000
+    if yiq >= 150:
+        # acik zemin -> koyu metin + soluk koyu gri caption + koyu swatch cercevesi
+        return "#1A1D29", "#5A6072", "rgba(26,29,41,0.35)"
+    # koyu zemin -> acik metin + soluk acik gri caption + acik swatch cercevesi
+    return "#E8EAF0", "#A8B0C3", "rgba(232,234,240,0.35)"
+
+
 def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     """Secilen acik/koyu temayi + vurgu rengini grafiklerin otesinde tum
     arayuze (sidebar, kartlar, metrikler, uyari kutulari) uygular. Streamlit'in
@@ -299,6 +324,7 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     Ayrica hafif (agir olmayan) hover/gecis animasyonlari icerir - buton
     hover'da kucuk buyume, karti gecisi, uyari kutularinda fade-in. Amac
     sadece arayuzu biraz daha 'canli' hissettirmek, dikkat dagitmamak."""
+    sidebar_text, sidebar_caption, sidebar_swatch_border = contrasting_sidebar_text_colors(sidebar_color)
     # KART SECICI NOTU: Streamlit >=1.5x'te st.container(border=True) artik
     # sabit bir data-testid ("stVerticalBlockBorderWrapper") ILE ISARETLENMIYOR -
     # bordered/border'siz tum bloklar ayni data-testid="stVerticalBlock"'u
@@ -370,10 +396,13 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
        number_input/selectbox zeminiyle PAYLASILIR) burada KULLANILMIYOR,
        tam da bu yuzden ADIM 1'de erteenmisti (secondaryBackgroundColor'i
        koyulastirmak ana icerikteki input kutularini da koyultup, Acik
-       temadaki beyaz kartlarla cakisirdi). Metin renkleri de koyu zemine
-       gore kontrast icin acik tona cevrilir - ama caption/aciklama metni
-       (radio alt basliklari gibi) baslik/etiketten biraz daha soluk tutulur
-       (gorsel hiyerarsi icin). */
+       temadaki beyaz kartlarla cakisirdi). Metin renkleri SABIT DEGIL -
+       sidebar_text/sidebar_caption, secilen zeminin parlakligina gore
+       (contrasting_sidebar_text_colors) OTOMATIK hesaplanir: kullanici acik
+       bir sidebar rengi secerse yazi da otomatik koyulasir, boylece renk
+       secici kisitlanmadan (herhangi bir ton secilebilir) her zaman
+       okunakli kalir - bkz. kullanici geri bildirimi (acik renkte yazi
+       gorunmuyordu). */
     [data-testid="stSidebar"] {{
         background-color: {sidebar_color} !important;
     }}
@@ -387,20 +416,20 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     [data-testid="stSidebar"] h4,
     [data-testid="stSidebar"] h5,
     [data-testid="stSidebar"] h6 {{
-        color: #E8EAF0 !important;
+        color: {sidebar_text} !important;
     }}
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
     [data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {{
-        color: #A8B0C3 !important;
+        color: {sidebar_caption} !important;
     }}
     [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
-        color: #E8EAF0 !important;
+        color: {sidebar_text} !important;
     }}
     /* Renk secici swatch'i, sectigi renk zeminle (ozellikle "Sidebar rengi"
        kendi rengini secip zeminle ayni tona geldiginde) karisip GORUNMEZ
        olmasin diye her zaman ince bir cerceve alir. */
     [data-testid="stSidebar"] [data-testid="stColorPickerBlock"] {{
-        border: 1.5px solid rgba(232,234,240,0.35) !important;
+        border: 1.5px solid {sidebar_swatch_border} !important;
         border-radius: 6px !important;
     }}
 
