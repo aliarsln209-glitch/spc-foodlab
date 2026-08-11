@@ -649,6 +649,40 @@ def annotate_hline(ax, x_pos: float, y_value: float, text: str, color: str) -> N
     )
 
 
+OOS_LINE_COLOR = "#e03131"  # KPI panelindeki "Kontrol Disi Nokta" ile ayni kirmizi
+
+
+def highlight_oos_segments(ax, x: list[float], y: list[float], oos_indices) -> None:
+    """Kontrol disi (UCL/LCL disi) bir noktaya BAGLANAN cizgi segmentini
+    kirmizi ile ustten yeniden cizer - boylece sadece nokta degil, sinira
+    GECISI gosteren segment de gorsel olarak isaretlenir. x/y, ana seriyle
+    (indices/values, indices/means, vb.) AYNI sirada ve 0-tabanli olmali;
+    oos_indices, out_of_control_i/x/r/mr listeleriyle ayni (0-tabanli liste
+    pozisyonu) formatta beklenir."""
+    oos_set = set(oos_indices)
+    for i in range(len(x) - 1):
+        if i in oos_set or (i + 1) in oos_set:
+            ax.plot([x[i], x[i + 1]], [y[i], y[i + 1]], color=OOS_LINE_COLOR, linewidth=1.5, zorder=4)
+
+
+def shade_lcl_zero_zone(ax, lcl: float) -> None:
+    """R/MR (range-tabanli) grafiklerde LCL=0 oldugunda (kucuk n icin D3=0
+    - Montgomery SPC sabit tablosu - pratikte COK yaygin), alt bolgeye hafif
+    kirmizi bir 'bu sinirin altina inilemez/inilirse anlamli degildir' golge
+    bandı ekler. Sadece gorsel: LCL zaten dashed cizgi + etiketle cizili,
+    bu golge onu vurgulayan ek bir ipucu. lcl, compute_xbar_r_limits/
+    compute_imr_limits'ten gelen GERCEK LCL degeridir (ax.get_ylim()'den
+    TAHMIN EDILMEZ - Range degerleri LCL=0 olmasa bile 0'a yakin
+    baslayabilir, bu yanlis pozitife yol acardi). axhline/plot
+    cagrilarindan SONRA, style_chart'tan ONCE cagrilmalidir."""
+    if abs(lcl) > 1e-9:
+        return  # LCL=0 degil - golge gereksiz
+    ymin, ymax = ax.get_ylim()
+    band_bottom = ymin - 0.12 * (ymax - ymin if ymax > ymin else 1.0)
+    ax.set_ylim(band_bottom, ymax)
+    ax.axhspan(band_bottom, 0, color=OOS_LINE_COLOR, alpha=0.08, zorder=0)
+
+
 def _cpu_cpl_for_display(center: float, sigma_hat: float, lsl: float, usl: float) -> tuple[float, float]:
     """Cpu/Cpl'yi 'Hesaplama adimlari' panelinde gostermek icin hesaplar.
 
@@ -1423,6 +1457,7 @@ with tab_chart:
                     ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
                     annotate_hline(ax, indices_i[-1], limits.lcl_i, f"LCL={limits.lcl_i:.{decimal_places}f}", "red")
                 if out_of_control_i:
+                    highlight_oos_segments(ax, indices_i, values, out_of_control_i)
                     ax.scatter(
                         [indices_i[i] for i in out_of_control_i],
                         [values[i] for i in out_of_control_i],
@@ -1469,6 +1504,7 @@ with tab_chart:
                 annotate_hline(ax2, indices_mr[-1], limits.ucl_mr, f"UCL={limits.ucl_mr:.{decimal_places}f}", "red")
                 annotate_hline(ax2, indices_mr[-1], mr_bar, f"MR̄={mr_bar:.{decimal_places}f}", "green")
                 if out_of_control_mr:
+                    highlight_oos_segments(ax2, indices_mr, moving_ranges, out_of_control_mr)
                     ax2.scatter(
                         [indices_mr[i] for i in out_of_control_mr],
                         [moving_ranges[i] for i in out_of_control_mr],
@@ -1477,6 +1513,7 @@ with tab_chart:
                 ax2.set_xlabel("Olcum no")
                 ax2.set_ylabel("Moving Range")
                 ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                shade_lcl_zero_zone(ax2, limits.lcl_mr)
                 style_chart(fig2, ax2, dark)
                 st.pyplot(fig2, use_container_width=True)
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_mr_chart.png", key="png_mr_chart")
@@ -1681,6 +1718,7 @@ with tab_chart:
                     ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
                     annotate_hline(ax, indices[-1], limits.lcl_x, f"LCL={limits.lcl_x:.{decimal_places}f}", "red")
                 if out_of_control_x:
+                    highlight_oos_segments(ax, indices, means, out_of_control_x)
                     ax.scatter(
                         [indices[i] for i in out_of_control_x],
                         [means[i] for i in out_of_control_x],
@@ -1726,6 +1764,7 @@ with tab_chart:
                 annotate_hline(ax2, indices[-1], limits.ucl_r, f"UCL={limits.ucl_r:.{decimal_places}f}", "red")
                 annotate_hline(ax2, indices[-1], r_bar, f"R̄={r_bar:.{decimal_places}f}", "green")
                 if out_of_control_r:
+                    highlight_oos_segments(ax2, indices, ranges, out_of_control_r)
                     ax2.scatter(
                         [indices[i] for i in out_of_control_r],
                         [ranges[i] for i in out_of_control_r],
@@ -1734,6 +1773,7 @@ with tab_chart:
                 ax2.set_xlabel("Alt grup no")
                 ax2.set_ylabel("Range")
                 ax2.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                shade_lcl_zero_zone(ax2, limits.lcl_r)
                 style_chart(fig2, ax2, dark)
                 st.pyplot(fig2, use_container_width=True)
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_r_chart.png", key="png_r_chart")
