@@ -228,6 +228,16 @@ with st.sidebar:
         key="accent_color",
         help="Butonlar ve KPI kartlarindaki vurgu rengini degistirir (basari/uyari/hata renkleri sabit kalir).",
     )
+    sidebar_color = st.color_picker(
+        "Sidebar rengi", value=st.session_state.get("sidebar_color", "#0F172A"),
+        key="sidebar_color",
+        help=(
+            "Bu sidebar'in (sol panel) zemin rengini degistirir - 'Tema "
+            "(grafik + arayuz)' secimden (Acik/Koyu) BAGIMSIZDIR, uygulamanin "
+            "sabit kimligi olarak kalir. Ana icerikteki widget renklerini "
+            "etkilemez."
+        ),
+    )
 
 dark = chart_theme == "Koyu"
 param_config = PARAMETER_CONFIG[st.session_state.active_parameter]
@@ -280,7 +290,7 @@ if not is_individual:
 subgroup_n = st.session_state.subgroup_size
 
 
-def inject_theme_css(dark: bool, accent: str) -> None:
+def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     """Secilen acik/koyu temayi + vurgu rengini grafiklerin otesinde tum
     arayuze (sidebar, kartlar, metrikler, uyari kutulari) uygular. Streamlit'in
     kendi config.toml temasi Community Cloud'da calisma anindan
@@ -303,7 +313,6 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     if dark:
         theme_css = """
         .stApp { background-color: #0e1117 !important; }
-        [data-testid="stSidebar"] { background-color: #161a23 !important; }
         .stApp, .stApp p, .stApp span, .stApp label,
         h1, h2, h3, h4, h5, h6 { color: #fafafa; }
         [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #fafafa; }
@@ -354,6 +363,47 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     [data-testid="stSlider"] div[role="slider"] {{ background-color: {accent} !important; }}
     a {{ color: {accent}; }}
 
+    /* Sidebar rengi (kullanici secimi, "Sidebar rengi" renk secici) - Tema
+       (Acik/Koyu) anahtarindan BILEREK BAGIMSIZ: uygulamanin sabit kimligi
+       olarak her iki modda da ayni kalir. SADECE [data-testid="stSidebar"]
+       hedeflenir - config.toml'daki secondaryBackgroundColor (ana icerikteki
+       number_input/selectbox zeminiyle PAYLASILIR) burada KULLANILMIYOR,
+       tam da bu yuzden ADIM 1'de erteenmisti (secondaryBackgroundColor'i
+       koyulastirmak ana icerikteki input kutularini da koyultup, Acik
+       temadaki beyaz kartlarla cakisirdi). Metin renkleri de koyu zemine
+       gore kontrast icin acik tona cevrilir - ama caption/aciklama metni
+       (radio alt basliklari gibi) baslik/etiketten biraz daha soluk tutulur
+       (gorsel hiyerarsi icin). */
+    [data-testid="stSidebar"] {{
+        background-color: {sidebar_color} !important;
+    }}
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] h4,
+    [data-testid="stSidebar"] h5,
+    [data-testid="stSidebar"] h6 {{
+        color: #E8EAF0 !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {{
+        color: #A8B0C3 !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {{
+        color: #E8EAF0 !important;
+    }}
+    /* Renk secici swatch'i, sectigi renk zeminle (ozellikle "Sidebar rengi"
+       kendi rengini secip zeminle ayni tona geldiginde) karisip GORUNMEZ
+       olmasin diye her zaman ince bir cerceve alir. */
+    [data-testid="stSidebar"] [data-testid="stColorPickerBlock"] {{
+        border: 1.5px solid rgba(232,234,240,0.35) !important;
+        border-radius: 6px !important;
+    }}
+
     /* Hafif hover/gecis animasyonlari - agir hareket yok, sadece kucuk
        buyume/golge/fade. */
     button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
@@ -394,7 +444,7 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     st.markdown(textwrap.dedent(css).strip(), unsafe_allow_html=True)
 
 
-inject_theme_css(dark, accent_color)
+inject_theme_css(dark, accent_color, sidebar_color)
 
 
 def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
