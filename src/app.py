@@ -203,15 +203,26 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     Ayrica hafif (agir olmayan) hover/gecis animasyonlari icerir - buton
     hover'da kucuk buyume, karti gecisi, uyari kutularinda fade-in. Amac
     sadece arayuzu biraz daha 'canli' hissettirmek, dikkat dagitmamak."""
+    # KART SECICI NOTU: Streamlit >=1.5x'te st.container(border=True) artik
+    # sabit bir data-testid ("stVerticalBlockBorderWrapper") ILE ISARETLENMIYOR -
+    # bordered/border'siz tum bloklar ayni data-testid="stVerticalBlock"'u
+    # paylasiyor, aralarindaki tek fark, build'e gore degisebilen rastgele bir
+    # emotion-cache class hash'i (CSS'te guvenle hedeflenemez, Streamlit
+    # surum guncellemesinde sessizce kirilir - dogrulama: bkz. PR/commit notu).
+    # Bunun yerine Streamlit'in RESMI/STABIL API'si kullanildi: her
+    # st.container(border=True, key=...) cagrisina "card-" ile baslayan bir
+    # key verildi (bkz. asagidaki with bloklari), bu da tarayicida
+    # class="... st-key-<key> ..." sabit bir CSS sinifi uretir. Asagidaki
+    # [class*="st-key-card-"] secici, Streamlit surumunden BAGIMSIZ calisir.
     if dark:
         theme_css = """
-        .stApp { background-color: #0e1117; }
-        [data-testid="stSidebar"] { background-color: #161a23; }
+        .stApp { background-color: #0e1117 !important; }
+        [data-testid="stSidebar"] { background-color: #161a23 !important; }
         .stApp, .stApp p, .stApp span, .stApp label,
         h1, h2, h3, h4, h5, h6 { color: #fafafa; }
         [data-testid="stMetricValue"], [data-testid="stMetricLabel"] { color: #fafafa; }
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #161a23;
+        [class*="st-key-card-"] {
+            background-color: #161a23 !important;
             border-color: #333c4a !important;
         }
         [data-testid="stNumberInput"] input,
@@ -234,10 +245,13 @@ def inject_theme_css(dark: bool, accent: str) -> None:
         # "kart" gibi ayrissin - config.toml'daki backgroundColor (#FFFFFF)
         # bilerek farkli: o, Streamlit'in kendi bilesenlerinin (ör. dialog,
         # menu) varsayilan zemini icin, burasi ise ana govde zemini icin.
+        # !important sarttir: Streamlit'in kendi <head> icindeki emotion
+        # CSS'i, ayni ozgullukte (0,1,0) bir .stApp kurali icerebiliyor ve
+        # DOM sirasina gore bizimkini ezebiliyor (Playwright ile dogrulandi).
         theme_css = """
-        .stApp { background-color: #F7F8FA; }
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: #ffffff;
+        .stApp { background-color: #F7F8FA !important; }
+        [class*="st-key-card-"] {
+            background-color: #ffffff !important;
             border-color: #E4E7EC !important;
         }
         """
@@ -259,16 +273,19 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
     button:hover {{ transform: translateY(-1px) scale(1.01); }}
 
-    /* Kart gorunumu: st.container(border=True) ile olusturulan tum bloklar
-       (Ozet, Vardiya Karsilastirmasi, Hesaplama Adimlari vb.) yuvarlatilmis
-       kose + hafif golge alir - Streamlit'in varsayilan ince-cizgili
-       kutusundan, referans taslaktaki yumusak "card" hissine gecis. */
-    [data-testid="stVerticalBlockBorderWrapper"] {{
+    /* Kart gorunumu: st.container(border=True, key="card-...") ile
+       olusturulan tum bloklar (Ozet, Vardiya Karsilastirmasi, Hesaplama
+       Adimlari vb.) yuvarlatilmis kose + hafif golge alir - Streamlit'in
+       varsayilan ince-cizgili kutusundan, referans taslaktaki yumusak
+       "card" hissine gecis. [class*="st-key-card-"] Streamlit'in resmi
+       key= API'siyle uretilen SABIT bir sinif - surum guncellemesinde
+       kirilmaz (bkz. yukaridaki KART SECICI NOTU). */
+    [class*="st-key-card-"] {{
         border-radius: 12px !important;
         box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 1px 8px rgba(15,23,42,0.04);
         transition: box-shadow 0.2s ease;
     }}
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+    [class*="st-key-card-"]:hover {{
         box-shadow: 0 2px 12px rgba(0,0,0,0.10);
     }}
 
@@ -413,7 +430,7 @@ def render_shift_comparison(subgroups: list[dict], n_val: int, lsl: float, usl: 
             cpk_label: format_cpk(shift_cpk),
         })
 
-    with st.container(border=True):
+    with st.container(border=True, key="card-01"):
         st.subheader("Vardiya Karsilastirmasi")
         if len(rows) < 2:
             st.info(
@@ -694,7 +711,7 @@ tab_data, tab_chart, tab_calc, tab_about = st.tabs([
 # SEKME 1: Veri Girisi / Goruntuleme
 # ---------------------------------------------------------------------------
 with tab_data:
-    with st.container(border=True):
+    with st.container(border=True, key="card-02"):
         if is_individual:
             st.subheader("Yeni olcum ekle")
             st.write(
@@ -803,7 +820,7 @@ with tab_data:
 
     st.write("")
 
-    with st.container(border=True):
+    with st.container(border=True, key="card-03"):
         with st.expander("\U0001F4E4 CSV'den veri yukle", expanded=False):
             expected_cols = "Sira, Olcum 1" if is_individual else f"Grup, Vardiya, Olcum 1..{subgroup_n}"
             st.caption(
@@ -866,7 +883,7 @@ with tab_data:
 
     st.write("")
 
-    with st.container(border=True):
+    with st.container(border=True, key="card-04"):
         st.subheader("Kayitli olculer" if is_individual else "Kayitli alt gruplar")
 
         if not st.session_state.subgroups:
@@ -912,7 +929,7 @@ with tab_chart:
     if len(st.session_state.subgroups) < 2:
         st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
-        with st.container(border=True):
+        with st.container(border=True, key="card-05"):
             info_col, clear_col = st.columns([5, 1])
             with info_col:
                 st.caption(
@@ -956,7 +973,7 @@ with tab_chart:
         one_sided = _resolve_one_sided(_guess_product)
         cpk_label = "Cpu (tek tarafli)" if one_sided else "Cpk"
 
-        with st.container(border=True):
+        with st.container(border=True, key="card-06"):
             st.subheader(f"Spesifikasyon limitleri ({unit}, {cpk_label} icin)")
 
             selected_product = st.selectbox(
@@ -1148,7 +1165,7 @@ with tab_chart:
         st.write("")
 
         if is_individual:
-            with st.container(border=True):
+            with st.container(border=True, key="card-07"):
                 st.subheader("Kontrol limitleri (Baseline)")
 
                 baseline = st.session_state.baseline
@@ -1239,7 +1256,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-08"):
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.{decimal_places}f}")
                 m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.{decimal_places}f}")
@@ -1275,7 +1292,7 @@ with tab_chart:
             ]
             flagged_points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-09"):
                 render_kpi_panel(
                     unit, x_bar, cpk, cpk_label, len(values), len(flagged_points), decimal_places,
                     trend=compute_trend(values), cpk_valid=spec_valid,
@@ -1292,7 +1309,7 @@ with tab_chart:
                     f"{len(values)} olcum analiz edildi, {oos_text}, "
                     f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
                 )
-            with st.container(border=True):
+            with st.container(border=True, key="card-10"):
                 st.markdown(f"**\U0001F4CB Ozet:** {imr_quick_summary}")
                 st.code(imr_quick_summary, language=None)
                 render_last_analysis_card(
@@ -1302,7 +1319,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-11"):
                 st.subheader("I (Individual) Kontrol Grafigi")
 
                 fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
@@ -1334,7 +1351,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-12"):
                 st.subheader("Surec Yeterlilik Histogrami")
                 st.caption(
                     "Olculen degerlerin dagilimi + normal dagilim egrisi (scipy.stats.norm). "
@@ -1350,7 +1367,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-13"):
                 st.subheader("MR (Moving Range) Kontrol Grafigi")
 
                 fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
@@ -1377,7 +1394,7 @@ with tab_chart:
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_mr_chart.png", key="png_mr_chart")
                 plt.close(fig2)
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-14"):
                 if spec_valid:
                     render_pdf_download(
                         st.session_state.active_parameter, selected_product, "I-MR",
@@ -1398,7 +1415,7 @@ with tab_chart:
         else:
             means, ranges, live_x_double_bar, live_r_bar = compute_stats(st.session_state.subgroups)
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-15"):
                 st.subheader("Kontrol limitleri (Baseline)")
 
                 baseline = st.session_state.baseline
@@ -1486,7 +1503,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-16"):
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.{decimal_places}f}")
                 m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.{decimal_places}f}")
@@ -1519,7 +1536,7 @@ with tab_chart:
             out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
             groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-17"):
                 render_kpi_panel(
                     unit, x_double_bar, cpk, cpk_label, len(means), len(groups), decimal_places,
                     trend=compute_trend(means), cpk_valid=spec_valid,
@@ -1536,7 +1553,7 @@ with tab_chart:
                     f"{len(means)} alt grup analiz edildi, {oos_text}, "
                     f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
                 )
-            with st.container(border=True):
+            with st.container(border=True, key="card-18"):
                 st.markdown(f"**\U0001F4CB Ozet:** {xbar_quick_summary}")
                 st.code(xbar_quick_summary, language=None)
                 render_last_analysis_card(
@@ -1551,7 +1568,7 @@ with tab_chart:
                     st.session_state.subgroups, subgroup_n, lsl, usl, one_sided, cpk_label, unit,
                 )
             else:
-                with st.container(border=True):
+                with st.container(border=True, key="card-19"):
                     st.subheader("Vardiya Karsilastirmasi")
                     st.info(
                         "Spesifikasyon (LSL/USL) gecerli hale getirilene kadar vardiya "
@@ -1560,7 +1577,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-20"):
                 st.subheader("X-bar Kontrol Grafigi")
 
                 fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
@@ -1592,7 +1609,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-21"):
                 st.subheader("Surec Yeterlilik Histogrami")
                 st.caption(
                     "Tum bireysel olcumlerin (alt gruplar acilarak) dagilimi + normal "
@@ -1610,7 +1627,7 @@ with tab_chart:
 
             st.write("")
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-22"):
                 st.subheader("R Kontrol Grafigi")
 
                 fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
@@ -1634,7 +1651,7 @@ with tab_chart:
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_r_chart.png", key="png_r_chart")
                 plt.close(fig2)
 
-            with st.container(border=True):
+            with st.container(border=True, key="card-23"):
                 if spec_valid:
                     render_pdf_download(
                         st.session_state.active_parameter, selected_product, "X-bar/R",
@@ -1660,7 +1677,7 @@ with tab_chart:
 # Totox tek seferlik bir hesap makinesidir - session_state.subgroups'a hicbir
 # sekilde dokunmaz, kontrol grafigi/baseline mantigiyla etkilesime girmez.
 with tab_calc:
-    with st.container(border=True):
+    with st.container(border=True, key="card-24"):
         st.subheader("Totox Hesaplayici")
         st.caption(
             "Totox = 2 × Peroksit Degeri + Anisidin Degeri. Bu bir SPC kontrol "
@@ -1687,7 +1704,7 @@ with tab_calc:
 # SEKME 4: Hakkinda
 # ---------------------------------------------------------------------------
 with tab_about:
-    with st.container(border=True):
+    with st.container(border=True, key="card-25"):
         st.subheader("SPC FoodLab hakkinda")
         st.markdown(
             """
