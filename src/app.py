@@ -457,6 +457,27 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     .kpi-card {{ transition: transform 0.15s ease, box-shadow 0.15s ease; }}
     .kpi-card:hover {{ transform: translateY(-2px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }}
 
+    /* Spacing/whitespace ferahligi: Streamlit'in varsayilan yogunlugu
+       kullanici geri bildirimiyle "sikisik" bulundu. Kart ic dolgusu
+       artirildi (nefes alan bir his icin); dikey blok elemanlari arasi
+       bosluk (Streamlit'in kendi flex "gap"i) hafifce artirildi - ANCAK
+       mevcut kodda kartlar arasinda zaten manuel st.write("") bosluklari
+       var, bu yuzden gap COK buyutulmedi (aksi halde bosluklar ikiye
+       katlanip asiri "havadar" gorunurdu). Sidebar'da biraz daha fazla
+       (ayarlar bölümleri birbirinden daha net ayrilsin diye). */
+    [class*="st-key-card-"] {{
+        padding: 1.6rem 1.8rem !important;
+    }}
+    [data-testid="stVerticalBlock"] {{
+        gap: 1.1rem;
+    }}
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {{
+        gap: 1.3rem;
+    }}
+    [data-testid="stSidebar"] hr {{
+        margin: 1.3rem 0 !important;
+    }}
+
     @keyframes spcFadeIn {{
         from {{ opacity: 0; transform: translateY(-4px); }}
         to {{ opacity: 1; transform: translateY(0); }}
