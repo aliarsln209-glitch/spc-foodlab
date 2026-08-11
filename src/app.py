@@ -862,7 +862,31 @@ with tab_data:
                     ]
                 st.session_state.baseline = None
                 st.session_state.confirm_clear = False
-                st.success(f"Demo veri yuklendi ({demo_scenario}).")
+                # KRITIK: burada aciktan st.rerun() cagirmadan onceki halde,
+                # bu mutasyon script'in bu run'inda GEC gerceklesiyordu -
+                # sidebar (dosyanin EN USTUNDE, tab_data'dan ONCE calisir)
+                # zaten ESKI (bos) subgroups ile render edilmis oluyordu.
+                # Sekme degistirmek bunu DUZELTMIYOR (Streamlit'te sekme
+                # gecisi bir rerun TETIKLEMEZ - bkz. asagidaki NOT), yani
+                # sidebar durum noktasi kalici olarak "veri yok" gorunumunde
+                # takili kalabiliyordu.
+                #
+                # _reset_parameter_radio bayragi (asagida, sidebar'dan ONCE
+                # islenir) burada BILEREK yeniden kullanildi: bu rerun,
+                # "parameter_radio" widget'i BU RUN'DA ZATEN (eski/gri durum
+                # etiketiyle) render edildikten SONRA tetikleniyor -
+                # format_func'un urettigi etiket metni (nokta rengi) rerun
+                # oncesi/sonrasi FARKLI oldugu icin (gri->kirmizi/yesil),
+                # React/BaseWeb bu ani ard-arda render'da secili radio'nun
+                # checked gorunumunu kaybediyor (Playwright ile dogrulandi:
+                # input.checked=false kaliyor). session_state.parameter_radio'yu
+                # DOGRUDAN burada atamak DENENDI ama StreamlitAPIException
+                # verdi ("... cannot be modified after the widget ... is
+                # instantiated") - widget bu run'da zaten olusturuldu. Bayrak
+                # deseni bu kisitlamayi dogru sekilde asiyor: gercek atama bir
+                # SONRAKI run'da, widget olusturulmadan ONCE yapilir.
+                st.session_state._reset_parameter_radio = True
+                st.rerun()
         with col_b:
             if not st.session_state.confirm_clear:
                 if st.button("\U0001F5D1️ Tum verileri temizle", type="secondary"):
