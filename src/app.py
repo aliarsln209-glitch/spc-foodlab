@@ -282,7 +282,7 @@ def inject_theme_css(dark: bool, accent: str) -> None:
        kirilmaz (bkz. yukaridaki KART SECICI NOTU). */
     [class*="st-key-card-"] {{
         border-radius: 12px !important;
-        box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 1px 8px rgba(15,23,42,0.04);
+        box-shadow: 0 1px 2px rgba(15,23,42,0.06), 0 2px 10px rgba(15,23,42,0.09);
         transition: box-shadow 0.2s ease;
     }}
     [class*="st-key-card-"]:hover {{
@@ -523,7 +523,7 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
                 <div class="kpi-card" title="{tooltip}" style="background:{card_bg};
                             border:1px solid {card_border}; border-left:4px solid {card_accent};
                             border-radius:12px; padding:0.7rem 0.9rem; height:100%;
-                            box-shadow:0 1px 2px rgba(15,23,42,0.04), 0 1px 8px rgba(15,23,42,0.04);">
+                            box-shadow:0 1px 2px rgba(15,23,42,0.06), 0 2px 10px rgba(15,23,42,0.09);">
                     <div style="font-size:0.78rem; color:{sub_color};">{icon} {label}</div>
                     <div style="font-size:1.45rem; font-weight:700; color:{text_color};
                                 line-height:1.3;">{value}</div>
