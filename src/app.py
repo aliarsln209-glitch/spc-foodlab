@@ -28,7 +28,6 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from pdf_report import build_pdf_report
 from result_helpers import (
     build_quick_summary,
-    compute_trend,
     demo_scenario_targets,
     format_cpk,
     get_cpk_level,
@@ -397,33 +396,6 @@ def inject_theme_css(dark: bool, accent: str) -> None:
 
 inject_theme_css(dark, accent_color)
 
-def render_cpk_message(cpk: float, cpk_label: str) -> None:
-    """Cpk/Cpu degerine gore uygun basari/uyari/hata mesajini gosterir.
-    Iki yerde (X-bar/R ve I-MR) aynen kullanilir, tekrar onlemek icin
-    ortak fonksiyon haline getirildi."""
-    if cpk == float("inf"):
-        st.success(
-            f"{cpk_label} = ∞: olculen degerlerde hic varyasyon yok (R̄/MR̄ = 0) "
-            "ve ortalama spesifikasyon icinde - surec kusursuz (Mukemmel)."
-        )
-    elif cpk == float("-inf"):
-        st.error(
-            f"{cpk_label} = -∞: olculen degerlerde varyasyon yok ama ortalama "
-            "zaten spesifikasyon disinda - surec yeterli degil (Yetersiz)."
-        )
-    elif abs(cpk) > CPK_SANITY_THRESHOLD:
-        st.warning(
-            f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
-            "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
-            "olabilir - LSL/USL degerlerini kontrol et."
-        )
-    elif cpk < 1.0:
-        st.error(f"{cpk_label} < 1.0: Surec yeterli degil (Yetersiz), spesifikasyon limitlerine gore.")
-    elif cpk < 1.33:
-        st.warning(f"{cpk_label} 1.0-1.33 arasi: Surec sinirda duzeyde yeterli (Sinirda).")
-    else:
-        st.success(f"{cpk_label} >= 1.33: Surec yeterli (Yeterli).")
-
 
 def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
                                n_samples: int, cpk: float, cpk_label: str,
@@ -528,74 +500,88 @@ def render_png_download(fig, filename: str, key: str) -> None:
 # csv_io.* fonksiyonlari cagrilir.
 
 
-def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
-                      n_samples: int, n_out_of_control: int, decimal_places: int,
-                      trend: tuple[str, float] | None = None, cpk_valid: bool = True) -> None:
-    """Chart'tan once gosterilen 4'lu hizli ozet paneli - detayli karti
-    tekrar etmez, sadece en onemli 4 sayiyi renkli kart + ikon + (Cpk
-    kartinda) sonuc rozeti + (Ortalama kartinda, varsa) trend okuyla one
-    cikarir. trend, compute_trend()'in donusu: (yon, delta) veya None.
+def cpk_capability_badge(cpk: float, cpk_valid: bool) -> tuple[str, str, str]:
+    """ADIM 4: 'Surec Yeterliligi' karti icin basit UC RENKLI (yesil/sari/
+    kirmizi) rozet - get_cpk_level()'in DORT seviyeli mavi/mor/kirmizi
+    paletinden (result_helpers.py) BILEREK AYRI: o palet, kullanicinin
+    serbestce sectigi 'Vurgu rengi' ile KPI kartlarindaki sonuc rengi
+    arasindaki olasi karisikligi onlemek icin ozellikle yesil/kirmizi
+    DISINDA secilmisti (bkz. get_cpk_level docstring'i). Burada (referans
+    taslaktaki 'Capable' rozetine karsilik gelen, sidebar durum
+    noktalarindaki ile AYNI ruhta bir gosterge) klasik yesil/sari/kirmizi
+    kullanildi - ayni esikler (>=1.33 yesil, 1.0-1.33 sari, <1.0 kirmizi),
+    compute_active_parameter_status() ile tutarli."""
+    if not cpk_valid:
+        return "⚪", "Gecersiz", "#868e96"
+    if cpk == float("-inf"):
+        return "\U0001F534", "Yetersiz", "#e03131"
+    if cpk == float("inf") or cpk >= 1.33:
+        return "\U0001F7E2", "Yeterli", "#2f9e44"
+    if cpk >= 1.0:
+        return "\U0001F7E1", "Sinirda", "#f08c00"
+    return "\U0001F534", "Yetersiz", "#e03131"
 
-    cpk_valid=False (LSL>=USL gecersiz spesifikasyon) durumunda Cpk karti
-    gercek sayiyi/rozeti GOSTERMEZ - get_cpk_level() gecersiz bir Cpk'yi
-    (orn. -6.998) yine de bir renge/etikete siniflandirip yaniltici bir
-    "sonuc" gostermis olurdu; bunun yerine notr bir 'Gecersiz' notu gosterilir."""
+
+def render_capability_card(cpk: float, cpk_label: str, cpk_valid: bool) -> None:
+    """ADIM 4 'Process Capability' karti: buyuk Cpk/Cpu degeri + uc renkli
+    rozet (bkz. cpk_capability_badge). X-bar/R ve I-MR'de AYNI - farklari
+    (etiket, gecerlilik) zaten parametre olarak aliniyor."""
+    emoji, level_label, color = cpk_capability_badge(cpk, cpk_valid)
+    st.markdown(f"##### \U0001F3AF Surec Yeterliligi")
     if cpk_valid:
-        emoji, level_label, color = get_cpk_level(cpk)
-        cpk_value_str = format_cpk(cpk)
-        cpk_tooltip = (
-            "Surecin spesifikasyon limitlerini karsilama yetenegini gosterir. "
-            "Genel kabul: >=1.67 excellent, 1.33-1.67 capable, 1.0-1.33 marginal, <1.0 not capable."
+        st.markdown(
+            f"<div style='font-size:2rem; font-weight:700;'>{format_cpk(cpk)}</div>"
+            f"<div style='color:{color}; font-weight:600;'>{emoji} {level_label}</div>",
+            unsafe_allow_html=True,
+        )
+        st.caption(f"{cpk_label} - genel kabul: >=1.33 yeterli, 1.0-1.33 sinirda, <1.0 yetersiz.")
+        if abs(cpk) > CPK_SANITY_THRESHOLD:
+            # render_cpk_message()'daki AYNI kontrol (o fonksiyon artik burada
+            # cagrilmiyor - rozet zaten Yeterli/Sinirda/Yetersiz'i gosteriyor,
+            # ayni bilgiyi tekrarlayan buyuk bir st.success/error/warning kutusu
+            # kompakt kartta fazla yer kaplardi) - ama bu SPESIFIK uyari
+            # (LSL/USL-veri uyumsuzlugu ihtimali) korunmali, veri kalitesi
+            # acisindan onemli bir sinyal.
+            st.warning(
+                f"{cpk_label} anlamsiz derecede yuksek/dusuk cikti. Sectigin "
+                "urunun spesifikasyon araligi, girdigin verilerle ortusmuyor "
+                "olabilir - LSL/USL degerlerini kontrol et."
+            )
+    else:
+        st.markdown(
+            f"<div style='font-size:2rem; font-weight:700; color:#868e96;'>—</div>"
+            f"<div style='color:{color}; font-weight:600;'>{emoji} {level_label}</div>",
+            unsafe_allow_html=True,
+        )
+        st.caption(f"{cpk_label} hesaplanamadi: spesifikasyon gecersiz (LSL >= USL).")
+
+
+def render_data_summary_card(mean_label: str, mean_value: float, spread_label: str,
+                              spread_value: float, n_label: str, n_value: int,
+                              n_out_of_control: int, decimal_places: int) -> None:
+    """ADIM 4 'Data Summary' karti: ortalama/yayilim/ornek sayisi + kontrol
+    disi nokta sayisi (varsa kirmizi vurgulu satir - referans taslaktaki
+    pembe 'Out of Control' satirina karsilik gelir)."""
+    st.markdown("##### \U0001F4CB Veri Ozeti")
+    st.markdown(
+        f"**{mean_label}**  \n{mean_value:.{decimal_places}f}  \n\n"
+        f"**{spread_label}**  \n{spread_value:.{decimal_places}f}  \n\n"
+        f"**{n_label}**  \n{n_value}"
+    )
+    if n_out_of_control:
+        st.markdown(
+            f"<div style='background:#fff0f0; color:#e03131; font-weight:600; "
+            f"border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.4rem;'>"
+            f"⚠️ Kontrol Disi: {n_out_of_control}</div>",
+            unsafe_allow_html=True,
         )
     else:
-        emoji, level_label, color = "⚠️", "Gecersiz", "#f08c00"
-        cpk_value_str = "—"
-        cpk_tooltip = "LSL >= USL - spesifikasyon gecersiz oldugu icin Cpk/Cpu hesaplanmadi."
-    card_bg = "#161a23" if dark else "#ffffff"
-    card_border = "#333c4a" if dark else "#E4E7EC"
-    text_color = "#fafafa" if dark else "#31333f"
-    sub_color = "#9aa4b2" if dark else "#666666"
-    oos_color = "#e03131" if n_out_of_control else "#2f9e44"
-    oos_icon = "⚠️" if n_out_of_control else "✅"
-
-    trend_badge = None
-    if trend is not None:
-        direction, delta = trend
-        trend_icon = {"up": "▲", "down": "▼", "flat": "→"}[direction]
-        trend_badge = f"{trend_icon} {delta:+.{decimal_places}f} (son {min(6, n_samples // 2)} nokta)"
-
-    cards = [
-        ("\U0001F4CA", f"Ortalama ({unit})", f"{center_value:.{decimal_places}f}", trend_badge, sub_color,
-         accent_color, "Surecin genel ortalamasi (X-bar/R'de x-double-bar, I-MR'de x-bar) "
-         "ve son verilere gore basit bir egilim (trend) gostergesi."),
-        (emoji, cpk_label, cpk_value_str, level_label, color, color, cpk_tooltip),
-        ("\U0001F522", "Ornek Sayisi", str(n_samples), None, sub_color, accent_color,
-         "Toplam olcum (I-MR) veya alt grup (X-bar/R) sayisi."),
-        (oos_icon, "Kontrol Disi Nokta", str(n_out_of_control), None, sub_color, oos_color,
-         "Istatistiksel kontrol limitlerinin (UCL/LCL) disinda kalan nokta sayisi."),
-    ]
-
-    cols = st.columns(4)
-    for col, (icon, label, value, badge, badge_color, card_accent, tooltip) in zip(cols, cards):
-        badge_html = (
-            f'<div style="font-size:0.72rem;font-weight:700;color:{badge_color};'
-            f'margin-top:2px;">{badge}</div>' if badge else ""
+        st.markdown(
+            f"<div style='background:#ebfbee; color:#2f9e44; font-weight:600; "
+            f"border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.4rem;'>"
+            f"✅ Kontrol Disi: 0</div>",
+            unsafe_allow_html=True,
         )
-        with col:
-            st.markdown(
-                f"""
-                <div class="kpi-card" title="{tooltip}" style="background:{card_bg};
-                            border:1px solid {card_border}; border-left:4px solid {card_accent};
-                            border-radius:12px; padding:0.7rem 0.9rem; height:100%;
-                            box-shadow:0 1px 2px rgba(15,23,42,0.06), 0 2px 10px rgba(15,23,42,0.09);">
-                    <div style="font-size:0.78rem; color:{sub_color};">{icon} {label}</div>
-                    <div style="font-size:1.45rem; font-weight:700; color:{text_color};
-                                line-height:1.3;">{value}</div>
-                    {badge_html}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
 
 def render_capability_histogram(values: list[float], lsl: float, usl: float,
@@ -1287,124 +1273,114 @@ with tab_chart:
         st.write("")
 
         if is_individual:
-            with st.container(border=True, key="card-07"):
-                st.subheader("Kontrol limitleri (Baseline)")
+            # ADIM 4: Process Capability / Data Summary / Baseline Reference
+            # referans taslaktaki hiyerarsiyle ayni sirada yan yana (bkz.
+            # sohbet gecmisindeki "1. secenek" onayi). Baseline karti
+            # KENDI x_bar/mr_bar'ini urettigi icin (butonlar/onay akislari
+            # dahil) mantiksal olarak ILK calismasi gerekiyor - ama
+            # st.columns() nesneleri ONCE olusturulup, doldurma sirasi
+            # (col_baseline -> col_cap -> col_summary) GORSEL soldan-saga
+            # sirayla AYNI OLMAK ZORUNDA DEGIL; Streamlit bu iki seyi
+            # ayirir. UCL/LCL (I chart), limits hesaplanmadan once
+            # bilinmedigi icin st.empty() placeholder ile baseline
+            # kartinin ICINE sonradan yerlestirilir.
+            col_cap, col_summary, col_baseline = st.columns(3)
 
-                baseline = st.session_state.baseline
-                n_current = len(st.session_state.subgroups)
-                values, moving_ranges, live_x_bar, live_mr_bar = compute_individual_stats(
-                    st.session_state.subgroups
-                )
+            with col_baseline:
+                with st.container(border=True, key="card-07"):
+                    st.markdown("##### \U0001F4CC Baseline Referansi")
 
-                if baseline is None:
-                    st.info(
-                        "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM "
-                        "olculerden canli hesaplaniyor; yeni veri eklendikce degisir. "
-                        "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
-                        "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
+                    baseline = st.session_state.baseline
+                    n_current = len(st.session_state.subgroups)
+                    values, moving_ranges, live_x_bar, live_mr_bar = compute_individual_stats(
+                        st.session_state.subgroups
                     )
-                    if n_current < MIN_RECOMMENDED_BASELINE:
-                        st.warning(
-                            f"Su an {n_current} olcum var. Guvenilir kontrol limitleri "
-                            f"icin en az {MIN_RECOMMENDED_BASELINE} olcum onerilir "
-                            "(Montgomery, Introduction to Statistical Quality Control)."
-                        )
 
-                    if not st.session_state.confirm_freeze:
-                        if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
-                            st.session_state.confirm_freeze = True
-                            st.rerun()
+                    if baseline is None:
+                        st.info(
+                            "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM "
+                            "olculerden canli hesaplaniyor; yeni veri eklendikce degisir. "
+                            "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
+                            "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
+                        )
+                        if n_current < MIN_RECOMMENDED_BASELINE:
+                            st.warning(
+                                f"Su an {n_current} olcum var. Guvenilir kontrol limitleri "
+                                f"icin en az {MIN_RECOMMENDED_BASELINE} olcum onerilir "
+                                "(Montgomery, Introduction to Statistical Quality Control)."
+                            )
+
+                        if not st.session_state.confirm_freeze:
+                            if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
+                                st.session_state.confirm_freeze = True
+                                st.rerun()
+                        else:
+                            st.warning(
+                                "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                                "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                                "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                            )
+                            fc1, fc2 = st.columns(2)
+                            with fc1:
+                                if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                    st.session_state.baseline = {
+                                        "x_bar": live_x_bar,
+                                        "mr_bar": live_mr_bar,
+                                        "n_baseline": n_current,
+                                    }
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
+                            with fc2:
+                                if st.button("Vazgec", key="confirm_freeze_no"):
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
+
+                        x_bar = live_x_bar
+                        mr_bar = live_mr_bar
                     else:
-                        st.warning(
-                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                        st.success(
+                            f"Baseline donduruldu: ilk {baseline['n_baseline']} olcum ile "
+                            "hesaplandi. UCL/LCL artik sabit; yeni eklenen olcumler bu "
+                            "limitlerle karsilastirilir, limitleri degistirmez."
                         )
-                        fc1, fc2 = st.columns(2)
-                        with fc1:
-                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                                st.session_state.baseline = {
-                                    "x_bar": live_x_bar,
-                                    "mr_bar": live_mr_bar,
-                                    "n_baseline": n_current,
-                                }
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
-                        with fc2:
-                            if st.button("Vazgec", key="confirm_freeze_no"):
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
+                        if baseline["n_baseline"] < MIN_RECOMMENDED_BASELINE:
+                            st.warning(
+                                f"Bu baseline yalnizca {baseline['n_baseline']} olcume dayaniyor "
+                                f"(onerilen minimum: {MIN_RECOMMENDED_BASELINE}) - UCL/LCL ve Cpk/Cpu "
+                                "guvenilirligi sinirlidir, yorumlarken dikkatli olun."
+                            )
 
-                    x_bar = live_x_bar
-                    mr_bar = live_mr_bar
-                else:
-                    st.success(
-                        f"Baseline donduruldu: ilk {baseline['n_baseline']} olcum ile "
-                        "hesaplandi. UCL/LCL artik sabit; yeni eklenen olcumler bu "
-                        "limitlerle karsilastirilir, limitleri degistirmez."
-                    )
-                    if baseline["n_baseline"] < MIN_RECOMMENDED_BASELINE:
-                        st.warning(
-                            f"Bu baseline yalnizca {baseline['n_baseline']} olcume dayaniyor "
-                            f"(onerilen minimum: {MIN_RECOMMENDED_BASELINE}) - UCL/LCL ve Cpk/Cpu "
-                            "guvenilirligi sinirlidir, yorumlarken dikkatli olun."
-                        )
-
-                    if not st.session_state.confirm_reset_baseline:
-                        if st.button("\U0001F513 Baseline'i sifirla"):
-                            st.session_state.confirm_reset_baseline = True
-                            st.rerun()
-                    else:
-                        st.warning(
-                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                            "mevcut TUM veriden canli hesaplanmaya baslar."
-                        )
-                        rc1, rc2 = st.columns(2)
-                        with rc1:
-                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                                st.session_state.baseline = None
-                                st.session_state.confirm_reset_baseline = False
+                        if not st.session_state.confirm_reset_baseline:
+                            if st.button("\U0001F513 Baseline'i sifirla"):
+                                st.session_state.confirm_reset_baseline = True
                                 st.rerun()
-                        with rc2:
-                            if st.button("Vazgec", key="confirm_reset_no"):
-                                st.session_state.confirm_reset_baseline = False
-                                st.rerun()
+                        else:
+                            st.warning(
+                                "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                                "mevcut TUM veriden canli hesaplanmaya baslar."
+                            )
+                            rc1, rc2 = st.columns(2)
+                            with rc1:
+                                if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                    st.session_state.baseline = None
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
+                            with rc2:
+                                if st.button("Vazgec", key="confirm_reset_no"):
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
 
-                    x_bar = baseline["x_bar"]
-                    mr_bar = baseline["mr_bar"]
+                        x_bar = baseline["x_bar"]
+                        mr_bar = baseline["mr_bar"]
+
+                    ucl_lcl_slot = st.empty()
 
             limits = compute_imr_limits(x_bar, mr_bar)
             cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=one_sided)
-
-            st.write("")
-
-            with st.container(border=True, key="card-08"):
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric(f"Genel Ortalama (x̄, {unit})", f"{x_bar:.{decimal_places}f}")
-                m2.metric(f"Ortalama Moving Range (MR̄, {unit})", f"{mr_bar:.{decimal_places}f}")
-                m3.metric(
-                    "UCL / LCL (I chart)", f"{limits.ucl_i:.{decimal_places}f} / {limits.lcl_i:.{decimal_places}f}",
-                    help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
-                )
-                if spec_valid:
-                    m4.metric(
-                        cpk_label, format_cpk(cpk),
-                        help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
-                    )
-                    render_cpk_message(cpk, cpk_label)
-                    with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
-                        render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
-                else:
-                    m4.metric(
-                        cpk_label, "Gecersiz",
-                        help="LSL >= USL - once yukaridaki spesifikasyon limitlerini duzeltin.",
-                    )
-                    st.warning(
-                        f"{cpk_label} hesaplanmadi: spesifikasyon gecersiz (LSL >= USL). "
-                        "Once yukaridaki LSL/USL degerlerini duzeltin."
-                    )
-
-            st.write("")
+            ucl_lcl_slot.metric(
+                "UCL / LCL (I chart)", f"{limits.ucl_i:.{decimal_places}f} / {limits.lcl_i:.{decimal_places}f}",
+                help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
+            )
 
             indices_i = list(range(1, len(values) + 1))
             indices_mr = list(range(2, len(values) + 1))
@@ -1414,12 +1390,23 @@ with tab_chart:
             ]
             flagged_points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
 
-            with st.container(border=True, key="card-09"):
-                render_kpi_panel(
-                    unit, x_bar, cpk, cpk_label, len(values), len(flagged_points), decimal_places,
-                    trend=compute_trend(values), cpk_valid=spec_valid,
-                )
-                render_formula_method_card("I-MR", 2)
+            with col_cap:
+                with st.container(border=True, key="card-08"):
+                    render_capability_card(cpk, cpk_label, spec_valid)
+                    if spec_valid:
+                        with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                            render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+
+            with col_summary:
+                with st.container(border=True, key="card-09"):
+                    render_data_summary_card(
+                        f"Genel Ortalama (x̄, {unit})", x_bar,
+                        f"Ortalama MR (MR̄, {unit})", mr_bar,
+                        "Olcum Sayisi", len(values),
+                        len(flagged_points), decimal_places,
+                    )
+
+            render_formula_method_card("I-MR", 2)
 
             st.write("")
 
@@ -1540,133 +1527,127 @@ with tab_chart:
         else:
             means, ranges, live_x_double_bar, live_r_bar = compute_stats(st.session_state.subgroups)
 
-            with st.container(border=True, key="card-15"):
-                st.subheader("Kontrol limitleri (Baseline)")
+            # ADIM 4: bkz. I-MR dalindaki ayni desenin aciklamasi (yukarida) -
+            # Process Capability / Data Summary / Baseline Reference yan
+            # yana, baseline karti mantiksal olarak once doldurulur (x_double_bar/
+            # r_bar'i uretir), UCL/LCL ise st.empty() ile sonradan yerlestirilir.
+            col_cap, col_summary, col_baseline = st.columns(3)
 
-                baseline = st.session_state.baseline
-                n_current = len(st.session_state.subgroups)
+            with col_baseline:
+                with st.container(border=True, key="card-15"):
+                    st.markdown("##### \U0001F4CC Baseline Referansi")
 
-                if baseline is None:
-                    st.info(
-                        "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM alt "
-                        "gruplardan canli hesaplaniyor; yeni veri eklendikce degisir. "
-                        "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
-                        "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
-                    )
-                    if n_current < MIN_RECOMMENDED_BASELINE:
-                        st.warning(
-                            f"Su an {n_current} alt grup var. Guvenilir kontrol limitleri "
-                            f"icin en az {MIN_RECOMMENDED_BASELINE} alt grup onerilir "
-                            "(Montgomery, Introduction to Statistical Quality Control)."
+                    baseline = st.session_state.baseline
+                    n_current = len(st.session_state.subgroups)
+
+                    if baseline is None:
+                        st.info(
+                            "Baseline henuz dondurulmadi. Asagidaki UCL/LCL, mevcut TUM alt "
+                            "gruplardan canli hesaplaniyor; yeni veri eklendikce degisir. "
+                            "Bu, kontrol disi bir noktanin limitleri kendine dogru cekmesine "
+                            "yol acabilir (SPC'de 'limitleri kovalamak' olarak bilinen hata)."
                         )
+                        if n_current < MIN_RECOMMENDED_BASELINE:
+                            st.warning(
+                                f"Su an {n_current} alt grup var. Guvenilir kontrol limitleri "
+                                f"icin en az {MIN_RECOMMENDED_BASELINE} alt grup onerilir "
+                                "(Montgomery, Introduction to Statistical Quality Control)."
+                            )
 
-                    if not st.session_state.confirm_freeze:
-                        if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
-                            st.session_state.confirm_freeze = True
-                            st.rerun()
+                        if not st.session_state.confirm_freeze:
+                            if st.button("\U0001F4CC Baseline'i hesapla ve dondur"):
+                                st.session_state.confirm_freeze = True
+                                st.rerun()
+                        else:
+                            st.warning(
+                                "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
+                                "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
+                                "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                            )
+                            fc1, fc2 = st.columns(2)
+                            with fc1:
+                                if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
+                                    st.session_state.baseline = {
+                                        "x_double_bar": live_x_double_bar,
+                                        "r_bar": live_r_bar,
+                                        "n_baseline": n_current,
+                                    }
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
+                            with fc2:
+                                if st.button("Vazgec", key="confirm_freeze_no"):
+                                    st.session_state.confirm_freeze = False
+                                    st.rerun()
+
+                        x_double_bar = live_x_double_bar
+                        r_bar = live_r_bar
                     else:
-                        st.warning(
-                            "Emin misiniz? Baseline donduruldugunda UCL/LCL sabitlenir; "
-                            "yeni eklenen veriler bunlari degistirmez. Geri almak icin "
-                            "sonradan 'Baseline'i sifirla' kullanman gerekir."
+                        st.success(
+                            f"Baseline donduruldu: ilk {baseline['n_baseline']} alt grup ile "
+                            "hesaplandi. UCL/LCL artik sabit; yeni eklenen alt gruplar bu "
+                            "limitlerle karsilastirilir, limitleri degistirmez."
                         )
-                        fc1, fc2 = st.columns(2)
-                        with fc1:
-                            if st.button("Evet, dondur", type="primary", key="confirm_freeze_yes"):
-                                st.session_state.baseline = {
-                                    "x_double_bar": live_x_double_bar,
-                                    "r_bar": live_r_bar,
-                                    "n_baseline": n_current,
-                                }
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
-                        with fc2:
-                            if st.button("Vazgec", key="confirm_freeze_no"):
-                                st.session_state.confirm_freeze = False
-                                st.rerun()
+                        if baseline["n_baseline"] < MIN_RECOMMENDED_BASELINE:
+                            st.warning(
+                                f"Bu baseline yalnizca {baseline['n_baseline']} alt gruba dayaniyor "
+                                f"(onerilen minimum: {MIN_RECOMMENDED_BASELINE}) - UCL/LCL ve Cpk/Cpu "
+                                "guvenilirligi sinirlidir, yorumlarken dikkatli olun."
+                            )
 
-                    x_double_bar = live_x_double_bar
-                    r_bar = live_r_bar
-                else:
-                    st.success(
-                        f"Baseline donduruldu: ilk {baseline['n_baseline']} alt grup ile "
-                        "hesaplandi. UCL/LCL artik sabit; yeni eklenen alt gruplar bu "
-                        "limitlerle karsilastirilir, limitleri degistirmez."
-                    )
-                    if baseline["n_baseline"] < MIN_RECOMMENDED_BASELINE:
-                        st.warning(
-                            f"Bu baseline yalnizca {baseline['n_baseline']} alt gruba dayaniyor "
-                            f"(onerilen minimum: {MIN_RECOMMENDED_BASELINE}) - UCL/LCL ve Cpk/Cpu "
-                            "guvenilirligi sinirlidir, yorumlarken dikkatli olun."
-                        )
-
-                    if not st.session_state.confirm_reset_baseline:
-                        if st.button("\U0001F513 Baseline'i sifirla"):
-                            st.session_state.confirm_reset_baseline = True
-                            st.rerun()
-                    else:
-                        st.warning(
-                            "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
-                            "mevcut TUM veriden canli hesaplanmaya baslar."
-                        )
-                        rc1, rc2 = st.columns(2)
-                        with rc1:
-                            if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
-                                st.session_state.baseline = None
-                                st.session_state.confirm_reset_baseline = False
+                        if not st.session_state.confirm_reset_baseline:
+                            if st.button("\U0001F513 Baseline'i sifirla"):
+                                st.session_state.confirm_reset_baseline = True
                                 st.rerun()
-                        with rc2:
-                            if st.button("Vazgec", key="confirm_reset_no"):
-                                st.session_state.confirm_reset_baseline = False
-                                st.rerun()
+                        else:
+                            st.warning(
+                                "Emin misiniz? Baseline sifirlanirsa UCL/LCL tekrar "
+                                "mevcut TUM veriden canli hesaplanmaya baslar."
+                            )
+                            rc1, rc2 = st.columns(2)
+                            with rc1:
+                                if st.button("Evet, sifirla", type="primary", key="confirm_reset_yes"):
+                                    st.session_state.baseline = None
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
+                            with rc2:
+                                if st.button("Vazgec", key="confirm_reset_no"):
+                                    st.session_state.confirm_reset_baseline = False
+                                    st.rerun()
 
-                    x_double_bar = baseline["x_double_bar"]
-                    r_bar = baseline["r_bar"]
+                        x_double_bar = baseline["x_double_bar"]
+                        r_bar = baseline["r_bar"]
+
+                    ucl_lcl_slot = st.empty()
 
             limits = compute_xbar_r_limits(x_double_bar, r_bar, subgroup_n)
             cpk = compute_cpk(x_double_bar, r_bar, subgroup_n, lsl, usl, one_sided=one_sided)
-
-            st.write("")
-
-            with st.container(border=True, key="card-16"):
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric(f"Genel Ortalama (x̄̄, {unit})", f"{x_double_bar:.{decimal_places}f}")
-                m2.metric(f"Ortalama Range (R̄, {unit})", f"{r_bar:.{decimal_places}f}")
-                m3.metric(
-                    "UCL / LCL (X-bar)", f"{limits.ucl_x:.{decimal_places}f} / {limits.lcl_x:.{decimal_places}f}",
-                    help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
-                )
-                if spec_valid:
-                    m4.metric(
-                        cpk_label, format_cpk(cpk),
-                        help="Surecin spesifikasyon limitlerini karsilama yetenegini gosterir.",
-                    )
-                    render_cpk_message(cpk, cpk_label)
-                    with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
-                        render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
-                else:
-                    m4.metric(
-                        cpk_label, "Gecersiz",
-                        help="LSL >= USL - once yukaridaki spesifikasyon limitlerini duzeltin.",
-                    )
-                    st.warning(
-                        f"{cpk_label} hesaplanmadi: spesifikasyon gecersiz (LSL >= USL). "
-                        "Once yukaridaki LSL/USL degerlerini duzeltin."
-                    )
-
-            st.write("")
+            ucl_lcl_slot.metric(
+                "UCL / LCL (X-bar)", f"{limits.ucl_x:.{decimal_places}f} / {limits.lcl_x:.{decimal_places}f}",
+                help="Istatistiksel kontrol limitleri (Ust/Alt Kontrol Siniri) - surecin dogal varyasyon araligi, spesifikasyon limitleriyle (LSL/USL) karistirilmamalidir.",
+            )
 
             indices = list(range(1, len(means) + 1))
             out_of_control_x = [i for i, m in enumerate(means) if m > limits.ucl_x or m < limits.lcl_x]
             out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
             groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
 
-            with st.container(border=True, key="card-17"):
-                render_kpi_panel(
-                    unit, x_double_bar, cpk, cpk_label, len(means), len(groups), decimal_places,
-                    trend=compute_trend(means), cpk_valid=spec_valid,
-                )
-                render_formula_method_card("X-bar/R", subgroup_n)
+            with col_cap:
+                with st.container(border=True, key="card-16"):
+                    render_capability_card(cpk, cpk_label, spec_valid)
+                    if spec_valid:
+                        with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                            render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+
+            with col_summary:
+                with st.container(border=True, key="card-17"):
+                    render_data_summary_card(
+                        f"Genel Ortalama (x̄̄, {unit})", x_double_bar,
+                        f"Ortalama Range (R̄, {unit})", r_bar,
+                        "Alt Grup Sayisi", len(means),
+                        len(groups), decimal_places,
+                    )
+
+            render_formula_method_card("X-bar/R", subgroup_n)
 
             st.write("")
 
