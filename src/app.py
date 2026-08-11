@@ -1,6 +1,7 @@
 """SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
+import textwrap
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -228,8 +229,17 @@ def inject_theme_css(dark: bool, accent: str) -> None:
         }
         """
     else:
+        # Icerik zeminini duz beyaz yerine cok hafif gri-mavi (#F7F8FA) yapiyoruz
+        # ki icindeki beyaz kartlar (st.container(border=True)) kontrastla
+        # "kart" gibi ayrissin - config.toml'daki backgroundColor (#FFFFFF)
+        # bilerek farkli: o, Streamlit'in kendi bilesenlerinin (ör. dialog,
+        # menu) varsayilan zemini icin, burasi ise ana govde zemini icin.
         theme_css = """
-        .stApp { background-color: #ffffff; }
+        .stApp { background-color: #F7F8FA; }
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: #ffffff;
+            border-color: #E4E7EC !important;
+        }
         """
 
     css = f"""
@@ -249,7 +259,13 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
     button:hover {{ transform: translateY(-1px) scale(1.01); }}
 
+    /* Kart gorunumu: st.container(border=True) ile olusturulan tum bloklar
+       (Ozet, Vardiya Karsilastirmasi, Hesaplama Adimlari vb.) yuvarlatilmis
+       kose + hafif golge alir - Streamlit'in varsayilan ince-cizgili
+       kutusundan, referans taslaktaki yumusak "card" hissine gecis. */
     [data-testid="stVerticalBlockBorderWrapper"] {{
+        border-radius: 12px !important;
+        box-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 1px 8px rgba(15,23,42,0.04);
         transition: box-shadow 0.2s ease;
     }}
     [data-testid="stVerticalBlockBorderWrapper"]:hover {{
@@ -266,7 +282,13 @@ def inject_theme_css(dark: bool, accent: str) -> None:
     .stAlert {{ animation: spcFadeIn 0.35s ease; }}
     </style>
     """
-    st.markdown(css, unsafe_allow_html=True)
+    # KRITIK: css f-string'i fonksiyonun kendi Python girinti seviyesini (4
+    # bosluk) miras alir - dedent olmadan st.markdown() bunu CommonMark'in
+    # "4+ bosluk girintili satir = kod bloğu" kuraliyla yorumlar ve '<style>'
+    # etiketini kacis karakterli duz metin olarak basar (CSS hic uygulanmaz).
+    # Daha once tam bu sorun yasanip duzeltilmis, sonra "Faz 2" toplu geri
+    # alinirken duzeltme de kaybolmustu - bkz. gecmis commit f2173d1.
+    st.markdown(textwrap.dedent(css).strip(), unsafe_allow_html=True)
 
 
 inject_theme_css(dark, accent_color)
@@ -448,7 +470,8 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
         emoji, level_label, color = "⚠️", "Gecersiz", "#f08c00"
         cpk_value_str = "—"
         cpk_tooltip = "LSL >= USL - spesifikasyon gecersiz oldugu icin Cpk/Cpu hesaplanmadi."
-    card_bg = "#161a23" if dark else "#f8f9fa"
+    card_bg = "#161a23" if dark else "#ffffff"
+    card_border = "#333c4a" if dark else "#E4E7EC"
     text_color = "#fafafa" if dark else "#31333f"
     sub_color = "#9aa4b2" if dark else "#666666"
     oos_color = "#e03131" if n_out_of_control else "#2f9e44"
@@ -481,8 +504,9 @@ def render_kpi_panel(unit: str, center_value: float, cpk: float, cpk_label: str,
             st.markdown(
                 f"""
                 <div class="kpi-card" title="{tooltip}" style="background:{card_bg};
-                            border-left:4px solid {card_accent}; border-radius:8px;
-                            padding:0.7rem 0.9rem; height:100%;">
+                            border:1px solid {card_border}; border-left:4px solid {card_accent};
+                            border-radius:12px; padding:0.7rem 0.9rem; height:100%;
+                            box-shadow:0 1px 2px rgba(15,23,42,0.04), 0 1px 8px rgba(15,23,42,0.04);">
                     <div style="font-size:0.78rem; color:{sub_color};">{icon} {label}</div>
                     <div style="font-size:1.45rem; font-weight:700; color:{text_color};
                                 line-height:1.3;">{value}</div>
