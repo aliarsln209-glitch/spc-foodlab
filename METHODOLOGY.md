@@ -10,7 +10,7 @@ bir genel bakış içindir; burada projenin "neden doğru" olduğunun kanıtı v
 1. [Yöntem ve formüller](#yöntem-ve-formüller)
 2. [Doğrulama](#doğrulama)
 3. [Ürün referans tabloları ve kaynaklar](#ürün-referans-tabloları-ve-kaynaklar)
-4. [Yol haritası (v1.1 → v3)](#yol-haritası-v11--v3)
+4. [Yol haritası (v1.0 → v3.0)](#yol-haritası-v10--v30)
 
 ## Yöntem ve formüller
 
@@ -281,21 +281,46 @@ Detaylı kaynak notları (her çift için tam metin) `src/constants.py`
 `RAW_MATERIAL_QC_REFERENCE` sözlüğünde tutulur — bu tablo onun okunabilir
 özetidir.
 
-## Yol Haritası (v1.1 → v3)
+## Yol Haritası (v1.0 → v3.0)
 
-v1, aşağıdaki sürümlerin hiçbiri olmadan da kendi başına tamamlanmış ve
-kullanılabilir kabul edilir. Aşağıdakiler bilinçli olarak v1 kapsamı
-DIŞINDA tutulan, gelecekteki iterasyonlar için notlardır — her sürüm bir
-öncekinin üzerine **tek bir net kavramsal eksen** ekleyecek şekilde
-sıralanmıştır (özellik listesi değil): sağlamlaştırma → istatistiksel
-derinlik → yeni veri tipi (mikrobiyoloji) → mimari (kalıcılık) → sistem
-tasarımı.
+**Method Validation kuralı:** Her yeni istatistiksel hesaplama veya
+kalite parametresi, literatürden bilinen bir worked example ile
+karşılaştırılıp `validation/` altına referans dosyası olarak eklenmeden
+ve `tests/test_validation_suite.py` üzerinden doğrulanmadan release
+edilmez. Bu kural **v1.2'den itibaren zorunludur**; öncesindeki sürümler
+(v1.0/v1.1/v1.1.1) bu sürece dahil edilmemiştir — onların doğrulaması
+yukarıdaki "Doğrulama" bölümünde ayrı şekilde (elle çözülmüş literatür
+örnekleriyle) ele alınmıştır.
 
-Liste **omurga** (yapılması planlanan, sürüm sırasını taşıyan) ve
-**stretch** (iyi fikir, zaman/ilgi kalırsa değerlendirilecek, taahhüt
-değil) olarak ikiye ayrılmıştır.
+v1.0/v1.1/v1.1.1, aşağıdaki sürümlerin hiçbiri olmadan da kendi başına
+tamamlanmış ve kullanılabilir kabul edilir. Aşağıdakiler bilinçli olarak
+bu kapsamın DIŞINDA tutulan, gelecekteki iterasyonlar için notlardır —
+her sürüm bir öncekinin üzerine **tek bir net kavramsal eksen**
+ekleyecek şekilde sıralanmıştır (özellik listesi değil): sağlamlaştırma
+→ istatistiksel derinlik → yeni veri tipi (mikrobiyoloji) → yeni
+parametre ailesi (fizikokimyasal) → laboratuvar araçları → mimari
+(kalıcılık) → sistem tasarımı.
+
+Liste üç katmana ayrılmıştır:
+- **Omurga** — yapılması planlanan, sürüm sırasını taşıyan, taahhüt
+  edilen.
+- **Extended Roadmap** — versiyon numarası taşır (gelecekte nereye
+  oturacağının bir işareti) ama Omurga gibi taahhüt DEĞİLDİR — SPC'nin
+  istatistiksel omurgasından (X-bar/R, I-MR, Cpk/Cpu) mimari olarak
+  FARKLI ayrı disiplinlerdir.
+- **Stretch** — iyi fikir, zaman/ilgi kalırsa değerlendirilecek, taahhüt
+  değil, versiyon numarası bile taşımaz.
 
 ### Omurga
+
+**v1.0 — Core SPC Platform ✅ Tamamlandı**
+- X-bar/R & I-MR kontrol şemaları, Cpk/Cpu hesaplama
+- 9 kalite parametresi (pH, Brix, Aw, Viskozite, Nem/Rutubet, Tuz/NaCl,
+  Titrasyon Asitliği, Peroksit Değeri, HMF)
+- PDF/PNG export, CSV import/export, demo veri, Totox hesaplayıcı
+- Güncel test sayısı için bkz. yukarıdaki "Doğrulama" bölümü (sabit bir
+  rakam burada verilmiyor — sürekli büyüyen bir sayı, dokümanda
+  bayatlamasın diye)
 
 **v1.1 — Sağlamlaştırma ✅ Tamamlandı** (yeni özellik yok, sadece mevcut
 iddiaların gerçekten tutulduğunun kanıtı)
@@ -353,8 +378,11 @@ genişletmesi, yeni istatistik motoru yok)
   yönetimi, COA yükleme/doğrulama, lot/parti yönetimi, veritabanı — bkz.
   aşağıdaki "Bilinçli olarak reddedilenler".
 
-**v1.2 — İstatistiksel derinlik** (mevcut sürekli-veri motorunun
-genişletilmesi, yeni istatistik ailesi yok)
+**v1.2 — Advanced Statistical SPC** (mevcut sürekli-veri motorunun
+genişletilmesi, yeni istatistik ailesi yok — "sadece gerçekten SPC olan
+şeyler")
+- Excel/pano yapıştırma editörü (veri girişi)
+- Canlı girdi doğrulama (fiziksel sınır uyarısı)
 - Nelson / Western Electric kuralları: UCL/LCL aşımı dışında örüntü
   tabanlı sinyaller (örn. 2/3 nokta 2σ dışı aynı yönde, 4/5 nokta 1σ
   dışı aynı yönde, 8 ardışık nokta merkez çizginin aynı tarafında).
@@ -366,18 +394,48 @@ genişletilmesi, yeni istatistik ailesi yok)
   doğru terminoloji; otomatik düzeltici faaliyet talimatı (karantina,
   DÖF vb.) ÜRETİLMEZ — uygulama kurumsal SOP'u bilmediği için bu tür bir
   öneri kendi yetkisini aşan bir iddia olur.
-- Normality / dağılım kontrolü: histogram + basit normal dağılım
-  karşılaştırması, "capability analizi yaklaşık normal veri varsayar"
-  şeklinde bir uyarı olarak sunulur — otomatik "normal değil → SPC
-  yapılamaz" kapısı DEĞİL, şeffaflık amaçlı.
+- Normality / dağılım kontrolü: histogram + **Shapiro-Wilk testi**
+  (`scipy.stats.shapiro`) — "capability analizi yaklaşık normal veri
+  varsayar" şeklinde bir uyarı olarak sunulur, otomatik "normal değil →
+  SPC yapılamaz" kapısı DEĞİL, şeffaflık amaçlı.
 - Ppk/Pp hesabı (genel örneklem std sapmasıyla) + Cpk-vs-Ppk yorum
   cümlesi ("kısa vadeli kapasite genel kapasiteden yüksek, süreç zaman
   içinde kayıyor olabilir" gibi) — Ppk eklemenin gerçek faydasını
   gösterir.
+- Zone Shading: ±1σ/±2σ/±3σ bölgelerinin grafikte görsel olarak
+  ayrıştırılması — Nelson kurallarının hangi bölgeye dayandığını okunur
+  kılar.
+- Satır düzenle/sil paneli: şu an yalnızca "tüm verileri temizle"
+  (topyekûn) var; tek bir alt grup/ölçümü düzenleme veya silme imkanı
+  yok — gerçek bir kullanılabilirlik boşluğu.
+- Metodolojik SSS (Nelson kuralları, OOS/OOT'a dair).
+- Kontrol limiti manuel hesaplayıcı (elle x̄/R̄ girip UCL/LCL üretme —
+  Hızlı Hesaplayıcılar sekmesine, Totox'un yanına).
 - Demo senaryo galerisi (iyi süreç / kayan ortalama / düşük Cpk / trend)
-  — Nelson sinyallerini göstermek için de gerekli.
+  — Nelson sinyallerini göstermek için de gerekli, versiyonun en
+  sonunda eklenir (kolay kazanç).
 - PDF raporuna otomatik yorum cümlesi (trend + Nelson sinyaline dayanan
   kısa özet).
+
+> **v1.2'ye BİLEREK eklenmeyen bir madde:** "Basit ölçüm belirsizliği/
+> tekrarlanabilirlik hesaplayıcısı" fikri değerlendirildi ve reddedildi.
+> Kastedilen, aynı numunenin tek operatör tarafından art arda
+> ölçülmesinin standart sapmasını raporlamaktı (tek kaynak varyans) —
+> ama bu Gage R&R DEĞİLDİR; gerçek R&R en az iki operatör × iki tekrar
+> gerektirir (operatör-arası + tekrar-içi varyans ayrımı). Gage R&R'ın
+> "hafif" bir versiyonu yoktur — ya tam metodolojiyle yapılır (bkz.
+> Stretch Goals → MSA/Gage R&R) ya da hiç yapılmaz; yarım yapılmış bir
+> R&R, hiç olmamasından KÖTÜdür çünkü yanlış güven verir.
+
+**Totox Modülü İyileştirmeleri** (v1.2 kapsamında, ayrı görsel iş — PV/
+AnV/referans aralığı + hesaplama adımları zaten eklendi, bunun üzerine)
+- Sonuç tablosu (PV / AnV / Totox / Referans)
+- Birleşik gauge + renkli badge (ayrı KPI kartı değil, tek gösterim)
+- LaTeX formül gösterimi (`st.latex`)
+- Collapsible references (`st.expander`)
+- Genişletilmiş yorum metni + duyarlılık cümlesi (tek satır)
+- Session history (uyarı etiketiyle: "bu oturuma özel" — v2.0'daki
+  kalıcı depolamadan ÖNCE, session_state-only bir liste)
 
 **v1.3 — Mikrobiyoloji (kantitatif)**
 - Yeni parametre sınıfı: log10-CFU (TPC/TMAB, Küf-Maya, Koliform,
@@ -395,13 +453,49 @@ genişletilmesi, yeni istatistik ailesi yok)
   gizlenmez.
 - Patojen (Salmonella, Listeria — var/yok) parametreleri BU sürüme
   dahil edilmez: bunlar kantitatif değildir, Cpk kavramı uygulanamaz
-  (bkz. v2.2).
+  (bkz. Extended Roadmap → v2.2).
+
+**v1.4 — Food Quality Parameters** (aynı istatistik motoruyla yeni
+parametreler)
+- Kimyasal: Protein, Yağ, Kül
+- Fiziksel: Yoğunluk, Kuru Madde
+- Optik: L*, a*, b*, Bulanıklık, İletkenlik, Refraktif İndeks
+- AQL/numune boyutu hesaplayıcısı (bkz. Extended Roadmap'teki v2.2'de
+  detaylandırma)
+- Cp/Cpk ters hesaplama (hedef-bazlı: "Cpk'yi X'e çıkarmak için sigma ne
+  olmalı")
+- Not: bu 8 parametrenin her biri için geçerli LSL/USL kaynağı bulmak,
+  Hammadde Kütüphanesi (v1.1.1) ile kıyaslanabilir büyüklükte bir
+  araştırma yükü — kaynağı doğrulanamayan kombinasyonlar için AYNI
+  disiplin uygulanır: rastgele sayı konulmaz, "Özel/Manuel gir"e
+  bırakılır.
+
+**Totox alt öğeleri** (buraya taşındı — v1.4)
+- Yağ tipi preset seçimi (Balık Yağı/Omega-3, Rafine Bitkisel, Sızma
+  Zeytinyağı)
+- Oksidasyon eğrisi şeması ("About Totox" panelinin parçası)
+
+**v1.5 — Laboratory Utilities** (SPC değil, laboratuvar yardımcı
+araçları)
+- Totox (mevcut, taşınmış modül)
+- Thermal Processing Calculator (D-value → z-value → F₀, tek zincir
+  hesaplayıcı)
+- Brix Temperature Correction (ICUMSA standardına göre)
+- Solution Dilution Calculator (C₁V₁ = C₂V₂)
+
+*Not: pH Buffer Preparation ve genel Unit Converter kapsam dışı
+bırakıldı — "Food Engineering Toolbox"a kayma riski; bkz. Stretch
+Goals (Laboratory Utilities'in omurga teslimatının parçası DEĞİL,
+zaman kalırsa ayrıca değerlendirilebilir).*
 
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
   anlamda kapatılması.
 - Batch/Lot History: geçmiş lotların Cpk'sını karşılaştırma — kalıcı
   depolamanın asıl gerekçesi budur (depolama tek başına amaç değildir).
+- Baseline History: geçmiş baseline dondurma kayıtlarının (ne zaman,
+  hangi n ile, hangi UCL/LCL) saklanması — Batch/Lot History'nin doğal
+  uzantısı.
 - Batch/lot kaydına isteğe bağlı **kullanıcı notu** sütunu (örn. "vana
   temizlendi, sıcaklık normale döndü"), PDF'e yansır. Not: bu bir
   "dijital imza" değildir — kriptografik imzalama/kimlik doğrulama
@@ -410,6 +504,11 @@ genişletilmesi, yeni istatistik ailesi yok)
   (parametre, frekans, alt grup büyüklüğü, chart tipi, USL/LSL)
   kaydedebilmesi — otomatik veri toplama sistemine ÇEVRİLMEZ, sadece
   izleme niyetinin tanımı.
+- Outlier toggle + what-if simülasyonu: belirli bir noktayı ("özel
+  neden" ile açıklanabilir) baseline hesabından geçici olarak hariç
+  tutup Cpk/UCL-LCL'in nasıl değişeceğini gösterme — nokta-seviyeli
+  metadata (excluded flag) gerektirdiği için kalıcı depolamayla birlikte
+  gelir.
 
 **v3.0 — Sistem tasarımı**
 - Hesaplama mantığını API katmanına ayırma (FastAPI backend + ince
@@ -421,32 +520,59 @@ genişletilmesi, yeni istatistik ailesi yok)
   parametre/eski-yeni değer). Bilinçli olarak SADE tutulur — tam bir
   uyum/regülasyon sistemine (e-imza, denetim modu vb.) dönüştürülmez;
   bu proje istatistiksel süreç kontrolüne odaklanır.
+- Sürüm geçmişi / changelog paneli (UI karşılığı).
 - Kapsamlı entegrasyon testleri (API seviyesinde).
 
-### Stretch (iyi fikir, taahhüt değil — ilk kesilecekler sırasıyla)
+### Extended Roadmap (Taahhüt Değil)
 
-1. **MSA / Gage R&R** (v2.3): "Süreç mi değişken, ölçüm sistemim mi
-   değişken?" sorusu — SPC'nin doğal komşusu ama kendi başına ayrı bir
-   istatistik disiplini (tekrarlanabilirlik/tekrar üretilebilirlik,
-   ANOVA tabanlı tasarım). En yüksek kesilme adayı.
-2. **Lot Kabul Örneklemesi — patojen var/yok** (v2.2): Salmonella/
-   Listeria gibi parametreler bir kontrol şeması DEĞİL, bir kabul
-   örnekleme sorunudur — ICMSF iki-sınıflı (n,c) veya EC 2073/2005 üç-
-   sınıflı (n,c,m,M) planları, zaman içinde trend izlemez, TEK bir lotu
-   kabul/red kararına bağlar. Bu nedenle aşağıdaki attribute chart
-   motorundan (v2.1) kasıtlı olarak AYRI tutulur — ikisi de "attribute
-   veri" olsa da farklı disiplinlerdir (kontrol şeması vs. kabul
-   örneklemesi), aynı çatı altında sunulmaz.
-3. **Attribute charts — fiziksel kusur** (v2.1): p-chart (kusurlu
-   oranı) / c-chart (birim başına kusur sayısı) — hatalı kapak, bombajlı
-   kutu, baskı hatası gibi zaman içinde tekrarlayan, trend/özel-neden
-   mantığının geçerli olduğu klasik SPC kullanımı. Formülü basit (Binom/
-   Poisson) ama yeni `spc_core` fonksiyonu + yeni grafik tipi + yeni
-   test gerektirir.
-4. **i18n** (v3.1): Arayüz + PDF için TR/EN geçişi. Gerekçesi mühendislik
+SPC'nin istatistiksel omurgasından (X-bar/R, I-MR, Cpk/Cpu) mimari
+olarak FARKLI iki ayrı disiplin — versiyon numarası taşırlar (gelecekte
+nereye oturacaklarının bir işareti) ama Omurga'daki gibi taahhüt edilmiş
+DEĞİLDİR; zaman/ilgi olursa uygulanır. (Bir önceki taslakta bunlar
+yanlışlıkla Omurga'ya, sıradan v2.1/v2.2 olarak konulmuştu — düzeltildi.)
+
+**v2.1 — Attribute Quality Control**
+- p chart (kusurlu oranı), np chart, c chart (birim başına kusur
+  sayısı), u chart.
+- Yabancı madde, kırık ürün, paket hatası gibi zaman içinde tekrarlayan,
+  trend/özel-neden mantığının geçerli olduğu klasik SPC kullanımı —
+  formülü basit (Binom/Poisson) ama yeni `spc_core` fonksiyonu + yeni
+  grafik tipi + yeni test gerektirir.
+
+**v2.2 — Sampling & Acceptance Quality**
+- ANSI/ASQ Z1.4, ISO 2859.
+- AQL Sample Size Calculator (Lot büyüklüğü → Inspection Level → AQL →
+  Sample Size Code Letter, Sample Size, Acceptance/Rejection Number).
+- Lot Acceptance / n-c tabloları.
+- Salmonella, Listeria gibi var/yok testleri buraya girer: bunlar bir
+  kontrol şeması DEĞİL, bir kabul örnekleme sorunudur — ICMSF
+  iki-sınıflı (n,c) veya EC 2073/2005 üç-sınıflı (n,c,m,M) planları,
+  zaman içinde trend izlemez, TEK bir lotu kabul/red kararına bağlar. Bu
+  nedenle v2.1'deki attribute chart motorundan kasıtlı olarak AYRI
+  tutulur — ikisi de "attribute veri" olsa da farklı disiplinlerdir
+  (kontrol şeması vs. kabul örneklemesi), aynı çatı altında sunulmaz.
+
+### Stretch Goals (iyi fikir, taahhüt değil)
+
+1. **MSA / Gage R&R**: "Süreç mi değişken, ölçüm sistemim mi değişken?"
+   sorusu — SPC'nin doğal komşusu ama kendi başına ayrı bir istatistik
+   disiplini (tekrarlanabilirlik/tekrar üretilebilirlik, ANOVA tabanlı
+   tasarım, en az iki operatör × iki tekrar). v1.2'de "hafif" bir
+   versiyonu bilinçli olarak denenmedi (bkz. yukarıdaki not) — ya tam
+   metodolojiyle burada yapılır, ya da hiç yapılmaz.
+2. **i18n**: Arayüz + PDF için TR/EN geçişi. Gerekçesi mühendislik
    pratiği genişliği göstermektir (string dışsallaştırma, locale-aware
    biçimlendirme) — pazar/erişim büyütme gerekçesiyle DEĞİL.
-5. **Etkileşimli grafikler (hover/click ile değer gösterme) — Plotly'ye
+3. Çoklu kullanıcı, Dashboard, Trend Analytics, Çoklu ürün karşılaştırma.
+4. Zone shading detayları, vardiya varyasyon karşılaştırması (v1.2'nin
+   ötesinde ek detaylar).
+5. İstatistiksel sabitler tablosu (interaktif), LaTeX formül sözlüğü
+   (tüm proje için), veri akış şeması (workflow diagram).
+6. Export (PDF/PNG) — Totox için.
+7. pH Buffer Preparation, Genel Unit Converter (bkz. v1.5 notu —
+   Laboratory Utilities omurgasının DIŞINDA tutuldu, burada düşük
+   öncelikli birer stretch fikri olarak dururlar).
+8. **Etkileşimli grafikler (hover/click ile değer gösterme) — Plotly'ye
    geçiş**: GELECEK DEĞERLENDİRME, HENÜZ KARAR VERİLMEDİ. Mevcut mimaride
    (`st.pyplot` + matplotlib) bu mümkün DEĞİL — `st.pyplot()` figürü
    sunucu tarafında statik bir PNG'ye render edip tarayıcıya `<img>`
@@ -483,6 +609,13 @@ Aşağıdakiler değerlendirilip roadmap'e ALINMADI, gerekçesiyle birlikte:
 - **Hazır spesifikasyon şablon kütüphanesi**: zaten mevcut —
   `PARAMETER_CONFIG`'teki `products` sözlüğü (yukarıdaki "Ürün referans
   tabloları" bölümü) bu işlevi v1'den beri görüyor.
+- **Tam bir kurumsal QMS/regülasyon kapsamı**: HACCP yönetim sistemi,
+  ISO dokümantasyonu, COA doğrulama, tedarikçi yönetimi, ağır metal
+  analizi, pestisit analizi, mikotoksin analizi, alerjen yönetimi, ERP
+  entegrasyonu, LIMS yerine geçme, kurumsal CAPA/DÖF yönetimi, otomatik
+  düzeltici faaliyet/karantina talimatı — bu proje istatistiksel süreç
+  kontrolüne (SPC) odaklanır, bir kalite yönetim sistemi veya LIMS
+  yerine geçmeyi hedeflemez.
 
 ---
 
