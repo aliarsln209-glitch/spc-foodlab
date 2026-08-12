@@ -954,6 +954,42 @@ def shade_lcl_zero_zone(ax, lcl: float) -> None:
     ax.axhspan(band_bottom, 0, color=OOT_LINE_COLOR, alpha=0.08, zorder=0)
 
 
+def draw_zone_shading(ax, center: float, sigma: float, dark: bool) -> None:
+    """Nelson kurallarinin dayandigi Zone C/B/A bolgelerini (merkez cizgiden
+    +-1/+-2/+-3 sigma) grafikte hafif renkli yatay bantlar olarak
+    gorsellestirir - boylece kullanici bir Nelson sinyalinin HANGI bolgeye
+    dayandigini (2/3-2sigma kurali Zone A'yi, 4/5-1sigma kurali Zone B/A'yi,
+    9-ayni-taraf kurali sadece merkezin hangi tarafinda oldugunu kullanir)
+    grafikte gorebilir - salt sayisal bir OOT etiketinden farkli olarak
+    GORSEL bir sezgi saglar.
+
+    Zone C (merkeze en yakin) EN SOLUK, Zone A (kontrol limitine en yakin)
+    EN BELIRGIN bant olacak sekilde kademeli artan opaklik kullanilir - her
+    bant KENDI araligini (onceki sinirdan bir sonraki sinira) kapladigi
+    icin bantlar UST USTE binmez, her birinin opakligi dogrudan o bandin
+    gorunurlugunu belirler.
+
+    sigma<=0 (varyasyon yok) durumunda bolgeler ANLAMSIZDIR - hicbir sey
+    cizilmez. axhline/plot cagrilarindan SONRA, style_chart'tan ONCE
+    cagrilmalidir (shade_lcl_zero_zone ile ayni sira kurali) - ZORDER=0 ile
+    veri cizgisinin/UCL-LCL/merkez cizgisinin ARKASINDA kalir."""
+    if sigma <= 0:
+        return
+    band_color = "#ffffff" if dark else "#000000"
+    zone_alphas = [(1, 0.05), (2, 0.09), (3, 0.13)]  # (sigma kati, opaklik) - Zone C, B, A
+    prev_multiplier = 0.0
+    for multiplier, alpha in zone_alphas:
+        ax.axhspan(
+            center + prev_multiplier * sigma, center + multiplier * sigma,
+            color=band_color, alpha=alpha, zorder=0, linewidth=0,
+        )
+        ax.axhspan(
+            center - multiplier * sigma, center - prev_multiplier * sigma,
+            color=band_color, alpha=alpha, zorder=0, linewidth=0,
+        )
+        prev_multiplier = multiplier
+
+
 def compute_oos_flags(
     raw_value_groups: list[list[float]], lsl: float, usl: float, one_sided: bool
 ) -> tuple[set[int], int]:
@@ -1822,6 +1858,7 @@ with tab_chart:
                 ax.set_xlabel("Olcum no")
                 ax.set_ylabel(unit)
                 ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                draw_zone_shading(ax, x_bar, sigma_hat_imr, dark)
                 style_chart(fig, ax, dark)
                 st.pyplot(fig, use_container_width=True)
                 render_png_download(fig, f"{st.session_state.active_parameter.lower()}_i_chart.png", key="png_i_chart")
@@ -2125,6 +2162,7 @@ with tab_chart:
                 ax.set_xlabel("Alt grup no")
                 ax.set_ylabel(unit)
                 ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
+                draw_zone_shading(ax, x_double_bar, sigma_hat_xbar, dark)
                 style_chart(fig, ax, dark)
                 st.pyplot(fig, use_container_width=True)
                 render_png_download(fig, f"{st.session_state.active_parameter.lower()}_xbar_chart.png", key="png_xbar_chart")
