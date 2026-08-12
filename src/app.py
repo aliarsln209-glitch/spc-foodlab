@@ -632,12 +632,13 @@ def render_formula_method_card(chart_type_label: str, n_val: int) -> None:
 def render_pdf_download(parameter: str, product: str, chart_type_label: str,
                          n_samples: int, n_out_of_control: int, cpk: float,
                          cpk_label: str, quick_summary_text: str,
-                         chart_png_bytes: bytes | None, key: str) -> None:
+                         chart_images: list[tuple[str, bytes]], key: str) -> None:
     """'PDF olarak indir' butonu - build_pdf_report() ile ayni verilerden
-    tek sayfalik bir rapor uretir."""
+    (ana kontrol grafigi + range/MR grafigi + histogram, hepsi dahil) bir
+    rapor uretir."""
     pdf_bytes = build_pdf_report(
         parameter, product, chart_type_label, n_samples, n_out_of_control,
-        cpk, cpk_label, quick_summary_text, chart_png_bytes,
+        cpk, cpk_label, quick_summary_text, chart_images,
     )
     st.download_button(
         "\U0001F4C4 PDF rapor olarak indir", pdf_bytes,
@@ -1027,7 +1028,16 @@ with tab_data:
                 measurements = [val]
                 shift = "-"
             else:
-                shift = st.selectbox("Vardiya", SHIFT_OPTIONS)
+                shift = st.selectbox(
+                    "Vardiya", SHIFT_OPTIONS,
+                    help=(
+                        "Bu alt grubun hangi vardiyada olculdugunu etiketler - "
+                        "hesaplamayi (UCL/LCL/Cpk) ETKILEMEZ, sadece 'X-bar/R "
+                        "Chart & Cpk' sekmesindeki 'Vardiya Karsilastirmasi' "
+                        "tablosunda vardiyalara gore gruplama yapabilmek icin "
+                        "kaydedilir (en az 2 farkli vardiyada veri olmasi gerekir)."
+                    ),
+                )
                 cols = st.columns(subgroup_n)
                 measurements = []
                 for i, col in enumerate(cols):
@@ -1676,6 +1686,7 @@ with tab_chart:
                 render_png_download(
                     hist_fig, f"{st.session_state.active_parameter.lower()}_histogram.png", key="png_histogram"
                 )
+                imr_histogram_png = fig_to_png_bytes(hist_fig)
                 plt.close(hist_fig)
 
             st.write("")
@@ -1707,6 +1718,7 @@ with tab_chart:
                 style_chart(fig2, ax2, dark)
                 st.pyplot(fig2, use_container_width=True)
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_mr_chart.png", key="png_mr_chart")
+                imr_mr_chart_png = fig_to_png_bytes(fig2)
                 plt.close(fig2)
 
             with st.container(border=True, key="card-14"):
@@ -1714,7 +1726,12 @@ with tab_chart:
                     render_pdf_download(
                         st.session_state.active_parameter, selected_product, "I-MR",
                         len(values), len(flagged_points), cpk, cpk_label, imr_quick_summary,
-                        imr_main_chart_png, key="pdf_imr",
+                        [
+                            ("I (Individual) Kontrol Grafigi", imr_main_chart_png),
+                            ("MR (Moving Range) Kontrol Grafigi", imr_mr_chart_png),
+                            ("Surec Yeterlilik Histogrami", imr_histogram_png),
+                        ],
+                        key="pdf_imr",
                     )
                 else:
                     st.info(
@@ -1933,6 +1950,7 @@ with tab_chart:
                 render_png_download(
                     hist_fig, f"{st.session_state.active_parameter.lower()}_histogram.png", key="png_histogram"
                 )
+                xbar_histogram_png = fig_to_png_bytes(hist_fig)
                 plt.close(hist_fig)
 
             st.write("")
@@ -1961,6 +1979,7 @@ with tab_chart:
                 style_chart(fig2, ax2, dark)
                 st.pyplot(fig2, use_container_width=True)
                 render_png_download(fig2, f"{st.session_state.active_parameter.lower()}_r_chart.png", key="png_r_chart")
+                xbar_r_chart_png = fig_to_png_bytes(fig2)
                 plt.close(fig2)
 
             with st.container(border=True, key="card-23"):
@@ -1968,7 +1987,12 @@ with tab_chart:
                     render_pdf_download(
                         st.session_state.active_parameter, selected_product, "X-bar/R",
                         len(means), len(groups), cpk, cpk_label, xbar_quick_summary,
-                        xbar_main_chart_png, key="pdf_xbar",
+                        [
+                            ("X-bar Kontrol Grafigi", xbar_main_chart_png),
+                            ("R Kontrol Grafigi", xbar_r_chart_png),
+                            ("Surec Yeterlilik Histogrami", xbar_histogram_png),
+                        ],
+                        key="pdf_xbar",
                     )
                 else:
                     st.info(

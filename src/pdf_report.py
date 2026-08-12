@@ -58,10 +58,18 @@ def pdf_safe(text: str) -> str:
 def build_pdf_report(parameter: str, product: str, chart_type_label: str,
                       n_samples: int, n_out_of_control: int, cpk: float,
                       cpk_label: str, quick_summary_text: str,
-                      chart_png_bytes: bytes | None) -> bytes:
-    """Grafik + KPI ozeti + Quick Summary'yi tek sayfalik bir PDF'e dokumler.
-    Mevcut PNG export'un (fig_to_png_bytes) genisletilmesi - ayni PNG byte'lari
-    burada da kullanilir, ek bir grafik render islemi yapilmaz."""
+                      chart_images: list[tuple[str, bytes]] | None = None) -> bytes:
+    """Grafik(ler) + KPI ozeti + Quick Summary'yi bir PDF'e dokumler. Mevcut PNG
+    export'un (fig_to_png_bytes) genisletilmesi - ayni PNG byte'lari burada da
+    kullanilir, ek bir grafik render islemi yapilmaz.
+
+    chart_images: (baslik, PNG bayt dizisi) ciftlerinden olusan liste - ana
+    kontrol grafigi + range/MR grafigi + surec yeterlilik histogrami gibi
+    BIRDEN FAZLA gorseli sirayla ekler (gerekirse yeni sayfaya tasarak).
+    ONCEDEN sadece TEK bir grafik (ana kontrol grafigi) gomuluyordu - R/MR
+    chart ve histogram PDF'e hic dahil edilmiyordu (bkz. kullanici raporu:
+    'sadece X-bar grafigi PDF'e dahil oluyor'). None/bos liste veya
+    listedeki None girdiler guvenle atlanir."""
     _, level_label, _ = get_cpk_level(cpk)
 
     pdf = FPDF()
@@ -96,15 +104,25 @@ def build_pdf_report(parameter: str, product: str, chart_type_label: str,
     pdf.multi_cell(0, 6, pdf_safe(quick_summary_text))
     pdf.ln(3)
 
-    if chart_png_bytes:
+    for label, png_bytes in (chart_images or []):
+        if not png_bytes:
+            continue
+        # Bir onceki gorsel sayfanin cogunu doldurduysa (A4 yuksekligi ~297mm,
+        # alt kenar bosluguyla ~280mm kullanilabilir), yeni gorsel+baslik icin
+        # yeni sayfa ac - aksi halde fpdf2 gorseli sayfa disina tasirir/kesebilir.
+        if pdf.get_y() > 160:
+            pdf.add_page()
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 7, pdf_safe(label), ln=True)
         tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                tmp.write(chart_png_bytes)
+                tmp.write(png_bytes)
                 tmp_path = tmp.name
             pdf.image(tmp_path, w=180)
         finally:
             if tmp_path:
                 os.unlink(tmp_path)
+        pdf.ln(3)
 
     return bytes(pdf.output())

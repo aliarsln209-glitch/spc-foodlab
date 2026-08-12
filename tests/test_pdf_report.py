@@ -77,7 +77,7 @@ def test_build_pdf_report_produces_valid_pdf_bytes_without_chart():
         parameter="pH", product="Yogurt", chart_type_label="X-bar/R",
         n_samples=24, n_out_of_control=0, cpk=1.45, cpk_label="Cpk",
         quick_summary_text="24 alt grup analiz edildi, kontrol disi nokta yok, Cpk=1.450 ile surec yeterli.",
-        chart_png_bytes=None,
+        chart_images=None,
     )
     assert isinstance(pdf_bytes, bytes)
     assert pdf_bytes.startswith(b"%PDF")
@@ -89,12 +89,50 @@ def test_build_pdf_report_produces_valid_pdf_bytes_with_chart():
         parameter="Brix", product="Elma suyu", chart_type_label="X-bar/R",
         n_samples=30, n_out_of_control=2, cpk=0.85, cpk_label="Cpk",
         quick_summary_text="30 alt grup analiz edildi, 2 kontrol disi nokta var, Cpk=0.850 ile surec yeterli degil.",
-        chart_png_bytes=_tiny_png_bytes(),
+        chart_images=[("X-bar Kontrol Grafigi", _tiny_png_bytes())],
     )
     assert pdf_bytes.startswith(b"%PDF")
     # Grafik goruntusu eklendigi icin grafiksiz rapordan belirgin sekilde
     # daha buyuk olmali (regresyon kontrolu: pdf.image() gercekten calisti).
     assert len(pdf_bytes) > 2000
+
+
+def test_build_pdf_report_embeds_all_provided_chart_images():
+    # Regresyon: PDF export'ta ONCEDEN sadece TEK bir grafik (ana kontrol
+    # grafigi) gomuluyordu - R/MR chart ve histogram hic dahil edilmiyordu.
+    # chart_images LISTESINDEKI TUM gorsellerin PDF'e gomuldugunu, boylece
+    # ciktinin tek-grafikli rapordan belirgin sekilde daha buyuk oldugunu
+    # dogrular (pdf.image() her biri icin gercekten calisti).
+    single_pdf = build_pdf_report(
+        parameter="pH", product="Yogurt", chart_type_label="X-bar/R",
+        n_samples=24, n_out_of_control=0, cpk=1.45, cpk_label="Cpk",
+        quick_summary_text="ozet",
+        chart_images=[("X-bar Kontrol Grafigi", _tiny_png_bytes())],
+    )
+    triple_pdf = build_pdf_report(
+        parameter="pH", product="Yogurt", chart_type_label="X-bar/R",
+        n_samples=24, n_out_of_control=0, cpk=1.45, cpk_label="Cpk",
+        quick_summary_text="ozet",
+        chart_images=[
+            ("X-bar Kontrol Grafigi", _tiny_png_bytes()),
+            ("R Kontrol Grafigi", _tiny_png_bytes()),
+            ("Surec Yeterlilik Histogrami", _tiny_png_bytes()),
+        ],
+    )
+    assert triple_pdf.startswith(b"%PDF")
+    assert len(triple_pdf) > len(single_pdf)
+
+
+def test_build_pdf_report_skips_none_entries_in_chart_images():
+    # Cagiran taraf (app.py) bazi grafik turlerini kosullu uretebilir - None
+    # girdiler sessizce atlanmali, crash etmemeli.
+    pdf_bytes = build_pdf_report(
+        parameter="pH", product="Yogurt", chart_type_label="X-bar/R",
+        n_samples=24, n_out_of_control=0, cpk=1.45, cpk_label="Cpk",
+        quick_summary_text="ozet",
+        chart_images=[("Bos", None), ("X-bar Kontrol Grafigi", _tiny_png_bytes())],
+    )
+    assert pdf_bytes.startswith(b"%PDF")
 
 
 def test_build_pdf_report_handles_infinite_cpk_without_crashing():
@@ -105,7 +143,7 @@ def test_build_pdf_report_handles_infinite_cpk_without_crashing():
         chart_type_label="I-MR", n_samples=10, n_out_of_control=0,
         cpk=float("inf"), cpk_label="Cpu (tek tarafli)",
         quick_summary_text="10 olcum analiz edildi, kontrol disi nokta yok, Cpu=∞ ile surec mukemmel yeterli.",
-        chart_png_bytes=None,
+        chart_images=None,
     )
     assert pdf_bytes.startswith(b"%PDF")
 
@@ -118,7 +156,7 @@ def test_build_pdf_report_handles_turkish_letters_in_product_name():
         chart_type_label="I-MR", n_samples=10, n_out_of_control=0,
         cpk=1.2, cpk_label="Cpu (tek tarafli)",
         quick_summary_text="10 olcum analiz edildi, kontrol disi nokta yok, Cpu=1.200 ile surec yeterli.",
-        chart_png_bytes=None,
+        chart_images=None,
     )
     assert pdf_bytes.startswith(b"%PDF")
 
@@ -132,6 +170,8 @@ if __name__ == "__main__":
     test_pdf_safe_generic_fallback_for_unmapped_unicode()
     test_build_pdf_report_produces_valid_pdf_bytes_without_chart()
     test_build_pdf_report_produces_valid_pdf_bytes_with_chart()
+    test_build_pdf_report_embeds_all_provided_chart_images()
+    test_build_pdf_report_skips_none_entries_in_chart_images()
     test_build_pdf_report_handles_infinite_cpk_without_crashing()
     test_build_pdf_report_handles_turkish_letters_in_product_name()
     print("PDF_REPORT TESTLERI GECTI")
