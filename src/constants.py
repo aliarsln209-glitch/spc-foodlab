@@ -80,6 +80,18 @@ PARAMETER_INFO = {
 
 # "Kaynak Rozeti" (urun secildikten sonra LSL/USL'in dayandigi kaynagin kisa
 # ozeti) - detayli kaynak/tolerans notlari icin bkz. METHODOLOGY.md.
+# Sidebar'da parametre secicisini gruplamak icin kategoriler - (id, etiket,
+# parametre listesi) uclusu. id, radio widget key'lerinde kullanilan SABIT
+# (emoji/Turkce karakter icermeyen) bir kimliktir - etiket degisse bile
+# session_state key'i kirilmasin diye ayri tutuldu. Vardiya secimi (X-bar/R
+# alt grup akisi) bu gruplamanin DISINDA, mevcut yerinde kalir - kategoriler
+# sadece 9 parametreyi (pH..HMF) gruplar.
+PARAMETER_CATEGORIES = [
+    ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite"]),
+    ("kimyasal", "\U00002697\U0000FE0F Kimyasal Kompozisyon", ["Nem/Rutubet", "Tuz/NaCl", "Titrasyon Asitligi"]),
+    ("oksidasyon", "\U0001F6E2\U0000FE0F Oksidasyon/Bozulma", ["Peroksit Degeri", "HMF"]),
+]
+
 PARAMETER_SOURCES = {
     "pH": "Oklahoma State University Extension, Dairy Food Safety Victoria",
     "Brix": "19 CFR 151.91 (ABD federal regulasyonu) + sektor pratigi",

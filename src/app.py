@@ -16,6 +16,7 @@ from constants import (
     DEFAULT_SUBGROUP_SIZE,
     MAX_SUBGROUP_SIZE,
     MIN_SUBGROUP_SIZE,
+    PARAMETER_CATEGORIES,
     PARAMETER_CONFIG,
     PARAMETER_DESCRIPTIONS,
     PARAMETER_INFO,
@@ -162,13 +163,26 @@ def reset_parameter_scoped_state() -> None:
         st.session_state.pop(key, None)
 
 
-# "Vazgec" ile parametre secici radyo'yu eski degerine dondurmek icin: bu,
-# radio widget'i BU RUN'DA ZATEN olusturulmadan once yapilmali (Streamlit,
+# "Vazgec" ile parametre secici radyo'lari eski durumuna dondurmek icin: bu,
+# radio widget'lari BU RUN'DA ZATEN olusturulmadan once yapilmali (Streamlit,
 # bir widget'in session_state degerini o widget instantiate edildikten sonra
 # degistirmeye izin vermiyor). Bu yuzden reset islemini bir onceki run'da
-# birakilan bayrakla, widget'tan once burada uyguluyoruz.
+# birakilan bayrakla, widget'lardan once burada uyguluyoruz.
+#
+# Parametre secici artik TEK bir radio degil, PARAMETER_CATEGORIES'e gore
+# gruplanmis (st.expander icinde) AYRI radio'lar - her biri KENDI key'ine
+# ("parameter_radio_<kategori id>") sahip. Bu yuzden reset, aktif parametreyi
+# ICEREN kategorinin radio'sunu aktif parametreye, DIGER TUM kategorilerin
+# radio'larini None'a (secim yok) esitler - aksi halde onceden baska bir
+# kategoride tiklanmis ama iptal edilmis/degistirilmis bir secim, o kategori
+# artik aktif degilken bile "secili" gorunmeye devam ederdi (hayalet secim).
 if st.session_state.pop("_reset_parameter_radio", False):
-    st.session_state.parameter_radio = st.session_state.active_parameter
+    for _cat_id, _cat_label, _cat_params in PARAMETER_CATEGORIES:
+        st.session_state[f"parameter_radio_{_cat_id}"] = (
+            st.session_state.active_parameter
+            if st.session_state.active_parameter in _cat_params
+            else None
+        )
 # Ayni sekilde n secici icin: iptal edildiginde widget'i eski degere dondurur
 # (widget instantiate edilmeden ONCE yapilmali - bkz. yukaridaki aciklama).
 if st.session_state.pop("_reset_subgroup_n_input", False):
@@ -176,8 +190,6 @@ if st.session_state.pop("_reset_subgroup_n_input", False):
 
 with st.sidebar:
     st.subheader("Ayarlar")
-
-    param_options = list(PARAMETER_CONFIG.keys())
 
     # Durum noktasi: SADECE aktif parametre icin guncel Cpk'ye gore yesil/kirmizi,
     # digerleri notr gri ('bu parametre icin henuz veri yok/gosterilmiyor' -
@@ -190,13 +202,29 @@ with st.sidebar:
         dot = _status_dot if p == st.session_state.active_parameter else "\U000026AA"
         return f"{dot} {p}"
 
-    selected_param_radio = st.radio(
-        "Parametre", param_options,
-        index=param_options.index(st.session_state.active_parameter),
-        key="parameter_radio",
-        format_func=_param_radio_label,
-        captions=[PARAMETER_DESCRIPTIONS.get(p, "") for p in param_options],
-    )
+    st.caption("Parametre")
+    # 9 parametre 3 kategoriye (Fiziksel/Duyusal, Kimyasal Kompozisyon,
+    # Oksidasyon/Bozulma) gruplandi - sadece AKTIF parametreyi iceren kategori
+    # varsayilan olarak acik baslar, digerleri kapali (sidebar'in daha kisa/
+    # taranabilir kalmasi icin); kullanici istedigi kategoriyi elle acabilir.
+    selected_param_radio = st.session_state.active_parameter
+    for _cat_id, _cat_label, _cat_params in PARAMETER_CATEGORIES:
+        _is_active_category = st.session_state.active_parameter in _cat_params
+        with st.expander(_cat_label, expanded=_is_active_category):
+            _default_index = _cat_params.index(st.session_state.active_parameter) if _is_active_category else None
+            _picked = st.radio(
+                f"Parametre - {_cat_label}", _cat_params,
+                index=_default_index,
+                key=f"parameter_radio_{_cat_id}",
+                format_func=_param_radio_label,
+                captions=[PARAMETER_DESCRIPTIONS.get(p, "") for p in _cat_params],
+                label_visibility="collapsed",
+            )
+        # SADECE farkli bir kategoride, aktif parametreden BASKA bir secim
+        # yapildiysa gecerli sayilir - kendi kategorisinde None donen (henuz
+        # tiklanmamis) diger radio'lar goz ardi edilir.
+        if _picked is not None and _picked != st.session_state.active_parameter:
+            selected_param_radio = _picked
 
     if selected_param_radio != st.session_state.active_parameter:
         if st.session_state.subgroups:
@@ -211,6 +239,13 @@ with st.sidebar:
                     st.session_state.subgroups = []
                     st.session_state.baseline = None
                     reset_parameter_scoped_state()
+                    # Yeni aktif parametreyi ICEREN kategorinin radio'su zaten
+                    # dogru degeri gosteriyor (tiklanan bu oldugu icin), ama
+                    # ONCEKI aktif parametrenin kategorisindeki radio hala eski
+                    # degeri (session_state'te) tutuyor - bayrak olmadan bu,
+                    # artik aktif OLMAYAN bir kategoride "hayalet" secili
+                    # goruntu birakir (Playwright ile kanitlandi).
+                    st.session_state._reset_parameter_radio = True
                     st.rerun()
             with pc2:
                 if st.button("Vazgec", key="param_switch_no"):
@@ -219,6 +254,10 @@ with st.sidebar:
         else:
             st.session_state.active_parameter = selected_param_radio
             reset_parameter_scoped_state()
+            # Ayni hayalet-secim nedeniyle (bkz. "Evet, degistir" yorumu) -
+            # veri olmadigi icin onay istenmeden dogrudan gecilen bu durumda
+            # da onceki aktif kategorinin radio'sunu temizlemek gerekir.
+            st.session_state._reset_parameter_radio = True
             st.rerun()
 
     st.divider()
