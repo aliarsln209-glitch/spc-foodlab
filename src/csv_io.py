@@ -150,3 +150,101 @@ def parse_uploaded_dataframe(
             shift_val = shift_options[0]
         subgroups.append({"shift": shift_val, "values": vals})
     return subgroups, None
+
+
+def _parse_pasted_float(raw: str, unit: str, line_no: int, col_no: int) -> tuple[float | None, str | None]:
+    """Yapistirilan metindeki TEK bir hucreyi sayiya cevirir. parse_uploaded_
+    dataframe'deki friendly_numeric_error ile AYNI virgul-ondalik toleransini
+    saglar, ama pandas Series yerine DUZ METIN uzerinde calisir (yapistirma
+    akisi pandas'a hic girmez - satir/sutun bazinda dogrudan string split)."""
+    stripped = raw.strip()
+    if stripped == "":
+        return None, (
+            f"{line_no}. satir, {col_no}. sutun: hucre bos - her hucre bir "
+            f"{unit} sayisi icermelidir."
+        )
+    candidate = stripped.replace(",", ".") if _DECIMAL_COMMA_RE.match(stripped) else stripped
+    try:
+        return float(candidate), None
+    except ValueError:
+        return None, (
+            f"{line_no}. satir, {col_no}. sutun: '{stripped}' sayiya cevrilemedi - "
+            f"bu hucre yalnizca sayisal bir {unit} olcumu icermelidir."
+        )
+
+
+def parse_pasted_text(
+    text: str, is_individual: bool, subgroup_n: int, shift_options: list[str], unit: str = ""
+) -> tuple[list[dict] | None, str | None]:
+    """Excel/pano'dan kopyalanan HAM (basliksiz) veriyi subgroups formatina
+    cevirir - parse_uploaded_dataframe'in aksine "Olcum N" basligi ARANMAZ:
+    kullanici Excel'de bir hucre araligini secip dogrudan kopyala-yapistir
+    yapar (Excel'in varsayilan kopyalama formati SEKME-ayrilmis satirlardir).
+    Satir basina bir alt grup/olcum, sutunlar HAM sayilardir.
+
+    I-MR: her satirda TAM 1 deger beklenir.
+    X-bar/R: her satirda TAM subgroup_n deger (vardiya varsayilan ilk
+    secenek olur) VEYA basinda bir vardiya adiyla subgroup_n+1 deger -
+    ilk hucre shift_options'taki bir degerle (buyuk/kucuk harf, bosluk
+    toleransli) eslesirse vardiya olarak alinir, aksi halde sutun sayisi
+    hatasi verilir (sessizce yanlis yorumlanmaz).
+
+    Basarili olursa (subgroups, None), basarisiz olursa (None, kullaniciya
+    gosterilecek Turkce hata mesaji) dondurur - parse_uploaded_dataframe ile
+    AYNI sozlesme, boylece cagiran taraf (app.py) ayni hata gosterme
+    desenini kullanabilir."""
+    lines = [ln for ln in text.strip().splitlines() if ln.strip()]
+    if not lines:
+        return None, "Yapistirilan metin bos gorunuyor. Excel'den bir hucre araligi kopyalayip yapistirin."
+
+    subgroups = []
+    for line_no, line in enumerate(lines, start=1):
+        fields = line.split("\t")
+        # Virgul, HEM sutun ayraci (elle CSV-tarzi yapistirma) HEM ondalik
+        # ayiraci (TR yerel ayari, orn. "7,01") olabilir - bu ikisi AYNI
+        # karakterle CAKISABILIR. Tum satir TEK bir ondalik-virgullu sayi
+        # deseniyle (^-?\d+,\d+$) eslesiyorsa virgulu ondalik ayiraci say,
+        # sutun ayraci olarak BOLME (aksi halde "7,01" yanlislikla ["7","01"]
+        # gibi iki sahte sutuna bolunurdu). Bu, TEK sutunlu (I-MR) satirlar
+        # icin tam cozer; birden fazla ondalik-virgullu sayinin virgulle
+        # birlestirildigi (orn. "7,01,8,02") pathological durumlar BILEREK
+        # cozulmedi - Excel'in gercek kopyalama formati zaten SEKME kullanir.
+        if len(fields) == 1 and "," in line and not _DECIMAL_COMMA_RE.match(line.strip()):
+            fields = line.split(",")
+        fields = [f.strip() for f in fields]
+
+        if is_individual:
+            if len(fields) != 1:
+                return None, (
+                    f"{line_no}. satirda {len(fields)} deger bulundu, 1 bekleniyor "
+                    f"(bu parametre icin her satir tek bir {unit} olcumudur)."
+                )
+            value, err = _parse_pasted_float(fields[0], unit, line_no, 1)
+            if err:
+                return None, err
+            subgroups.append({"shift": "-", "values": [value]})
+            continue
+
+        shift = shift_options[0]
+        measurement_fields = fields
+        if len(fields) == subgroup_n + 1:
+            candidate_shift = fields[0].strip().lower()
+            matched = next((s for s in shift_options if s.lower() == candidate_shift), None)
+            if matched:
+                shift = matched
+                measurement_fields = fields[1:]
+        if len(measurement_fields) != subgroup_n:
+            return None, (
+                f"{line_no}. satirda {len(fields)} deger bulundu - {subgroup_n} "
+                f"(alt grup buyuklugu n={subgroup_n}) veya basinda bir vardiya adiyla "
+                f"{subgroup_n + 1} deger bekleniyor. Vardiya secenekleri: {', '.join(shift_options)}."
+            )
+        values = []
+        for col_no, raw in enumerate(measurement_fields, start=1):
+            value, err = _parse_pasted_float(raw, unit, line_no, col_no)
+            if err:
+                return None, err
+            values.append(value)
+        subgroups.append({"shift": shift, "values": values})
+
+    return subgroups, None

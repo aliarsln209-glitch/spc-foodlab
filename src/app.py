@@ -1434,6 +1434,45 @@ with tab_data:
                             label = "olcum" if is_individual else "alt grup"
                             st.success(f"{len(new_subgroups)} {label} CSV'den yuklendi.")
 
+        with st.expander("\U0001F4CB Excel/pano yapistir", expanded=False):
+            paste_format_hint = (
+                "her satirda tek bir deger"
+                if is_individual
+                else f"her satirda {subgroup_n} deger, istege bagli basinda bir vardiya adi"
+            )
+            st.caption(
+                f"Excel'de bir hucre araligi secip kopyalayin (Ctrl+C), asagiya "
+                f"yapistirin (Ctrl+V) - BASLIK SATIRI OLMAMALIDIR, dogrudan sayilar "
+                f"({paste_format_hint}, birim: {unit}). CSV yuklemenin AKSINE mevcut "
+                "veriyi SILMEZ - yapistirilan satirlar mevcut verinin SONUNA EKLENIR."
+            )
+            paste_placeholder = (
+                "7.01\n7.02\n6.99"
+                if is_individual
+                else "\t".join(["7.01"] * subgroup_n) + "\n" + "\t".join(["6.98"] * subgroup_n)
+            )
+            with st.form(f"paste_form_{st.session_state.active_parameter}", clear_on_submit=True):
+                pasted_text = st.text_area(
+                    "Yapistirilan veri", height=120, placeholder=paste_placeholder,
+                    label_visibility="collapsed",
+                )
+                paste_submitted = st.form_submit_button("\U00002795 Yapistirilan veriyi ekle")
+
+            if paste_submitted:
+                if not pasted_text.strip():
+                    st.error("Once Excel'den kopyaladiginiz veriyi yukaridaki alana yapistirin.")
+                else:
+                    new_rows, err = csv_io.parse_pasted_text(
+                        pasted_text, is_individual, subgroup_n, SHIFT_OPTIONS, unit
+                    )
+                    if err:
+                        st.error(err)
+                    else:
+                        st.session_state.subgroups.extend(new_rows)
+                        st.session_state.baseline = None
+                        label = "olcum" if is_individual else "alt grup"
+                        st.success(f"{len(new_rows)} {label} eklendi (baseline sifirlandi).")
+
     st.write("")
 
     with st.container(border=True, key="card-04"):

@@ -18,9 +18,12 @@ from csv_io import (
     drop_blank_rows,
     friendly_csv_read_error,
     friendly_numeric_error,
+    parse_pasted_text,
     parse_uploaded_dataframe,
     subgroups_to_records,
 )
+
+SHIFT_OPTIONS = ["Sabah", "Ogle", "Gece"]
 
 
 # --- friendly_numeric_error --------------------------------------------
@@ -223,6 +226,108 @@ def test_round_trip_subgroup_preserves_values_despite_extra_export_columns():
     assert round_tripped == original
 
 
+# --- parse_pasted_text (Excel/pano yapistirma, v1.2) -----------------------
+
+def test_parse_pasted_text_individual_success():
+    text = "7.01\n7.03\n6.98"
+    subgroups, err = parse_pasted_text(text, is_individual=True, subgroup_n=1, shift_options=["-"])
+    assert err is None
+    assert subgroups == [
+        {"shift": "-", "values": [7.01]},
+        {"shift": "-", "values": [7.03]},
+        {"shift": "-", "values": [6.98]},
+    ]
+
+
+def test_parse_pasted_text_individual_wrong_field_count():
+    text = "7.01\t7.02"
+    subgroups, err = parse_pasted_text(text, is_individual=True, subgroup_n=1, shift_options=["-"])
+    assert subgroups is None
+    assert "1. satirda 2 deger bulundu" in err
+
+
+def test_parse_pasted_text_subgroup_without_shift_column():
+    text = "7.01\t7.02\t6.99\t7.00\n6.95\t6.97\t6.96\t6.98"
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert err is None
+    assert subgroups == [
+        {"shift": "Sabah", "values": [7.01, 7.02, 6.99, 7.00]},
+        {"shift": "Sabah", "values": [6.95, 6.97, 6.96, 6.98]},
+    ]
+
+
+def test_parse_pasted_text_subgroup_with_shift_column_case_insensitive():
+    text = "ogle\t7.01\t7.02\t6.99\t7.00\nGECE\t6.95\t6.97\t6.96\t6.98"
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert err is None
+    assert subgroups[0]["shift"] == "Ogle"
+    assert subgroups[1]["shift"] == "Gece"
+    assert subgroups[0]["values"] == [7.01, 7.02, 6.99, 7.00]
+
+
+def test_parse_pasted_text_subgroup_unrecognized_first_column_is_error():
+    # subgroup_n+1 alan var ama ilk hucre bilinen bir vardiya adiyla ESLESMIYOR
+    # - sessizce yanlis yorumlanmak yerine acik bir hata verilmeli
+    text = "XYZ\t7.01\t7.02\t6.99\t7.00"
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert subgroups is None
+    assert "1. satirda 5 deger bulundu" in err
+
+
+def test_parse_pasted_text_subgroup_wrong_field_count():
+    text = "7.01\t7.02\t6.99"  # n=4 bekleniyor, 3 verildi
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert subgroups is None
+    assert "1. satirda 3 deger bulundu" in err
+
+
+def test_parse_pasted_text_single_column_decimal_comma_not_split():
+    # "7,01" TEK bir ondalik-virgullu sayi - virgul SUTUN AYRACI sanilip
+    # yanlislikla ["7","01"]'e bolunmemeli (bkz. csv_io.py'deki yorum).
+    text = "7,01\n7,03"
+    subgroups, err = parse_pasted_text(text, is_individual=True, subgroup_n=1, shift_options=["-"])
+    assert err is None
+    assert subgroups == [{"shift": "-", "values": [7.01]}, {"shift": "-", "values": [7.03]}]
+
+
+def test_parse_pasted_text_comma_separated_dot_decimal_row():
+    # Nokta-ondalikli sayilar virgulle ayrilmissa (sekme degil) - bu durumda
+    # virgul GERCEKTEN sutun ayracidir, guvenle bolunebilir.
+    text = "7.01,7.02,6.99,7.00"
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert err is None
+    assert subgroups == [{"shift": "Sabah", "values": [7.01, 7.02, 6.99, 7.00]}]
+
+
+def test_parse_pasted_text_blank_cell_returns_friendly_error():
+    text = "7.01\t\t6.99\t7.00"
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert subgroups is None
+    assert "1. satir, 2. sutun" in err
+    assert "bos" in err
+
+
+def test_parse_pasted_text_non_numeric_cell_returns_friendly_error():
+    text = "7.01\tabc\t6.99\t7.00"
+    subgroups, err = parse_pasted_text(text, is_individual=False, subgroup_n=4, shift_options=SHIFT_OPTIONS)
+    assert subgroups is None
+    assert "1. satir, 2. sutun" in err
+    assert "'abc'" in err
+
+
+def test_parse_pasted_text_empty_input_returns_friendly_error():
+    subgroups, err = parse_pasted_text("   \n  \n", is_individual=True, subgroup_n=1, shift_options=["-"])
+    assert subgroups is None
+    assert "bos gorunuyor" in err
+
+
+def test_parse_pasted_text_skips_blank_lines_between_rows():
+    text = "7.01\n\n7.03\n   \n6.98"
+    subgroups, err = parse_pasted_text(text, is_individual=True, subgroup_n=1, shift_options=["-"])
+    assert err is None
+    assert len(subgroups) == 3
+
+
 if __name__ == "__main__":
     test_numeric_error_detects_decimal_comma()
     test_numeric_error_detects_blank_cell()
@@ -244,4 +349,16 @@ if __name__ == "__main__":
     test_parse_subgroup_invalid_shift_value_falls_back_to_first_option()
     test_round_trip_individual_preserves_values()
     test_round_trip_subgroup_preserves_values_despite_extra_export_columns()
+    test_parse_pasted_text_individual_success()
+    test_parse_pasted_text_individual_wrong_field_count()
+    test_parse_pasted_text_subgroup_without_shift_column()
+    test_parse_pasted_text_subgroup_with_shift_column_case_insensitive()
+    test_parse_pasted_text_subgroup_unrecognized_first_column_is_error()
+    test_parse_pasted_text_subgroup_wrong_field_count()
+    test_parse_pasted_text_single_column_decimal_comma_not_split()
+    test_parse_pasted_text_comma_separated_dot_decimal_row()
+    test_parse_pasted_text_blank_cell_returns_friendly_error()
+    test_parse_pasted_text_non_numeric_cell_returns_friendly_error()
+    test_parse_pasted_text_empty_input_returns_friendly_error()
+    test_parse_pasted_text_skips_blank_lines_between_rows()
     print("CSV_IO TESTLERI GECTI")
