@@ -501,6 +501,24 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
         border-radius: 6px !important;
     }}
 
+    /* Fix: parametre kategori basliklarinin (st.expander "summary" elementi)
+       varsayilan arka plani Streamlit'in KENDI emotion CSS'inden gelen
+       neredeyse-beyaz bir renk (#F8F9FC) - sidebar'in dark/custom rengiyle
+       HIC ilgisi yok, cunku Streamlit temasi (config.toml) hala "light" ve
+       BaseWeb bilesenleri buna gore render ediliyor. Bunun uzerine bizim
+       acik renkli (sidebar_text) metnimiz binince dusuk kontrast/okunmaz
+       yazi olusuyordu - ozellikle hover'da (varsayilan hover, bu beyaz
+       zemini ayrica bir mavi-gri overlay ile daha da belirginlestiriyordu)
+       kullanici tarafindan yakalandi. Zemin transparent yapilip, hover'a
+       diger sidebar bilesenleriyle (Ince ayar 1 pill) AYNI desende ince bir
+       Vurgu rengi tonu verildi. */
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary {{
+        background-color: transparent !important;
+    }}
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {{
+        background-color: {accent}26 !important;
+    }}
+
     /* Ince ayar 1: Aktif sidebar satirina arka plan pill'i - data-selected
        Streamlit'in KENDI semantik attribute'u (Playwright ile DOM'dan
        dogrulandi), emotion-cache hash'i degil - surum guncellemesinde
