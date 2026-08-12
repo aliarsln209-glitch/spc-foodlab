@@ -21,35 +21,57 @@ yeniden hesaplanmaz.
 """
 
 
-def check_rule_2of3_beyond_2sigma(values: list[float], center: float, sigma: float) -> set[int]:
-    """Nelson Kural 5: ardisik herhangi 3 noktadan EN AZ 2'si, merkez
-    cizginin AYNI tarafinda 2 sigma veya otesindeyse (Zone A veya disinda),
-    o ihlal eden nokta(lar) isaretlenir.
+def _check_k_of_n_beyond_sigma(
+    values: list[float], center: float, sigma: float, k: int, n: int, sigma_multiplier: float
+) -> set[int]:
+    """Nelson Kural 5 (k=2,n=3,mult=2) ve Kural 6 (k=4,n=5,mult=1) AYNI
+    'k-of-n, ayni tarafta, m-sigma otesinde' oruntusunu paylasir - bu ortak
+    kaydirmali-pencere mantigi burada tek yerde tutulur, iki kural da kendi
+    parametreleriyle bunu cagirir (kopyala-yapistir kaymasini onlemek icin).
 
-    'Ayni taraf' sarti onemlidir: biri +2sigma ustunde biri -2sigma altinda
-    olan 2 nokta bu kurali TETIKLEMEZ - sinyal, surecin tek bir yone dogru
-    kaymasidir, iki yonlu rastgele sicramalar degil.
+    'Ayni taraf' sarti onemlidir: karsit taraflardaki noktalar sureci tek
+    yone kaydiran bir ozel-neden degil, iki yonlu rastgele sicrama olabilir
+    - bu yuzden AYRI AYRI ust/alt taraf sayilir, toplam degil.
 
-    Sinir dahil (>=) kabul edildi: tam olarak 2 sigma uzaklikta bir nokta
-    "Zone A" icinde sayilir (Zone B'nin degil).
-
-    sigma<=0 (varyasyon yok) veya 3'ten az nokta durumunda kural
-    ANLAMSIZDIR - bos kume doner (sigma=0 iken her sey merkeze esittir,
-    '2 sigma disi' kavraminin kendisi tanimsizdir)."""
-    if sigma <= 0 or len(values) < 3:
+    Sinir dahil (>=) kabul edildi: tam olarak m*sigma uzaklikta bir nokta
+    "otesinde" sayilir. sigma<=0 veya n'den az nokta durumunda kural
+    ANLAMSIZDIR - bos kume doner."""
+    if sigma <= 0 or len(values) < n:
         return set()
 
-    upper = center + 2 * sigma
-    lower = center - 2 * sigma
+    upper = center + sigma_multiplier * sigma
+    lower = center - sigma_multiplier * sigma
     flagged: set[int] = set()
 
-    for end in range(2, len(values)):
-        window = range(end - 2, end + 1)
+    for end in range(n - 1, len(values)):
+        window = range(end - n + 1, end + 1)
         above = [i for i in window if values[i] >= upper]
         below = [i for i in window if values[i] <= lower]
-        if len(above) >= 2:
+        if len(above) >= k:
             flagged.update(above)
-        if len(below) >= 2:
+        if len(below) >= k:
             flagged.update(below)
 
     return flagged
+
+
+def check_rule_2of3_beyond_2sigma(values: list[float], center: float, sigma: float) -> set[int]:
+    """Nelson Kural 5: ardisik herhangi 3 noktadan EN AZ 2'si, merkez
+    cizginin AYNI tarafinda 2 sigma veya otesindeyse (Zone A veya disinda),
+    o ihlal eden nokta(lar) isaretlenir. Detay/gerekce: bkz. _check_k_of_n_beyond_sigma."""
+    return _check_k_of_n_beyond_sigma(values, center, sigma, k=2, n=3, sigma_multiplier=2)
+
+
+def check_rule_4of5_beyond_1sigma(values: list[float], center: float, sigma: float) -> set[int]:
+    """Nelson Kural 6: ardisik herhangi 5 noktadan EN AZ 4'u, merkez
+    cizginin AYNI tarafinda 1 sigma veya otesindeyse (Zone B/A veya
+    disinda, yani Zone C'nin - merkeze en yakin bolgenin - disinda), o
+    ihlal eden nokta(lar) isaretlenir.
+
+    Kural 5'ten (2/3, 2 sigma) FARKI: burada sinir daha gevsek (1 sigma) ama
+    pencere/esik daha genis (5 noktadan 4'u) - normal dagilimda bir noktanin
+    1 sigma disinda olmasi zaten ~%32 ihtimalle beklenir, bu yuzden TEK
+    basina anlamsizdir; 5 noktadan 4'unun AYNI TARAFTA olmasi rastgele
+    beklenenin cok otesinde, gercek bir kaymaya isaret eder.
+    Detay/gerekce: bkz. _check_k_of_n_beyond_sigma."""
+    return _check_k_of_n_beyond_sigma(values, center, sigma, k=4, n=5, sigma_multiplier=1)
