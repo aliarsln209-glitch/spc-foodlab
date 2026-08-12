@@ -462,6 +462,57 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
         border-radius: 6px !important;
     }}
 
+    /* Ince ayar 1: Aktif sidebar satirina arka plan pill'i - data-selected
+       Streamlit'in KENDI semantik attribute'u (Playwright ile DOM'dan
+       dogrulandi), emotion-cache hash'i degil - surum guncellemesinde
+       kirilma riski dusuk. */
+    [data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] {{
+        background-color: {accent}26 !important;
+        border-radius: 8px !important;
+    }}
+
+    /* Ince ayar 2: Aktif sekme gostergesi - Streamlit'in kendi
+       react-aria-SelectionIndicator elemani (react-aria kutuphanesine ait,
+       Streamlit build'inden bagimsiz stabil bir sinif) Vurgu rengiyle
+       renklendirilir + kalinlastirilir; secili sekme metni de vurgu
+       rengine + kalin agirliga gecer. */
+    [data-testid="stTab"] .react-aria-SelectionIndicator {{
+        background-color: {accent} !important;
+        height: 3px !important;
+    }}
+    [data-testid="stTab"][data-selected="true"] p {{
+        color: {accent} !important;
+        font-weight: 700 !important;
+    }}
+
+    /* Ince ayar 3: Odak (focus) halkasi Vurgu rengiyle - klavye ile gezinme
+       (Tab tusu) sirasinda tarayici varsayilani yerine. :focus-visible
+       SADECE klavye odaklamada tetiklenir (fare tiklamasinda degil), bu
+       yuzden mouse kullaniminda gereksiz halka gorunmez. */
+    .stApp *:focus-visible {{
+        outline: 2px solid {accent} !important;
+        outline-offset: 2px !important;
+    }}
+
+    /* Ince ayar 4: Ince/ozel scrollbar - tarayicinin kalin varsayilanindan,
+       sidebar rengiyle uyumlu ince bir cubuga. Firefox (scrollbar-width) +
+       WebKit/Chromium (::-webkit-scrollbar) ayri ayri hedeflenir. */
+    * {{
+        scrollbar-width: thin;
+        scrollbar-color: {sidebar_color}99 transparent;
+    }}
+    ::-webkit-scrollbar {{
+        width: 8px;
+        height: 8px;
+    }}
+    ::-webkit-scrollbar-track {{
+        background: transparent;
+    }}
+    ::-webkit-scrollbar-thumb {{
+        background-color: {sidebar_color}99;
+        border-radius: 4px;
+    }}
+
     /* Hafif hover/gecis animasyonlari - agir hareket yok, sadece kucuk
        buyume/golge/fade. */
     button {{ transition: transform 0.12s ease, box-shadow 0.12s ease; }}
@@ -524,6 +575,24 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
 
 
 inject_theme_css(dark, accent_color, sidebar_color)
+
+
+def render_empty_state(icon: str, message: str) -> None:
+    """Ince ayar 5: duz st.info() yerine, ilk acilista veya yetersiz veri
+    durumunda kullaniciyi karsilayan bosluklarda (henuz veri yok, grafik
+    icin yetersiz veri) biraz daha davetkar/yumusak bir gorsel - buyuk bir
+    ikon + ortalanmis, soluk tonlu metin. Renk sabit notr gridir (tema/
+    Vurgu rengine bagli degil) - hem Acik hem Koyu temada okunakli kalsin
+    diye asiri koyu/acik uc degerlerden kacinildi."""
+    st.markdown(
+        f"""
+        <div style="text-align:center; padding:2.4rem 1rem; color:#8a94a6;">
+            <div style="font-size:2.4rem; margin-bottom:0.6rem; opacity:0.7;">{icon}</div>
+            <div style="font-size:0.95rem;">{message}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_last_analysis_card(parameter: str, product: str, chart_type_label: str,
@@ -714,11 +783,16 @@ def render_data_summary_card(mean_label: str, mean_value: float, spread_label: s
 
 
 def render_capability_histogram(values: list[float], lsl: float, usl: float,
-                                 one_sided: bool, dark: bool, unit: str):
+                                 one_sided: bool, dark: bool, unit: str,
+                                 accent: str = "steelblue"):
     """Mevcut olcumlerden histogram + normal dagilim egrisi (scipy.stats.norm),
     LSL/USL dikey cizgileri ve (iki tarafliysa) Target (LSL/USL ortalamasi)
     cizgisi ile bir 'surec yeterlilik' gorseli olusturur. Figur objesini
-    dondurur - cagiran taraf st.pyplot + PNG export + plt.close yapar."""
+    dondurur - cagiran taraf st.pyplot + PNG export + plt.close yapar.
+    accent: Ince ayar 6 - histogram cubuklari, arayuzdeki "Vurgu rengi" ile
+    tutarli olsun diye sabit "steelblue" yerine cagiran tarafin gecirdigi
+    renk kullanilir (varsayilan "steelblue" - fonksiyon bagimsiz/testte
+    accent verilmeden de calisabilsin diye)."""
     values_arr = np.array(values, dtype=float)
     mu = float(values_arr.mean())
     sigma = float(values_arr.std(ddof=1)) if len(values_arr) > 1 else 0.0
@@ -727,7 +801,7 @@ def render_capability_histogram(values: list[float], lsl: float, usl: float,
 
     bins = min(15, max(5, len(values_arr) // 2))
     ax.hist(
-        values_arr, bins=bins, density=True, color="steelblue", alpha=0.6,
+        values_arr, bins=bins, density=True, color=accent, alpha=0.6,
         edgecolor="white", label="Olcum dagilimi",
     )
 
@@ -1124,7 +1198,7 @@ with tab_data:
         st.subheader("Kayitli olculer" if is_individual else "Kayitli alt gruplar")
 
         if not st.session_state.subgroups:
-            st.info("Henuz veri yok. Yukaridan manuel ekleyin veya demo veri yukleyin.")
+            render_empty_state("\U0001F4CB", "Henuz veri yok. Yukaridan manuel ekleyin veya demo veri yukleyin.")
         else:
             if is_individual:
                 _, _, summary_x_bar, summary_mr_bar = compute_individual_stats(st.session_state.subgroups)
@@ -1164,7 +1238,7 @@ with tab_data:
 # ---------------------------------------------------------------------------
 with tab_chart:
     if len(st.session_state.subgroups) < 2:
-        st.warning("Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
+        render_empty_state("\U0001F4C8", "Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
         with st.container(border=True, key="card-05"):
             info_col, clear_col = st.columns([5, 1])
@@ -1561,7 +1635,7 @@ with tab_chart:
                 st.subheader("I (Individual) Kontrol Grafigi")
 
                 fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
-                ax.plot(indices_i, values, marker="o", color="steelblue", linewidth=1, label="Olcum")
+                ax.plot(indices_i, values, marker="o", color=accent_color, linewidth=1, label="Olcum")
                 ax.axhline(x_bar, color="green", linestyle="-", label="Genel ortalama (x̄)")
                 ax.axhline(limits.ucl_i, color="red", linestyle="--", label="UCL")
                 annotate_hline(ax, indices_i[-1], limits.ucl_i, f"UCL={limits.ucl_i:.{decimal_places}f}", "red")
@@ -1597,7 +1671,7 @@ with tab_chart:
                     "Bu, kontrol grafiginden farkli bir gorseldir - zaman sirasini degil, "
                     "verinin spesifikasyon limitlerine gore genel dagilimini gosterir."
                 )
-                hist_fig = render_capability_histogram(values, lsl, usl, one_sided, dark, unit)
+                hist_fig = render_capability_histogram(values, lsl, usl, one_sided, dark, unit, accent_color)
                 st.pyplot(hist_fig, use_container_width=True)
                 render_png_download(
                     hist_fig, f"{st.session_state.active_parameter.lower()}_histogram.png", key="png_histogram"
@@ -1611,7 +1685,7 @@ with tab_chart:
 
                 fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
                 ax2.plot(
-                    indices_mr, moving_ranges, marker="o", color="steelblue", linewidth=1,
+                    indices_mr, moving_ranges, marker="o", color=accent_color, linewidth=1,
                     label="Moving range",
                 )
                 ax2.axhline(mr_bar, color="green", linestyle="-", label="MR̄")
@@ -1816,7 +1890,7 @@ with tab_chart:
                 st.subheader("X-bar Kontrol Grafigi")
 
                 fig, ax = plt.subplots(figsize=(8, 3.5), constrained_layout=True)
-                ax.plot(indices, means, marker="o", color="steelblue", linewidth=1, label="Alt grup ortalamasi")
+                ax.plot(indices, means, marker="o", color=accent_color, linewidth=1, label="Alt grup ortalamasi")
                 ax.axhline(x_double_bar, color="green", linestyle="-", label="Genel ortalama (x̄̄)")
                 ax.axhline(limits.ucl_x, color="red", linestyle="--", label="UCL")
                 annotate_hline(ax, indices[-1], limits.ucl_x, f"UCL={limits.ucl_x:.{decimal_places}f}", "red")
@@ -1854,7 +1928,7 @@ with tab_chart:
                     "limitlerine gore genel dagilimini gosterir."
                 )
                 all_values = [v for sg in st.session_state.subgroups for v in sg["values"]]
-                hist_fig = render_capability_histogram(all_values, lsl, usl, one_sided, dark, unit)
+                hist_fig = render_capability_histogram(all_values, lsl, usl, one_sided, dark, unit, accent_color)
                 st.pyplot(hist_fig, use_container_width=True)
                 render_png_download(
                     hist_fig, f"{st.session_state.active_parameter.lower()}_histogram.png", key="png_histogram"
@@ -1867,7 +1941,7 @@ with tab_chart:
                 st.subheader("R Kontrol Grafigi")
 
                 fig2, ax2 = plt.subplots(figsize=(8, 2.8), constrained_layout=True)
-                ax2.plot(indices, ranges, marker="o", color="steelblue", linewidth=1, label="Alt grup range")
+                ax2.plot(indices, ranges, marker="o", color=accent_color, linewidth=1, label="Alt grup range")
                 ax2.axhline(r_bar, color="green", linestyle="-", label="R̄")
                 ax2.axhline(limits.ucl_r, color="red", linestyle="--", label="UCL_R")
                 ax2.axhline(limits.lcl_r, color="red", linestyle="--", label="LCL_R")
