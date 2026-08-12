@@ -75,3 +75,40 @@ def check_rule_4of5_beyond_1sigma(values: list[float], center: float, sigma: flo
     beklenenin cok otesinde, gercek bir kaymaya isaret eder.
     Detay/gerekce: bkz. _check_k_of_n_beyond_sigma."""
     return _check_k_of_n_beyond_sigma(values, center, sigma, k=4, n=5, sigma_multiplier=1)
+
+
+def check_rule_9_same_side(values: list[float], center: float) -> set[int]:
+    """Nelson Kural 2 (Test 2): ardisik 9 nokta, merkez cizginin AYNI
+    tarafinda (Zone C veya otesinde). 'Zone C veya otesinde, bir tarafta'
+    ifadesi pratikte 'merkez cizginin o tarafinda olmak' ile ESDEGERDIR -
+    Zone C, merkeze en yakin bolge oldugu icin bir tarafta olan HER nokta
+    zaten en az Zone C'dedir; bu yuzden sigma/zon siniri GEREKMEZ, sadece
+    center'dan hangi yonde oldugu (>/<).
+
+    ONEMLI - kaynak duzeltmesi: METHODOLOGY.md'deki onceki taslakta bu
+    kural yanlislikla "8 ardisik nokta" olarak yazilmisti - Nelson (1984)
+    Test 2'nin GERCEK tanimi 9 noktadir (Western Electric'in eski 8
+    nokta kuralinin Nelson tarafindan 9'a guncellenmis hali). "8 ardisik,
+    HER IKI tarafta da olabilir, Zone C'de hic nokta yok" ise FARKLI bir
+    kural (Test 8, "karisim" oruntusu) - burada UYGULANMAYAN, ayri bir
+    kural. Kaynak: SAS PROC SHEWHART "Standard Tests for Special Causes"
+    (Nelson 1984/1985 numaralandirmasi) - bkz. METHODOLOGY.md.
+
+    Merkeze TAM ESIT bir nokta (center'in ne ustunde ne altinda) HICBIR
+    tarafa sayilmaz - bu, o taraftaki 9'lu seriyi BOZAR (SPC pratiginde
+    boyle bir nokta zaten cok nadirdir, ama tanim geregi boyle ele
+    alinmalidir)."""
+    if len(values) < 9:
+        return set()
+
+    flagged: set[int] = set()
+    for end in range(8, len(values)):
+        window = range(end - 8, end + 1)
+        above = [i for i in window if values[i] > center]
+        below = [i for i in window if values[i] < center]
+        if len(above) == 9:
+            flagged.update(above)
+        if len(below) == 9:
+            flagged.update(below)
+
+    return flagged

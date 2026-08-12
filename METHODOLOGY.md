@@ -384,10 +384,18 @@ genişletilmesi, yeni istatistik ailesi yok — "sadece gerçekten SPC olan
 - Excel/pano yapıştırma editörü (veri girişi)
 - Canlı girdi doğrulama (fiziksel sınır uyarısı)
 - Nelson / Western Electric kuralları: UCL/LCL aşımı dışında örüntü
-  tabanlı sinyaller (örn. 2/3 nokta 2σ dışı aynı yönde, 4/5 nokta 1σ
-  dışı aynı yönde, 8 ardışık nokta merkez çizginin aynı tarafında).
+  tabanlı sinyaller — Test 5 (2/3 nokta 2σ dışı aynı yönde), Test 6 (4/5
+  nokta 1σ dışı aynı yönde), Test 2 (**9** ardışık nokta merkez çizginin
+  aynı tarafında — bu maddenin uygulama sırasında bir önceki taslakta
+  yanlışlıkla "8 ardışık" yazılmıştı; Nelson (1984) Test 2'nin GERÇEK
+  tanımı 9 noktadır, Western Electric'in eski 8-nokta kuralının Nelson
+  tarafından güncellenmiş hali — "8 ardışık, HER İKİ tarafta da olabilir,
+  Zone C'de hiç nokta yok" ise Test 8, farklı bir kural, burada
+  UYGULANMADI, bkz. `src/nelson_rules.py` docstring'i).
   Kaynak: Nelson, L.S. (1984), *"The Shewhart Control Chart—Tests for
-  Special Causes"*, Journal of Quality Technology.
+  Special Causes"*, Journal of Quality Technology, 16(4), 237-239 —
+  çapraz kontrol: SAS PROC SHEWHART "Standard Tests for Special Causes"
+  (Nelson 1984/1985 numaralandırması).
 - **OOS/OOT ayrımı:** Nelson sinyalinin çıktısı doğru endüstriyel
   terimle etiketlenir — limit (USL/LSL) aşımı **OOS** (Out of
   Specification), örüntü/trend sinyali **OOT** (Out of Trend). Sadece

@@ -15,7 +15,11 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from nelson_rules import check_rule_2of3_beyond_2sigma, check_rule_4of5_beyond_1sigma
+from nelson_rules import (
+    check_rule_2of3_beyond_2sigma,
+    check_rule_4of5_beyond_1sigma,
+    check_rule_9_same_side,
+)
 
 
 # center=100, sigma=2 -> Zone A siniri: >=104 (ust) veya <=96 (alt)
@@ -145,6 +149,54 @@ def test_overlapping_windows_do_not_duplicate_or_miss_flags_4of5():
     assert flagged == {0, 1, 2, 3, 4, 5}
 
 
+# --- check_rule_9_same_side -------------------------------------------------
+# center=100 (sigma gerekmiyor - bkz. nelson_rules.py docstring'i)
+
+def test_nine_in_a_row_above_center_triggers():
+    values = [101, 102, 103, 104, 105, 106, 107, 108, 109]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set(range(9))
+
+
+def test_nine_in_a_row_below_center_triggers():
+    values = [99, 98, 97, 96, 95, 94, 93, 92, 91]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set(range(9))
+
+
+def test_only_eight_in_a_row_does_not_trigger():
+    # roadmap taslagindaki hatali "8 ardisik" varsayimini BILEREK test eder -
+    # gercek Nelson Test 2, 9 gerektirir, 8 YETERSIZDIR
+    values = [101, 102, 103, 104, 105, 106, 107, 108]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set()
+
+
+def test_point_exactly_at_center_breaks_the_run():
+    # 5 ust + tam merkez degeri + 9'a tamamlamak icin yetersiz kalan devam
+    values = [101, 102, 103, 104, 105, 100, 106, 107, 108, 109]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set()  # her iki parca da 9'dan kisa (5 ve 4)
+
+
+def test_alternating_sides_never_reaches_nine():
+    values = [101, 99, 102, 98, 103, 97, 104, 96, 105, 95]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set()
+
+
+def test_ten_in_a_row_flags_all_ten_via_overlapping_windows():
+    values = [101, 102, 103, 104, 105, 106, 107, 108, 109, 110]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set(range(10))
+
+
+def test_fewer_than_nine_points_returns_empty_set():
+    values = [101, 102, 103, 104, 105, 106, 107, 108]
+    flagged = check_rule_9_same_side(values, center=100)
+    assert flagged == set()
+
+
 if __name__ == "__main__":
     test_two_consecutive_points_beyond_2sigma_same_side_triggers()
     test_two_out_of_three_with_one_normal_point_between_triggers()
@@ -164,4 +216,11 @@ if __name__ == "__main__":
     test_zero_sigma_returns_empty_set_4of5()
     test_fewer_than_five_points_returns_empty_set()
     test_overlapping_windows_do_not_duplicate_or_miss_flags_4of5()
+    test_nine_in_a_row_above_center_triggers()
+    test_nine_in_a_row_below_center_triggers()
+    test_only_eight_in_a_row_does_not_trigger()
+    test_point_exactly_at_center_breaks_the_run()
+    test_alternating_sides_never_reaches_nine()
+    test_ten_in_a_row_flags_all_ten_via_overlapping_windows()
+    test_fewer_than_nine_points_returns_empty_set()
     print("NELSON RULES TESTLERI GECTI")
