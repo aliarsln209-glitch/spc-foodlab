@@ -26,6 +26,19 @@ tarafından programatik olarak da çalıştırılır.
 | `imr_reference.csv` | I-MR kontrol limitleri (UCL/LCL) | 6Sigma Toolkit, I-MR Chart örneği |
 | `cpk_reference.csv` | Cpk/Cpu (normal durum + sıfır-varyans uç durumları) | LibreTexts pH örneğinin devamı (normal durum) + dahili matematiksel tutarlılık kontrolü (uç durumlar) |
 
+### Nelson kuralları (v1.2) — CSV formatında DEĞİL, neden
+
+`src/nelson_rules.py`, `tests/test_nelson_rules.py` içinde doğrulanır —
+buradaki CSV+tolerans şemasına DAHİL EDİLMEDİ, bilinçli bir karar: Nelson
+kuralları sayısal bir formül değil, bir **örüntü tanıma** algoritmasıdır
+(girdi: bir sayı dizisi, çıktı: ihlal eden indekslerin kümesi) — yukarıdaki
+`expected_ucl,tolerance` şeması "tek bir sayıyı kaynakla karşılaştır" için
+tasarlandı, bir indeks kümesini temsil etmeye uygun değil. Bunun yerine
+her kural, Nelson (1984)'ün tanımına göre ELLE hazırlanmış ve ELLE
+doğrulanmış sentetik senaryolarla (tetikleyen + tetiklemeyen "yakın ıskalama"
+durumları dahil) test edilir — `test_cpk_edge_cases.py`'nin sıfır-varyans
+uç durumlarını doğrulama yöntemiyle aynı rigor, farklı format.
+
 ## Nasıl çalıştırılır
 
 ```
