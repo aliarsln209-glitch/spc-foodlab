@@ -25,6 +25,7 @@ tarafından programatik olarak da çalıştırılır.
 | `xbar_r_reference.csv` | X-bar/R kontrol limitleri (UCL) | LibreTexts Engineering, *Chemical Process Dynamics and Controls* (Woolf), 13.2 |
 | `imr_reference.csv` | I-MR kontrol limitleri (UCL/LCL) | 6Sigma Toolkit, I-MR Chart örneği |
 | `cpk_reference.csv` | Cpk/Cpu (normal durum + sıfır-varyans uç durumları) | LibreTexts pH örneğinin devamı (normal durum) + dahili matematiksel tutarlılık kontrolü (uç durumlar) |
+| `ppk_reference.csv` | Ppk/Pp (genel/uzun vadeli süreç yeterliliği) | NIST/SEMATECH e-Handbook Ch. 2 — Cpk'nin genel s-tabanlı formülünün worked example'i (USL=20, LSL=8, x̄=16, s=2), elle inşa edilmiş bir değer listesiyle üretildi |
 
 ### Nelson kuralları (v1.2) — CSV formatında DEĞİL, neden
 

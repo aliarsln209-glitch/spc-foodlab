@@ -40,6 +40,8 @@ from spc_core import (
     compute_cpk,
     compute_imr_limits,
     compute_moving_ranges,
+    compute_pp,
+    compute_ppk,
     compute_xbar_r_limits,
     is_spec_valid,
 )
@@ -815,6 +817,57 @@ def render_capability_card(cpk: float, cpk_label: str, cpk_valid: bool) -> None:
             unsafe_allow_html=True,
         )
         st.caption(f"{cpk_label} hesaplanamadi: spesifikasyon gecersiz (LSL >= USL).")
+
+
+def build_cpk_vs_ppk_comment(cpk: float, ppk: float) -> str:
+    """Cpk (kisa vadeli, alt grup ICI) ile Ppk (genel/uzun vadeli, TUM ham
+    veri) arasindaki farka gore kisa bir yorum cumlesi uretir - Ppk eklemenin
+    GERCEK faydasini gosterir: ikisi yakinsa surec zaman icinde ISTIKRARLI
+    (Cpk'nin gormedigi ek bir kayma yok); Ppk belirgin sekilde dusukse, Cpk'nin
+    YAKALAYAMADIGI bir alt-gruplar-arasi kayma/trend olabilecegine isaret eder.
+
+    0.2'lik esik KESIN bir istatistiksel test DEGIL - sadece "dikkate deger
+    bir fark" icin basit, yorumlanabilir bir esik (SPC pratiginde yaygin
+    kullanilan bir kural-of-thumb)."""
+    if cpk in (float("inf"), float("-inf")) or ppk in (float("inf"), float("-inf")):
+        return (
+            "Kisa vadeli (Cpk) ve genel (Ppk) yeterlilik karsilastirmasi, "
+            "sifir varyasyonlu uc durumlarda anlamli degildir."
+        )
+    if cpk - ppk > 0.2:
+        return (
+            f"Ppk ({format_cpk(ppk)}), Cpk'den ({format_cpk(cpk)}) belirgin sekilde dusuk - "
+            "bu, alt gruplar ARASINDA (zaman icinde) Cpk'nin YAKALAYAMADIGI bir kayma/trend "
+            "olabilecegine isaret eder."
+        )
+    return (
+        f"Ppk ({format_cpk(ppk)}) ile Cpk ({format_cpk(cpk)}) birbirine yakin - "
+        "surec zaman icinde nispeten ISTIKRARLI, alt gruplar arasinda belirgin bir kayma "
+        "gorunmuyor."
+    )
+
+
+def render_ppk_pp_expander(cpk: float, ppk: float, pp: float | None, one_sided: bool) -> None:
+    """'Süreç Yeterliliği' kartina eklenen, katlanabilir Ppk/Pp bolumu -
+    Cpk'nin YANINDA, onu degistirmeden ek bir 'genel yeterlilik' bakis
+    acisi sunar (bkz. build_cpk_vs_ppk_comment)."""
+    with st.expander("\U0001F4C8 Ppk/Pp (genel yeterlilik)"):
+        st.caption(
+            "Cpk, alt grup ICI (kisa vadeli) varyasyona dayanir (σ̂=R̄/d2). "
+            "Ppk/Pp ise TUM ham olculerin GENEL (uzun vadeli) ornek standart "
+            "sapmasini kullanir - alt gruplar ARASINDAKI kaymalari/trendleri "
+            "de yansitir."
+        )
+        # NOT: st.columns(2) ile yan yana denendi ama kart zaten dar (sayfa
+        # genisliginin ~1/3'u) oldugu icin st.metric()'in buyuk fontu
+        # "0.9..." gibi kirpiliyordu (Playwright ile canli DOM'da gozlendi) -
+        # bu yuzden metrikler ALT ALTA, kartin TAM genisligini kullanacak
+        # sekilde gosteriliyor.
+        ppk_label = "Ppu (tek tarafli)" if one_sided else "Ppk"
+        st.metric(ppk_label, format_cpk(ppk))
+        if not one_sided:
+            st.metric("Pp", format_cpk(pp) if pp is not None else "—")
+        st.markdown(build_cpk_vs_ppk_comment(cpk, ppk))
 
 
 def _oos_oot_status_row(label: str, count: int, color: str, soft_bg: str) -> str:
@@ -1782,6 +1835,9 @@ with tab_chart:
                     if spec_valid:
                         with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
                             render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+                        ppk_i = compute_ppk(values, lsl, usl, one_sided=one_sided)
+                        pp_i = None if one_sided else compute_pp(values, lsl, usl)
+                        render_ppk_pp_expander(cpk, ppk_i, pp_i, one_sided)
 
             with col_summary:
                 with st.container(border=True, key="card-09"):
@@ -2073,6 +2129,14 @@ with tab_chart:
                     if spec_valid:
                         with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
                             render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
+                        # Ppk/Pp, X-bar/R'de de TUM HAM olculere (alt grup
+                        # ortalamalarina degil) dayanir - ayni gerekce:
+                        # Cpk'nin gormedigi alt-gruplar-arasi kaymayi da
+                        # yansitsin diye (bkz. compute_ppk docstring'i).
+                        all_raw_values_x = [v for sg in st.session_state.subgroups for v in sg["values"]]
+                        ppk_x = compute_ppk(all_raw_values_x, lsl, usl, one_sided=one_sided)
+                        pp_x = None if one_sided else compute_pp(all_raw_values_x, lsl, usl)
+                        render_ppk_pp_expander(cpk, ppk_x, pp_x, one_sided)
 
             with col_summary:
                 with st.container(border=True, key="card-17"):

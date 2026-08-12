@@ -130,6 +130,73 @@ def compute_cpk(
     return min(cpu, cpl)
 
 
+def compute_overall_sigma(values: list[float]) -> float:
+    """Genel (uzun vadeli/overall) ornek standart sapmasi - N-1 (Bessel
+    duzeltmesi) ile. Pp/Ppk'nin Cp/Cpk'den (sigma_hat = R-bar/d2, alt grup
+    ICI/kisa vadeli tahmin) TEMEL FARKI budur: Pp/Ppk, alt gruplamayi yok
+    sayip TUM ham olculerin dogrudan ornek standart sapmasini kullanir -
+    bu, alt gruplar ARASI kaymalari/trendleri de (Cpk'nin GORMEDIGI bir
+    varyasyon kaynagini) hesaba katar. 2'den az deger icin 0.0 doner
+    (varyans tanimsiz)."""
+    n = len(values)
+    if n < 2:
+        return 0.0
+    mean = sum(values) / n
+    variance = sum((v - mean) ** 2 for v in values) / (n - 1)
+    return variance ** 0.5
+
+
+def compute_ppk(values: list[float], lsl: float, usl: float, one_sided: bool = False) -> float:
+    """Ppk = min[(USL - xbar)/(3s), (xbar - LSL)/(3s)], s = compute_overall_sigma(values).
+
+    Cpk ile AYNI formul YAPISINI kullanir (bkz. compute_cpk) - TEK fark,
+    sigma tahmininin kaynagidir: Cpk sigma_hat=R-bar/d2 (alt grup ICI kisa
+    vadeli varyasyon) kullanirken, Ppk dogrudan TUM ham verinin ornek
+    standart sapmasini (s) kullanir. Bu yuzden Ppk << Cpk gorulmesi,
+    alt gruplar ARASINDA (zaman icinde) onemli bir kayma/trend oldugunun
+    isaretidir - Cpk bunu YAKALAYAMAZ, sadece alt grup ICI tutarliligi olcer.
+
+    Kaynak: Pp/Ppk'nin genel tanimi (Pp=(USL-LSL)/(6*s), Ppk=min[...]) SPC
+    literaturunde (NIST/SEMATECH e-Handbook'un Cpk icin sundugu genel s-
+    tabanli formulle AYNI matematiksel yapidadir - bkz. compute_cpk
+    docstring'indeki NIST kaynagi) standarttir. Formul dogrulugu, NIST
+    e-Handbook Ch. 2 Cpk bolumundeki worked example ile CAPRAZ KONTROL
+    edildi (USL=20, LSL=8, x̄=16, s=2 -> Cpk(genel s-formulu)=0.6667,
+    Cp=1.0 - bkz. tests/test_ppk.py) - NIST orada bunu 's' ile Cpk'nin
+    GENEL formulu olarak sunar (alt gruba OZGU R-bar/d2 tahminine
+    GECMEDEN once); Ppk bu genel formulu TUM POOLED veriye uygulamaktan
+    baska bir sey degildir.
+
+    Sifira bolme korumasi compute_cpk ile AYNI mantik (bkz. orada)."""
+    mean = sum(values) / len(values)
+    s = compute_overall_sigma(values)
+
+    if s == 0:
+        if one_sided:
+            return float("inf") if mean <= usl else float("-inf")
+        return float("inf") if lsl <= mean <= usl else float("-inf")
+
+    ppu = (usl - mean) / (3 * s)
+    if one_sided:
+        return ppu
+    ppl = (mean - lsl) / (3 * s)
+    return min(ppu, ppl)
+
+
+def compute_pp(values: list[float], lsl: float, usl: float) -> float:
+    """Pp = (USL - LSL) / (6*s) - Ppk'den FARKLI olarak surecin MERKEZLENMESINI
+    (ortalamanin spec araligindaki konumunu) HESABA KATMAZ, sadece surecin
+    YAYILIMININ spec genisligine gore ne kadar 'dar' oldugunu olcer. Tek
+    tarafli (one_sided) parametrelerde LSL tanimsiz oldugu icin Pp de
+    tanimsizdir - cagiran taraf bu durumda Pp'yi HESAPLAMAMALI/gostermemelidir
+    (Cpu'nun tek tarafli karsiligi olan 'Ppu' aslinda Ppk ile AYNI seydir,
+    ayrica bir fonksiyon gerektirmez)."""
+    s = compute_overall_sigma(values)
+    if s == 0:
+        return float("inf") if usl > lsl else float("-inf")
+    return (usl - lsl) / (6 * s)
+
+
 # I-MR (Individual-Moving Range) chart sabitleri - n=2 icin standart Montgomery
 # sabitleriyle tutarlidir (bkz. CONTROL_CHART_CONSTANTS[2] = D4=3.267, d2=1.128),
 # ancak I chart'in merkez-cizgi sabiti (2.66) X-bar/R'nin A2'sinden (n=2 icin 1.880)

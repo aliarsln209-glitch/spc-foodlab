@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pandas as pd
 
-from spc_core import compute_cpk, compute_imr_limits, compute_xbar_r_limits
+from spc_core import compute_cpk, compute_imr_limits, compute_pp, compute_ppk, compute_xbar_r_limits
 
 VALIDATION_DIR = os.path.join(os.path.dirname(__file__), "..", "validation")
 
@@ -82,8 +82,25 @@ def test_cpk_reference_csv_matches_formula():
             )
 
 
+def test_ppk_reference_csv_matches_formula():
+    df = _load("ppk_reference.csv")
+    assert len(df) >= 1, "ppk_reference.csv bos olmamali"
+
+    for _, row in df.iterrows():
+        values = [float(v) for v in str(row["values"]).split(";")]
+        ppk = compute_ppk(values, lsl=row["lsl"], usl=row["usl"])
+        pp = compute_pp(values, lsl=row["lsl"], usl=row["usl"])
+        assert abs(ppk - float(row["expected_ppk"])) <= row["tolerance"], (
+            f"[{row['source']}] Ppk uyusmuyor: hesaplanan={ppk}, beklenen={row['expected_ppk']}"
+        )
+        assert abs(pp - float(row["expected_pp"])) <= row["tolerance"], (
+            f"[{row['source']}] Pp uyusmuyor: hesaplanan={pp}, beklenen={row['expected_pp']}"
+        )
+
+
 if __name__ == "__main__":
     test_xbar_r_reference_csv_matches_formula()
     test_imr_reference_csv_matches_formula()
     test_cpk_reference_csv_matches_formula()
+    test_ppk_reference_csv_matches_formula()
     print("VALIDATION SUITE (CSV-guduml) TESTLERI GECTI")
