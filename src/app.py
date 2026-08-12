@@ -1988,29 +1988,85 @@ with tab_chart:
 # NOT: Bu sekme, mevcut SPC chart/veri akisindan BILINCLI OLARAK izole tutuldu.
 # Totox tek seferlik bir hesap makinesidir - session_state.subgroups'a hicbir
 # sekilde dokunmaz, kontrol grafigi/baseline mantigiyla etkilesime girmez.
+TOTOX_ANV_LIMIT = 20.0
+TOTOX_LIMIT = 26.0
+
 with tab_calc:
     with st.container(border=True, key="card-24"):
         st.subheader("Totox Hesaplayici")
         st.caption(
-            "Totox = 2 × Peroksit Degeri + Anisidin Degeri. Bu bir SPC kontrol "
-            "grafigi degildir - tek seferlik bir hesap makinesidir, mevcut "
+            "Totox = 2 × Peroksit Degeri (PV) + Anisidin Degeri (AnV). Bu bir SPC "
+            "kontrol grafigi degildir - tek seferlik bir hesap makinesidir, mevcut "
             "veri girisi/chart akisindan bagimsizdir ve onu etkilemez."
+        )
+        st.caption(
+            "\U0001F3F7️ Kaynak: Schaal firin testi standardi (Wan, 1995). "
+            f"Referans araligi (AnV<{TOTOX_ANV_LIMIT:.0f}, Totox<{TOTOX_LIMIT:.0f}) "
+            "GOED/CRN (Global Organization for EPA and DHA Omega-3s / Council for "
+            "Responsible Nutrition) sektor pratigidir - Turk Gida Kodeksi'nin "
+            "dogrudan bir hukmu DEGILDIR."
         )
 
         tc1, tc2 = st.columns(2)
         with tc1:
             totox_peroxide = st.number_input(
-                "Peroksit Degeri (meq O2/kg)", min_value=0.0, value=5.0,
+                "Peroksit Degeri - PV (meq O2/kg)", min_value=0.0, value=5.0,
                 step=0.1, format="%.2f", key="totox_peroxide",
+                help=(
+                    "Yaglarda BIRINCIL oksidasyon urunlerinin (hidroperoksitler) "
+                    "olcusudur - oksidasyonun erken evresini yansitir. Deger ne "
+                    "kadar dusukse yag o kadar taze/stabildir."
+                ),
             )
         with tc2:
             totox_anisidine = st.number_input(
-                "Anisidin Degeri", min_value=0.0, value=3.0,
+                "Anisidin Degeri - AnV", min_value=0.0, value=3.0,
                 step=0.1, format="%.2f", key="totox_anisidine",
+                help=(
+                    "IKINCIL oksidasyon urunlerinin (hidroperoksitlerin bozunmasiyla "
+                    "olusan aldehitler) olcusudur. PV'nin aksine ISIL ISLEME "
+                    "dayaniklidir - bu yuzden kizartma/rafinasyon gibi islemlerden "
+                    "sonra bile yagin oksidasyon GECMISINI gostermeye devam eder."
+                ),
             )
 
         totox_value = 2 * totox_peroxide + totox_anisidine
-        st.metric("Totox Degeri", f"{totox_value:.2f}")
+        anv_ok = totox_anisidine < TOTOX_ANV_LIMIT
+        totox_ok = totox_value < TOTOX_LIMIT
+
+        tc3, tc4 = st.columns(2)
+        tc3.metric("Totox Degeri", f"{totox_value:.2f}")
+        tc4.metric("Referans Siniri", f"AnV<{TOTOX_ANV_LIMIT:.0f}, Totox<{TOTOX_LIMIT:.0f}")
+
+        if anv_ok and totox_ok:
+            st.markdown(
+                "<div style='background:#ebfbee; color:#2f9e44; font-weight:600; "
+                "border-radius:6px; padding:0.5rem 0.7rem;'>"
+                "✅ GOED/CRN referans araliginda</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            reasons = []
+            if not totox_ok:
+                reasons.append(f"Totox={totox_value:.2f} ≥ {TOTOX_LIMIT:.0f}")
+            if not anv_ok:
+                reasons.append(f"AnV={totox_anisidine:.2f} ≥ {TOTOX_ANV_LIMIT:.0f}")
+            st.markdown(
+                "<div style='background:#fff0f0; color:#e03131; font-weight:600; "
+                "border-radius:6px; padding:0.5rem 0.7rem;'>"
+                f"⚠️ GOED/CRN referans araligi disinda ({', '.join(reasons)})</div>",
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+            st.markdown(
+                f"Totox = 2 × PV + AnV = 2 × {totox_peroxide:.2f} + {totox_anisidine:.2f} "
+                f"= **{totox_value:.2f}**  \n"
+                f"AnV kontrolu: {totox_anisidine:.2f} {'<' if anv_ok else '≥'} "
+                f"{TOTOX_ANV_LIMIT:.0f} → **{'uygun' if anv_ok else 'sinir disi'}**  \n"
+                f"Totox kontrolu: {totox_value:.2f} {'<' if totox_ok else '≥'} "
+                f"{TOTOX_LIMIT:.0f} → **{'uygun' if totox_ok else 'sinir disi'}**"
+            )
 
 # ---------------------------------------------------------------------------
 # SEKME 4: Hakkinda
