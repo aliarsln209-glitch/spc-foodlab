@@ -43,6 +43,11 @@ from spc_core import (
     compute_xbar_r_limits,
     is_spec_valid,
 )
+from nelson_rules import (
+    check_rule_2of3_beyond_2sigma,
+    check_rule_4of5_beyond_1sigma,
+    check_rule_9_same_side,
+)
 
 GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
 
@@ -812,32 +817,43 @@ def render_capability_card(cpk: float, cpk_label: str, cpk_valid: bool) -> None:
         st.caption(f"{cpk_label} hesaplanamadi: spesifikasyon gecersiz (LSL >= USL).")
 
 
+def _oos_oot_status_row(label: str, count: int, color: str, soft_bg: str) -> str:
+    """OOS/OOT satirlarinin HTML'ini uretir - render_data_summary_card
+    icinde iki kez (OOS, OOT) cagrilir, kopyala-yapistir onlemek icin."""
+    if count:
+        return (
+            f"<div style='background:{soft_bg}; color:{color}; font-weight:600; "
+            f"border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.4rem;'>"
+            f"⚠️ {label}: {count}</div>"
+        )
+    return (
+        f"<div style='background:#ebfbee; color:#2f9e44; font-weight:600; "
+        f"border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.4rem;'>"
+        f"✅ {label}: 0</div>"
+    )
+
+
 def render_data_summary_card(mean_label: str, mean_value: float, spread_label: str,
                               spread_value: float, n_label: str, n_value: int,
-                              n_out_of_control: int, decimal_places: int) -> None:
-    """ADIM 4 'Data Summary' karti: ortalama/yayilim/ornek sayisi + kontrol
-    disi nokta sayisi (varsa kirmizi vurgulu satir - referans taslaktaki
-    pembe 'Out of Control' satirina karsilik gelir)."""
+                              n_oos: int, n_oot: int, decimal_places: int) -> None:
+    """'Veri Ozeti' karti: ortalama/yayilim/ornek sayisi + AYRI AYRI iki satir
+    - OOS (Out of Specification, mor - LSL/USL disina cikan HAM olcum sayisi)
+    ve OOT (Out of Trend, kirmizi - UCL/LCL asimi VEYA Nelson oruntu sinyali
+    veren nokta sayisi). Bu ikisi BAGIMSIZDIR: bir nokta OOT olabilir ama
+    yine de spesifikasyon icinde kalabilir, ya da tersi - bkz. METHODOLOGY.md
+    v1.2 'OOS/OOT ayrimi' maddesi. ONCEDEN (v1.1.1 ve oncesi) tek bir
+    'Kontrol Disi' satiri vardi ve bu aslinda SADECE UCL/LCL asimini
+    gosteriyordu, LSL/USL'i hic yansitmiyordu - bu karti cagiran taraf artik
+    iki sayiyi AYRI hesaplayip geciriyor (bkz. compute_oos_flags,
+    compute_nelson_oot_indices)."""
     st.markdown("##### \U0001F4CB Veri Ozeti")
     st.markdown(
         f"**{mean_label}**  \n{mean_value:.{decimal_places}f}  \n\n"
         f"**{spread_label}**  \n{spread_value:.{decimal_places}f}  \n\n"
         f"**{n_label}**  \n{n_value}"
     )
-    if n_out_of_control:
-        st.markdown(
-            f"<div style='background:#fff0f0; color:#e03131; font-weight:600; "
-            f"border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.4rem;'>"
-            f"⚠️ Kontrol Disi: {n_out_of_control}</div>",
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            f"<div style='background:#ebfbee; color:#2f9e44; font-weight:600; "
-            f"border-radius:6px; padding:0.4rem 0.6rem; margin-top:0.4rem;'>"
-            f"✅ Kontrol Disi: 0</div>",
-            unsafe_allow_html=True,
-        )
+    st.markdown(_oos_oot_status_row("OOS (spesifikasyon disi)", n_oos, "#9c36b5", "#f6ecfb"), unsafe_allow_html=True)
+    st.markdown(_oos_oot_status_row("OOT (kontrol disi)", n_oot, "#e03131", "#fff0f0"), unsafe_allow_html=True)
 
 
 def render_capability_histogram(values: list[float], lsl: float, usl: float,
@@ -896,20 +912,28 @@ def annotate_hline(ax, x_pos: float, y_value: float, text: str, color: str) -> N
     )
 
 
-OOS_LINE_COLOR = "#e03131"  # KPI panelindeki "Kontrol Disi Nokta" ile ayni kirmizi
+OOT_LINE_COLOR = "#e03131"  # KPI panelindeki "OOT (Kontrol Disi)" ile ayni kirmizi
+# ADIM v1.2 Madde 2 (OOS/OOT ayrimi) ONCESI bu renk/fonksiyon "OOS_LINE_COLOR"/
+# "highlight_oos_segments" adiyla anilirdi - ama isaretledigi sey aslinda HEP
+# UCL/LCL (kontrol limiti) asimiydi, spesifikasyon (LSL/USL) asimi DEGIL. Bu,
+# tam da OOS/OOT ayriminin duzeltmek istedigi terminoloji hatasiydi - bkz.
+# METHODOLOGY.md v1.2 "OOS/OOT ayrimi" maddesi. Asagidaki OOS_MARKER_COLOR,
+# GERCEK spesifikasyon (LSL/USL) asimi icin AYRI ve BILEREK farkli bir renk.
+OOS_MARKER_COLOR = "#9c36b5"  # LSL/USL disi (gercek OOS) icin mor - OOT'un kirmizisindan bilerek farkli
 
 
-def highlight_oos_segments(ax, x: list[float], y: list[float], oos_indices) -> None:
-    """Kontrol disi (UCL/LCL disi) bir noktaya BAGLANAN cizgi segmentini
-    kirmizi ile ustten yeniden cizer - boylece sadece nokta degil, sinira
-    GECISI gosteren segment de gorsel olarak isaretlenir. x/y, ana seriyle
-    (indices/values, indices/means, vb.) AYNI sirada ve 0-tabanli olmali;
-    oos_indices, out_of_control_i/x/r/mr listeleriyle ayni (0-tabanli liste
-    pozisyonu) formatta beklenir."""
-    oos_set = set(oos_indices)
+def highlight_oot_segments(ax, x: list[float], y: list[float], oot_indices) -> None:
+    """OOT (Out of Trend - UCL/LCL asimi VEYA Nelson oruntu sinyali) olan bir
+    noktaya BAGLANAN cizgi segmentini kirmizi ile ustten yeniden cizer -
+    boylece sadece nokta degil, sinira/oruntuye GECISI gosteren segment de
+    gorsel olarak isaretlenir. x/y, ana seriyle (indices/values, indices/
+    means, vb.) AYNI sirada ve 0-tabanli olmali; oot_indices, out_of_control_
+    i/x/r/mr VE Nelson kurallarinin birlesimiyle (0-tabanli liste pozisyonu)
+    ayni formatta beklenir."""
+    oot_set = set(oot_indices)
     for i in range(len(x) - 1):
-        if i in oos_set or (i + 1) in oos_set:
-            ax.plot([x[i], x[i + 1]], [y[i], y[i + 1]], color=OOS_LINE_COLOR, linewidth=1.5, zorder=4)
+        if i in oot_set or (i + 1) in oot_set:
+            ax.plot([x[i], x[i + 1]], [y[i], y[i + 1]], color=OOT_LINE_COLOR, linewidth=1.5, zorder=4)
 
 
 def shade_lcl_zero_zone(ax, lcl: float) -> None:
@@ -927,7 +951,48 @@ def shade_lcl_zero_zone(ax, lcl: float) -> None:
     ymin, ymax = ax.get_ylim()
     band_bottom = ymin - 0.12 * (ymax - ymin if ymax > ymin else 1.0)
     ax.set_ylim(band_bottom, ymax)
-    ax.axhspan(band_bottom, 0, color=OOS_LINE_COLOR, alpha=0.08, zorder=0)
+    ax.axhspan(band_bottom, 0, color=OOT_LINE_COLOR, alpha=0.08, zorder=0)
+
+
+def compute_oos_flags(
+    raw_value_groups: list[list[float]], lsl: float, usl: float, one_sided: bool
+) -> tuple[set[int], int]:
+    """OOS (Out of Specification): bir HAM olcumun LSL/USL DISINA cikmasi -
+    UCL/LCL (kontrol limiti) ile HICBIR ilgisi yoktur, tamamen spesifikasyona
+    gore degerlendirilir. raw_value_groups, I-MR'de her biri TEK elemanli
+    ([[v1], [v2], ...] - grup indeksi = olcum indeksi), X-bar/R'de ise bir alt
+    grubun TUM ham olculerini (birden fazla elemanli) tasir.
+
+    Doner: (oos_group_indices, oos_raw_count) - ilki grafikte/UI'da HANGI
+    grubun (X-bar/R'de alt grup, I-MR'de olcumun kendisi) en az bir OOS ham
+    olcum icerdigini isaretlemek icin (0-tabanli, means/values ile AYNI
+    indeks uzayinda); ikincisi Veri Ozeti sayacinda gosterilen GERCEK ham
+    OOS olcum sayisidir - bir alt grup icinde BIRDEN FAZLA OOS olcum
+    olabilecegi icin grup sayisiyla KARISTIRILMAMALIDIR."""
+    oos_group_indices: set[int] = set()
+    oos_raw_count = 0
+    for g, group in enumerate(raw_value_groups):
+        group_has_oos = False
+        for v in group:
+            if v > usl or (not one_sided and v < lsl):
+                oos_raw_count += 1
+                group_has_oos = True
+        if group_has_oos:
+            oos_group_indices.add(g)
+    return oos_group_indices, oos_raw_count
+
+
+def compute_nelson_oot_indices(series: list[float], center: float, sigma: float) -> set[int]:
+    """OOT (Out of Trend) - oruntu/sinyal tabanli 3 Nelson kuralinin (2/3
+    2-sigma, 4/5 1-sigma, 9 ayni-taraf) BIRLESIMI. Cagiran taraf bunu HER
+    ZAMAN mevcut UCL/LCL asim listesiyle (out_of_control_x/i) BIRLESTIRIR -
+    OOT'un tam tanimi 'kontrol limiti asimi VEYA Nelson sinyali'dir, bu
+    fonksiyon sadece Nelson kismini uretir."""
+    return (
+        check_rule_2of3_beyond_2sigma(series, center, sigma)
+        | check_rule_4of5_beyond_1sigma(series, center, sigma)
+        | check_rule_9_same_side(series, center)
+    )
 
 
 def _cpu_cpl_for_display(center: float, sigma_hat: float, lsl: float, usl: float) -> tuple[float, float]:
@@ -1654,11 +1719,26 @@ with tab_chart:
 
             indices_i = list(range(1, len(values) + 1))
             indices_mr = list(range(2, len(values) + 1))
+            sigma_hat_imr = mr_bar / MR_CHART_D2 if MR_CHART_D2 else 0.0
+
+            # OOT (Out of Trend): UCL/LCL asimi VEYA Nelson oruntu sinyali (2/3
+            # 2-sigma, 4/5 1-sigma, 9 ayni-taraf) - surecin DAVRANIS sinyali,
+            # spesifikasyonla dogrudan ilgisi yok. Nelson kurallari x_bar/
+            # sigma_hat merkez alinarak 'values' (ham I chart serisi) uzerinde
+            # calisir - MR serisi uzerinde CALISTIRILMAZ (Nelson kurallari
+            # klasik olarak birincil chart'a uygulanir, range/MR chart'ina degil).
             out_of_control_i = [i for i, v in enumerate(values) if v > limits.ucl_i or v < limits.lcl_i]
             out_of_control_mr = [
                 i for i, mr in enumerate(moving_ranges) if mr > limits.ucl_mr or mr < limits.lcl_mr
             ]
-            flagged_points = sorted({i + 1 for i in out_of_control_i} | {i + 2 for i in out_of_control_mr})
+            nelson_oot_i = compute_nelson_oot_indices(values, x_bar, sigma_hat_imr)
+            oot_indices_i = set(out_of_control_i) | nelson_oot_i
+            oot_points = sorted({i + 1 for i in oot_indices_i} | {i + 2 for i in out_of_control_mr})
+
+            # OOS (Out of Specification): HAM olcumun LSL/USL DISINA cikmasi -
+            # I-MR'de her 'grup' tek bir olcum oldugu icin oos_indices_i
+            # dogrudan values ile AYNI (0-tabanli) indeks uzayindadir.
+            oos_indices_i, oos_raw_count_i = compute_oos_flags([[v] for v in values], lsl, usl, one_sided)
 
             with col_cap:
                 with st.container(border=True, key="card-08"):
@@ -1673,7 +1753,7 @@ with tab_chart:
                         f"Genel Ortalama (x̄, {unit})", x_bar,
                         f"Ortalama MR (MR̄, {unit})", mr_bar,
                         "Olcum Sayisi", len(values),
-                        len(flagged_points), decimal_places,
+                        oos_raw_count_i, len(oot_points), decimal_places,
                     )
 
             render_formula_method_card("I-MR", 2)
@@ -1681,11 +1761,13 @@ with tab_chart:
             st.write("")
 
             if spec_valid:
-                imr_quick_summary = build_quick_summary("olcum", len(values), len(flagged_points), cpk, cpk_label)
+                imr_quick_summary = build_quick_summary(
+                    "olcum", len(values), len(oot_points), oos_raw_count_i, cpk, cpk_label
+                )
             else:
-                oos_text = "kontrol disi nokta yok" if not flagged_points else f"{len(flagged_points)} kontrol disi nokta var"
+                oot_text = "OOT (kontrol disi) nokta yok" if not oot_points else f"{len(oot_points)} OOT (kontrol disi) nokta var"
                 imr_quick_summary = (
-                    f"{len(values)} olcum analiz edildi, {oos_text}, "
+                    f"{len(values)} olcum analiz edildi, {oot_text}, "
                     f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
                 )
             with st.container(border=True, key="card-10"):
@@ -1713,12 +1795,29 @@ with tab_chart:
                     # olarak bu durumda LCL cizgisi/etiketi cizilmez.
                     ax.axhline(limits.lcl_i, color="red", linestyle="--", label="LCL")
                     annotate_hline(ax, indices_i[-1], limits.lcl_i, f"LCL={limits.lcl_i:.{decimal_places}f}", "red")
-                if out_of_control_i:
-                    highlight_oos_segments(ax, indices_i, values, out_of_control_i)
+                # Spesifikasyon (LSL/USL) cizgileri - UCL/LCL'den BILEREK farkli
+                # cizgi rengi/tonu (mor, kesikli-noktali) kullanilir ki "kontrol
+                # limiti" (kirmizi, kesikli) ile "spesifikasyon limiti" (mor,
+                # kesikli-noktali) gorsel olarak KARISTIRILMASIN - ayni ayrim
+                # OOS_MARKER_COLOR/OOT_LINE_COLOR renk cifti icin de gecerli.
+                ax.axhline(usl, color=OOS_MARKER_COLOR, linestyle="-.", linewidth=1.2, label="USL")
+                annotate_hline(ax, indices_i[-1], usl, f"USL={usl:.{decimal_places}f}", OOS_MARKER_COLOR)
+                if not one_sided:
+                    ax.axhline(lsl, color=OOS_MARKER_COLOR, linestyle="-.", linewidth=1.2, label="LSL")
+                    annotate_hline(ax, indices_i[-1], lsl, f"LSL={lsl:.{decimal_places}f}", OOS_MARKER_COLOR)
+                if oot_indices_i:
+                    highlight_oot_segments(ax, indices_i, values, oot_indices_i)
                     ax.scatter(
-                        [indices_i[i] for i in out_of_control_i],
-                        [values[i] for i in out_of_control_i],
-                        color="red", s=100, zorder=5, label="Kontrol disi",
+                        [indices_i[i] for i in oot_indices_i],
+                        [values[i] for i in oot_indices_i],
+                        color="red", s=100, zorder=5, label="OOT (kontrol disi)",
+                    )
+                if oos_indices_i:
+                    ax.scatter(
+                        [indices_i[i] for i in oos_indices_i],
+                        [values[i] for i in oos_indices_i],
+                        marker="D", facecolors="none", edgecolors=OOS_MARKER_COLOR,
+                        s=140, linewidths=2, zorder=6, label="OOS (spesifikasyon disi)",
                     )
                 ax.set_xlabel("Olcum no")
                 ax.set_ylabel(unit)
@@ -1762,7 +1861,7 @@ with tab_chart:
                 annotate_hline(ax2, indices_mr[-1], limits.ucl_mr, f"UCL={limits.ucl_mr:.{decimal_places}f}", "red")
                 annotate_hline(ax2, indices_mr[-1], mr_bar, f"MR̄={mr_bar:.{decimal_places}f}", "green")
                 if out_of_control_mr:
-                    highlight_oos_segments(ax2, indices_mr, moving_ranges, out_of_control_mr)
+                    highlight_oot_segments(ax2, indices_mr, moving_ranges, out_of_control_mr)
                     ax2.scatter(
                         [indices_mr[i] for i in out_of_control_mr],
                         [moving_ranges[i] for i in out_of_control_mr],
@@ -1782,7 +1881,7 @@ with tab_chart:
                 if spec_valid:
                     render_pdf_download(
                         st.session_state.active_parameter, selected_product, "I-MR",
-                        len(values), len(flagged_points), cpk, cpk_label, imr_quick_summary,
+                        len(values), len(oot_points), cpk, cpk_label, imr_quick_summary,
                         [
                             ("I (Individual) Kontrol Grafigi", imr_main_chart_png),
                             ("MR (Moving Range) Kontrol Grafigi", imr_mr_chart_png),
@@ -1796,10 +1895,17 @@ with tab_chart:
                         "kadar devre disi - gecersiz bir Cpk iceren rapor uretilmez."
                     )
 
-            if flagged_points:
+            if oot_points:
                 st.warning(
-                    f"Kontrol disi olcumler: {flagged_points} "
-                    "- surec bu noktalarda 'kontrol disi' kabul edilir."
+                    f"OOT (kontrol disi) olcumler: {oot_points} "
+                    "- surec bu noktalarda beklenmedik bir davranis (kontrol limiti "
+                    "asimi veya Nelson oruntu sinyali) gosteriyor."
+                )
+            if oos_indices_i:
+                oos_measurement_numbers = sorted(i + 1 for i in oos_indices_i)
+                st.warning(
+                    f"OOS (spesifikasyon disi) olcumler: {oos_measurement_numbers} "
+                    "- bu olcumler LSL/USL disina cikiyor."
                 )
         else:
             means, ranges, live_x_double_bar, live_r_bar = compute_stats(st.session_state.subgroups)
@@ -1904,9 +2010,25 @@ with tab_chart:
             )
 
             indices = list(range(1, len(means) + 1))
+            sigma_hat_xbar = r_bar / limits.d2 if limits.d2 else 0.0
+
+            # OOT: bkz. I-MR dalindaki ayni mantigin aciklamasi (yukarida).
+            # Nelson kurallari alt grup ORTALAMALARI (means) uzerinde calisir -
+            # R chart'ina (araliklara) DEGIL, X-bar/I-MR ile ayni gerekce.
             out_of_control_x = [i for i, m in enumerate(means) if m > limits.ucl_x or m < limits.lcl_x]
             out_of_control_r = [i for i, r in enumerate(ranges) if r > limits.ucl_r or r < limits.lcl_r]
-            groups = sorted({i + 1 for i in out_of_control_x} | {i + 1 for i in out_of_control_r})
+            nelson_oot_x = compute_nelson_oot_indices(means, x_double_bar, sigma_hat_xbar)
+            oot_indices_x = set(out_of_control_x) | nelson_oot_x
+            oot_groups = sorted({i + 1 for i in oot_indices_x} | {i + 1 for i in out_of_control_r})
+
+            # OOS: X-bar/R'de spesifikasyon HAM olculere (alt grubun icindeki
+            # tek tek degerlere) karsi kontrol edilir - alt grup ORTALAMASI
+            # spec icinde olsa bile, o ortalamayi olusturan ham olculerden biri
+            # spec disina cikmis olabilir (ve bunun tersi de dogrudur, bu yuzden
+            # ayrica kontrol edilir, out_of_control_x'ten TURETILMEZ).
+            oos_group_indices_x, oos_raw_count_x = compute_oos_flags(
+                [sg["values"] for sg in st.session_state.subgroups], lsl, usl, one_sided
+            )
 
             with col_cap:
                 with st.container(border=True, key="card-16"):
@@ -1921,7 +2043,7 @@ with tab_chart:
                         f"Genel Ortalama (x̄̄, {unit})", x_double_bar,
                         f"Ortalama Range (R̄, {unit})", r_bar,
                         "Alt Grup Sayisi", len(means),
-                        len(groups), decimal_places,
+                        oos_raw_count_x, len(oot_groups), decimal_places,
                     )
 
             render_formula_method_card("X-bar/R", subgroup_n)
@@ -1929,11 +2051,13 @@ with tab_chart:
             st.write("")
 
             if spec_valid:
-                xbar_quick_summary = build_quick_summary("alt grup", len(means), len(groups), cpk, cpk_label)
+                xbar_quick_summary = build_quick_summary(
+                    "alt grup", len(means), len(oot_groups), oos_raw_count_x, cpk, cpk_label
+                )
             else:
-                oos_text = "kontrol disi nokta yok" if not groups else f"{len(groups)} kontrol disi nokta var"
+                oot_text = "OOT (kontrol disi) nokta yok" if not oot_groups else f"{len(oot_groups)} OOT (kontrol disi) nokta var"
                 xbar_quick_summary = (
-                    f"{len(means)} alt grup analiz edildi, {oos_text}, "
+                    f"{len(means)} alt grup analiz edildi, {oot_text}, "
                     f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
                 )
             with st.container(border=True, key="card-18"):
@@ -1975,12 +2099,28 @@ with tab_chart:
                     # olarak bu durumda LCL cizgisi/etiketi cizilmez.
                     ax.axhline(limits.lcl_x, color="red", linestyle="--", label="LCL")
                     annotate_hline(ax, indices[-1], limits.lcl_x, f"LCL={limits.lcl_x:.{decimal_places}f}", "red")
-                if out_of_control_x:
-                    highlight_oos_segments(ax, indices, means, out_of_control_x)
+                if oot_indices_x:
+                    highlight_oot_segments(ax, indices, means, oot_indices_x)
                     ax.scatter(
-                        [indices[i] for i in out_of_control_x],
-                        [means[i] for i in out_of_control_x],
-                        color="red", s=100, zorder=5, label="Kontrol disi",
+                        [indices[i] for i in oot_indices_x],
+                        [means[i] for i in oot_indices_x],
+                        color="red", s=100, zorder=5, label="OOT (kontrol disi)",
+                    )
+                if oos_group_indices_x:
+                    # X-bar chart'i ALT GRUP ORTALAMASINI cizer, ham olcumu
+                    # degil - bu yuzden LSL/USL cizgileri BURAYA cizilmez (bir
+                    # ortalama spec icinde olsa bile grubu olusturan ham
+                    # olculerden biri disarida kalmis olabilir, bkz. yukaridaki
+                    # compute_oos_flags cagrisinin yorumu). Bunun yerine, EN AZ
+                    # bir OOS ham olcum iceren alt grubun ORTALAMASI, "bu grupta
+                    # dikkat edilmesi gereken bir ham olcum var" isareti olarak
+                    # OOS markeriyle isaretlenir - etiket bunu acikca belirtir.
+                    ax.scatter(
+                        [indices[i] for i in oos_group_indices_x],
+                        [means[i] for i in oos_group_indices_x],
+                        marker="D", facecolors="none", edgecolors=OOS_MARKER_COLOR,
+                        s=140, linewidths=2, zorder=6,
+                        label="Grup icinde ≥ 1 OOS ham olcum",
                     )
                 ax.set_xlabel("Alt grup no")
                 ax.set_ylabel(unit)
@@ -2023,7 +2163,7 @@ with tab_chart:
                 annotate_hline(ax2, indices[-1], limits.ucl_r, f"UCL={limits.ucl_r:.{decimal_places}f}", "red")
                 annotate_hline(ax2, indices[-1], r_bar, f"R̄={r_bar:.{decimal_places}f}", "green")
                 if out_of_control_r:
-                    highlight_oos_segments(ax2, indices, ranges, out_of_control_r)
+                    highlight_oot_segments(ax2, indices, ranges, out_of_control_r)
                     ax2.scatter(
                         [indices[i] for i in out_of_control_r],
                         [ranges[i] for i in out_of_control_r],
@@ -2043,7 +2183,7 @@ with tab_chart:
                 if spec_valid:
                     render_pdf_download(
                         st.session_state.active_parameter, selected_product, "X-bar/R",
-                        len(means), len(groups), cpk, cpk_label, xbar_quick_summary,
+                        len(means), len(oot_groups), cpk, cpk_label, xbar_quick_summary,
                         [
                             ("X-bar Kontrol Grafigi", xbar_main_chart_png),
                             ("R Kontrol Grafigi", xbar_r_chart_png),
@@ -2057,10 +2197,17 @@ with tab_chart:
                         "kadar devre disi - gecersiz bir Cpk iceren rapor uretilmez."
                     )
 
-            if groups:
+            if oot_groups:
                 st.warning(
-                    f"Kontrol disi alt gruplar: {groups} "
-                    "- surec bu noktalarda 'kontrol disi' kabul edilir."
+                    f"OOT (kontrol disi) alt gruplar: {oot_groups} "
+                    "- surec bu noktalarda beklenmedik bir davranis (kontrol limiti "
+                    "asimi veya Nelson oruntu sinyali) gosteriyor."
+                )
+            if oos_group_indices_x:
+                oos_group_numbers = sorted(i + 1 for i in oos_group_indices_x)
+                st.warning(
+                    f"OOS (spesifikasyon disi) alt gruplar: {oos_group_numbers} "
+                    f"({oos_raw_count_x} ham olcum LSL/USL disina cikiyor)."
                 )
 
 # ---------------------------------------------------------------------------

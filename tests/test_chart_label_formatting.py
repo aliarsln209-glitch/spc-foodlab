@@ -51,12 +51,16 @@ def _real_calls(source: str) -> list[str]:
 
 def test_annotate_hline_call_sites_are_all_present():
     # Regresyon: X-bar/R (UCL/LCL/x̄̄, UCL/LCL/R̄) + I-MR (UCL/LCL/x̄, UCL/MR̄)
-    # icin toplam 10 annotate_hline cagrisi olmali - bu sayi degisirse
-    # (yeni bir etiket eklendi/silindi) test bilerek guncellenmelidir.
+    # icin 10 + v1.2 OOS/OOT ayrimiyla I-MR I chart'ina eklenen USL/LSL
+    # etiketleri (2 yeni) = 12 annotate_hline cagrisi olmali. X-bar chart'ina
+    # BILEREK USL/LSL etiketi EKLENMEDI (o grafik alt grup ORTALAMASINI
+    # cizer, ham olcumu degil - bkz. app.py'deki OOS/OOT yorumu). Bu sayi
+    # degisirse (yeni bir etiket eklendi/silindi) test bilerek
+    # guncellenmelidir.
     source = _read_app_source()
     calls = _real_calls(source)
-    assert len(calls) == 10, (
-        f"Beklenen 10 annotate_hline cagrisi, {len(calls)} bulundu - "
+    assert len(calls) == 12, (
+        f"Beklenen 12 annotate_hline cagrisi, {len(calls)} bulundu - "
         "yeni/eksik bir grafik etiketi olabilir, decimal_places kontrolunu guncelleyin."
     )
 

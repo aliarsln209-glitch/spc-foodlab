@@ -103,17 +103,25 @@ def test_trend_window_capped_at_half_series_length():
 
 # --- build_quick_summary ---------------------------------------------------
 
-def test_quick_summary_mentions_no_out_of_control_points():
-    text = build_quick_summary("alt grup", 24, 0, 1.5, "Cpk")
-    assert "kontrol disi nokta yok" in text
+def test_quick_summary_mentions_no_oot_or_oos_points():
+    text = build_quick_summary("alt grup", 24, 0, 0, 1.5, "Cpk")
+    assert "OOT (kontrol disi) nokta yok" in text
+    assert "OOS (spesifikasyon disi) nokta yok" in text
     assert "24 alt grup analiz edildi" in text
     assert "Cpk=1.500" in text
 
 
-def test_quick_summary_mentions_out_of_control_count():
-    text = build_quick_summary("olcum", 24, 3, 0.8, "Cpu (tek tarafli)")
-    assert "3 kontrol disi nokta var" in text
+def test_quick_summary_mentions_oot_count():
+    text = build_quick_summary("olcum", 24, 3, 0, 0.8, "Cpu (tek tarafli)")
+    assert "3 OOT (kontrol disi) nokta var" in text
     assert "surec yeterli degil" in text
+
+
+def test_quick_summary_mentions_oos_count_independently_of_oot():
+    # OOT=0 ama OOS=2 - iki sayi BIRBIRINDEN BAGIMSIZ raporlanmali
+    text = build_quick_summary("olcum", 24, 0, 2, 1.5, "Cpk")
+    assert "OOT (kontrol disi) nokta yok" in text
+    assert "2 OOS (spesifikasyon disi) nokta var" in text
 
 
 # --- demo_scenario_targets --------------------------------------------------
@@ -179,8 +187,9 @@ if __name__ == "__main__":
     test_trend_detects_downward_direction()
     test_trend_detects_flat_direction()
     test_trend_window_capped_at_half_series_length()
-    test_quick_summary_mentions_no_out_of_control_points()
-    test_quick_summary_mentions_out_of_control_count()
+    test_quick_summary_mentions_no_oot_or_oos_points()
+    test_quick_summary_mentions_oot_count()
+    test_quick_summary_mentions_oos_count_independently_of_oot()
     test_demo_scenario_none_falls_back_to_parameter_defaults()
     test_demo_scenario_two_sided_product_centers_on_midpoint()
     test_demo_scenario_one_sided_product_centers_below_usl()

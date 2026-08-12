@@ -58,14 +58,24 @@ def compute_trend(series: list[float], window: int = 6) -> tuple[str, float] | N
     return direction, delta
 
 
-def build_quick_summary(sample_word: str, n_samples: int, n_out_of_control: int,
+def build_quick_summary(sample_word: str, n_samples: int, n_oot: int, n_oos: int,
                          cpk: float, cpk_label: str) -> str:
     """Analiz sonrasi otomatik olusturulan kisa metin ozeti (if-else ile,
-    formul degil - sadece mevcut sonuclarin duz dile cevrilmesi)."""
+    formul degil - sadece mevcut sonuclarin duz dile cevrilmesi).
+
+    n_oot (Out of Trend - UCL/LCL asimi VEYA Nelson oruntu sinyali) ve n_oos
+    (Out of Specification - LSL/USL disina cikan ham olcum) BAGIMSIZ iki
+    sayidir - ONCEDEN (v1.1.1 ve oncesi) burada tek bir 'kontrol disi' sayisi
+    vardi ve o aslinda SADECE bugunku n_oot'a karsilik geliyordu; LSL/USL
+    hic ayri degerlendirilmiyordu. Bkz. METHODOLOGY.md v1.2 'OOS/OOT ayrimi'."""
     _, level_label, _ = get_cpk_level(cpk)
+    oot_text = (
+        "OOT (kontrol disi) nokta yok" if n_oot == 0
+        else f"{n_oot} OOT (kontrol disi) nokta var"
+    )
     oos_text = (
-        "kontrol disi nokta yok" if n_out_of_control == 0
-        else f"{n_out_of_control} kontrol disi nokta var"
+        "OOS (spesifikasyon disi) nokta yok" if n_oos == 0
+        else f"{n_oos} OOS (spesifikasyon disi) nokta var"
     )
     level_text = {
         "Mukemmel": "surec mukemmel yeterli",
@@ -74,7 +84,7 @@ def build_quick_summary(sample_word: str, n_samples: int, n_out_of_control: int,
         "Yetersiz": "surec yeterli degil",
     }[level_label]
     return (
-        f"{n_samples} {sample_word} analiz edildi, {oos_text}, "
+        f"{n_samples} {sample_word} analiz edildi, {oot_text}, {oos_text}, "
         f"{cpk_label}={format_cpk(cpk)} ile {level_text}."
     )
 
