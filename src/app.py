@@ -50,6 +50,7 @@ from nelson_rules import (
     check_rule_4of5_beyond_1sigma,
     check_rule_9_same_side,
 )
+from normality import MIN_SAMPLE_SIZE_FOR_SHAPIRO, check_normality, interpret_normality
 
 GITHUB_URL = "https://github.com/aliarsln209-glitch/spc-foodlab"
 
@@ -954,6 +955,26 @@ def render_capability_histogram(values: list[float], lsl: float, usl: float,
     ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), fontsize=8)
     style_chart(fig, ax, dark)
     return fig
+
+
+def render_normality_check(values: list[float]) -> None:
+    """Shapiro-Wilk normallik testi sonucunu histogramin ALTINDA gosterir -
+    METHODOLOGY.md v1.2 'Normality / dagilim kontrolu' maddesi: seffaflik
+    amacli bir uyari/bilgi kutusu, otomatik bir 'normal degil -> SPC
+    yapilamaz' KAPISI DEGIL - Cpk/Ppk HER ZAMAN hesaplanip gosterilmeye
+    devam eder, bu sadece o hesaplarin dayandigi varsayimi acikca belirtir.
+
+    len(values) < MIN_SAMPLE_SIZE_FOR_SHAPIRO (scipy'nin kendi kisiti,
+    3) ise testi hic CALISTIRMAZ - o kadar az veriyle normallik testi
+    zaten guvenilir/anlamli degildir, sessizce atlanir (hata gosterilmez)."""
+    if len(values) < MIN_SAMPLE_SIZE_FOR_SHAPIRO:
+        return
+    w, p = check_normality(values)
+    message, level = interpret_normality(w, p)
+    if level == "info":
+        st.info(message)
+    else:
+        st.warning(message)
 
 
 def annotate_hline(ax, x_pos: float, y_value: float, text: str, color: str) -> None:
@@ -1937,6 +1958,7 @@ with tab_chart:
                 )
                 imr_histogram_png = fig_to_png_bytes(hist_fig)
                 plt.close(hist_fig)
+                render_normality_check(values)
 
             st.write("")
 
@@ -2251,6 +2273,7 @@ with tab_chart:
                 )
                 xbar_histogram_png = fig_to_png_bytes(hist_fig)
                 plt.close(hist_fig)
+                render_normality_check(all_values)
 
             st.write("")
 
