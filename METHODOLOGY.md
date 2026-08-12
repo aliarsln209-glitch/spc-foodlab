@@ -446,6 +446,25 @@ genişletilmesi, yeni istatistik ailesi yok)
 4. **i18n** (v3.1): Arayüz + PDF için TR/EN geçişi. Gerekçesi mühendislik
    pratiği genişliği göstermektir (string dışsallaştırma, locale-aware
    biçimlendirme) — pazar/erişim büyütme gerekçesiyle DEĞİL.
+5. **Etkileşimli grafikler (hover/click ile değer gösterme) — Plotly'ye
+   geçiş**: GELECEK DEĞERLENDİRME, HENÜZ KARAR VERİLMEDİ. Mevcut mimaride
+   (`st.pyplot` + matplotlib) bu mümkün DEĞİL — `st.pyplot()` figürü
+   sunucu tarafında statik bir PNG'ye render edip tarayıcıya `<img>`
+   olarak gönderir; `mplcursors` gibi kütüphanelerin dayandığı etkileşimli
+   GUI event-loop tarayıcı tarafında yoktur, bu bir kısıt değil mimari bir
+   imkansızlıktır. Gerçek çözüm `st.plotly_chart()` ile Plotly'ye geçmek
+   (native hover tooltip; click-select için ayrıca `streamlit-plotly-
+   events` paketi gerekir) — I/MR/X-bar/R chart + histogram fonksiyonları
+   `plotly.graph_objects` ile yeniden yazılmalı (UCL/LCL çizgileri, OOS
+   segment vurgusu, LCL=0 gölge bandı gibi mantık taşınabilir, veri
+   hazırlama zaten ayrık). PDF export'a etkisi: Plotly figürleri
+   `fig.to_image(format="png")` ile statik PNG'ye çevrilebilir ama bu yeni
+   bir bağımlılık (`kaleido`, `requirements.txt`) gerektirir; kurulunca
+   PDF akışı (bkz. yukarıdaki "PDF export testi") yapısal olarak
+   değişmez — sadece `fig.savefig()` çağrıları `fig.to_image()` ile yer
+   değiştirir. Bilinçli olarak ayrı bir adım: PDF export'un R/MR chart +
+   histogram eksikliği matplotlib ile önce düzeltildi (v1.1.1), Plotly
+   geçişi bunu bir kez daha bozmadan, kendi başına değerlendirilecek.
 
 ### Bilinçli olarak reddedilenler
 
