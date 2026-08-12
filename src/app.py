@@ -1458,22 +1458,71 @@ with tab_data:
 
             st.divider()
 
-            with st.expander("\U0001F4CB Ham verileri goruntule", expanded=False):
+            with st.expander("\U0001F4CB Ham verileri goruntule / duzenle", expanded=False):
                 rows = csv_io.subgroups_to_records(st.session_state.subgroups, is_individual)
                 df = pd.DataFrame(rows)
                 # Sadece GORUNUMU laboratuvar hassasiyetine yuvarlar - alttaki veri
                 # (ve CSV export'u) kullanicinin girdigi tam degerleri korur.
                 numeric_cols = [c for c in df.columns if c not in ("Sira", "Grup", "Vardiya")]
+                derived_cols = {"Ortalama", "Range"} & set(df.columns)  # turetilmis, elle DUZENLENEMEZ
+                index_col = "Sira" if is_individual else "Grup"
                 column_config = {
-                    c: st.column_config.NumberColumn(format=f"%.{decimal_places}f") for c in numeric_cols
+                    c: st.column_config.NumberColumn(
+                        format=f"%.{decimal_places}f", disabled=(c in derived_cols)
+                    )
+                    for c in numeric_cols
                 }
-                st.dataframe(df, use_container_width=True, hide_index=True, column_config=column_config)
+                column_config[index_col] = st.column_config.NumberColumn(disabled=True)
+                if not is_individual:
+                    column_config["Vardiya"] = st.column_config.SelectboxColumn(
+                        options=SHIFT_OPTIONS, required=True
+                    )
 
-                csv = df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "CSV olarak indir", csv,
-                    f"{st.session_state.active_parameter.lower()}_olcumleri.csv", "text/csv",
+                st.caption(
+                    "Hucreleri duzenleyebilir, bir satiri SILEBILIR (satiri secip "
+                    "klavyeden Delete) veya tablonun altindaki '+' ile YENI satir "
+                    "ekleyebilirsiniz - degisiklikler asagidaki 'Degisiklikleri "
+                    "kaydet' butonuna basana kadar UYGULANMAZ (baseline, "
+                    "kaydedilince sifirlanir - veri degistigi icin eski limitler "
+                    "artik gecerli degildir)."
                 )
+                edited_df = st.data_editor(
+                    df, use_container_width=True, hide_index=True, num_rows="dynamic",
+                    column_config=column_config,
+                    key=f"data_editor_{st.session_state.active_parameter}",
+                )
+
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    if st.button("\U0001F4BE Degisiklikleri kaydet", type="primary", key="save_edited_data"):
+                        # Turetilmis sutunlar (Ortalama/Range) parse_uploaded_
+                        # dataframe tarafindan zaten yok sayilir, ama satir
+                        # silme/ekleme sonrasi ESKI (guncel olmayan) degerler
+                        # tasiyabilecekleri icin kafa karistirmasin diye
+                        # onceden cikariliyor.
+                        clean_df = edited_df.drop(columns=[c for c in derived_cols if c in edited_df.columns])
+                        if len(clean_df) == 0:
+                            st.error(
+                                "En az bir satir kalmalidir - tumunu silmek icin "
+                                "yukaridaki 'Tum verileri temizle' butonunu kullanin."
+                            )
+                        else:
+                            new_subgroups, err = csv_io.parse_uploaded_dataframe(
+                                clean_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit
+                            )
+                            if err:
+                                st.error(err)
+                            else:
+                                st.session_state.subgroups = new_subgroups
+                                st.session_state.baseline = None
+                                st.success("Degisiklikler kaydedildi (baseline sifirlandi).")
+                                st.rerun()
+                with ec2:
+                    csv = df.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "CSV olarak indir", csv,
+                        f"{st.session_state.active_parameter.lower()}_olcumleri.csv", "text/csv",
+                    )
 
 # ---------------------------------------------------------------------------
 # SEKME 2: X-bar/R Chart & Cpk
