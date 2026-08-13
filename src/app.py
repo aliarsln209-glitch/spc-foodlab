@@ -2692,6 +2692,77 @@ Detayli kaynak ve dogrulama notlari icin bkz. README.
             """
         )
 
+    # v1.2 Madde 10: Metodolojik SSS - Nelson kurallari ve OOS/OOT ayrimi
+    # kullanicinin kafasini karistirabilecek iki yeni kavram (v1.2 ile
+    # eklendi); statik aciklama, yeni bir formul/mantik icermiyor.
+    with st.container(border=True, key="card-27"):
+        st.subheader("Metodolojik SSS")
+        st.caption(
+            "Nelson kurallari ve OOS/OOT ayrimi, v1.2 ile eklenen ve ilk "
+            "bakista kafa karistirabilecek iki kavram - bu bolum onlari "
+            "aciklar."
+        )
+
+        with st.expander("Nelson kurallari nedir, UCL/LCL asimi yetmiyor mu?"):
+            st.markdown(
+                "UCL/LCL asimi, surecin ANLIK olarak kontrolden ciktigini "
+                "gosterir (tek bir nokta 3σ disina cikmis). Ama bir surec "
+                "hicbir zaman UCL/LCL'yi asmadan da SISTEMATIK bir kaymaya "
+                "girebilir - orn. 9 ardisik nokta merkez cizginin ayni "
+                "tarafinda kalirsa, hicbiri limiti asmasa da bu istatistiksel "
+                "olarak 'rastgele degil' demektir (Nelson, 1984). Bu "
+                "uygulama UCL/LCL asiminin YANI SIRA 3 Nelson kuralini da "
+                "kontrol eder: Test 5 (2/3 nokta 2σ disinda, ayni yonde), "
+                "Test 6 (4/5 nokta 1σ disinda, ayni yonde), Test 2 (9 "
+                "ardisik nokta merkez cizginin ayni tarafinda)."
+            )
+
+        with st.expander("OOS ve OOT ne fark eder?"):
+            st.markdown(
+                "**OOS (Out of Specification):** Ham bir olcumun urunun "
+                "spesifikasyon araligi (LSL/USL) DISINA cikmasi - musteri/"
+                "regulasyon acisindan tanimlanan sinirdir, SPC'den "
+                "BAGIMSIZDIR (spesifikasyon degismedigi surece hep aynidir). "
+                "\n\n"
+                "**OOT (Out of Trend):** Bir alt grubun/noktanin kontrol "
+                "limitlerini (UCL/LCL) asmasi VEYA bir Nelson kuralini "
+                "tetiklemesi - surecin ISTATISTIKSEL olarak beklenmedik "
+                "davrandigini gosterir, spesifikasyondan BAGIMSIZDIR (surec "
+                "ortalamasina ve varyasyonuna gore hesaplanir). "
+                "\n\n"
+                "Bu ikisi **birbirinden bagimsizdir**: bir nokta OOS olup "
+                "OOT olmayabilir (spesifikasyon disi ama surecin normal "
+                "varyasyonu icinde), OOT olup OOS olmayabilir (surec "
+                "istatistiksel olarak beklenmedik ama hala spesifikasyon "
+                "icinde) - ya da ikisi birden olabilir. Uygulama bu ikisini "
+                "AYRI AYRI raporlar, tek bir 'kontrol disi' sayisinda "
+                "birlestirmez."
+            )
+
+        with st.expander("Normallik testi (Shapiro-Wilk) beni engelliyor mu?"):
+            st.markdown(
+                "Hayir. Cpk/Ppk formulleri verinin yaklasik normal dagildigi "
+                "varsayimina dayanir; Shapiro-Wilk testi bu varsayimin ne "
+                "kadar gecerli oldugunu SEFFAF bir sekilde gosterir (p<0.05 "
+                "ise 'veri normal dagilimdan sapiyor olabilir' uyarisi). "
+                "Bu bir KAPI degildir - sonuc normal cikmasa bile Cpk/Ppk "
+                "hesaplanmaya ve gosterilmeye devam eder, sadece yorumlarken "
+                "dikkatli olunmasi gerektigi belirtilir."
+            )
+
+        with st.expander("Ppk, Cpk'dan farkli bir sey mi?"):
+            st.markdown(
+                "Ikisi de ayni USL/LSL formulunu kullanir, tek fark σ̂'in "
+                "nasil hesaplandigidir. **Cpk** kisa vadeli tahmini "
+                "(R̄/d2 veya MR̄/d2) kullanir - alt gruplar ARASI degil, alt "
+                "grup ICI varyasyonu yansitir. **Ppk** tum ham verinin genel "
+                "(N-1 duzeltmeli) standart sapmasini kullanir - hem alt grup "
+                "ici hem alt gruplar arasi varyasyonu icerir. Ppk, Cpk'dan "
+                "belirgin sekilde dusukse, surec zaman icinde kaymis/"
+                "kaymakta olabilir demektir - kisa vadede 'iyi' gorunen bir "
+                "surec uzun vadede kayabilir."
+            )
+
 # ---------------------------------------------------------------------------
 # FOOTER - tum sekmelerin altinda, her zaman gorunur (with tab_x: bloklarinin
 # disinda oldugu icin hangi sekme secili olursa olsun sayfanin en altinda kalir)
