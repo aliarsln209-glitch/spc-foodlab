@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from result_helpers import (
     build_quick_summary,
+    build_trend_nelson_comment,
     compute_trend,
     demo_scenario_targets,
     format_cpk,
@@ -217,6 +218,42 @@ def test_plausibility_multiple_flagged_values_all_listed():
     assert len(warnings) == 2
 
 
+# --- build_trend_nelson_comment (v1.2 Madde 11, PDF yorum cumlesi) --------
+
+def test_trend_nelson_comment_empty_when_nothing_to_report():
+    # trend=None (yetersiz veri VEYA hesaplanmadi) ve Nelson tetiklenmemis -
+    # HICBIR SEY eklenmemeli (bos string)
+    assert build_trend_nelson_comment(None, nelson_triggered=False) == ""
+
+
+def test_trend_nelson_comment_flat_trend_not_reported():
+    # 'sabit' bir trend dikkat cekici degildir - sessizce yok sayilir
+    assert build_trend_nelson_comment(("flat", 0.0), nelson_triggered=False) == ""
+
+
+def test_trend_nelson_comment_mentions_upward_trend():
+    text = build_trend_nelson_comment(("up", 0.5), nelson_triggered=False)
+    assert "yukselen" in text
+    assert "Nelson" not in text
+
+
+def test_trend_nelson_comment_mentions_downward_trend():
+    text = build_trend_nelson_comment(("down", -0.5), nelson_triggered=False)
+    assert "dusen" in text
+
+
+def test_trend_nelson_comment_mentions_nelson_signal():
+    text = build_trend_nelson_comment(None, nelson_triggered=True)
+    assert "Nelson" in text
+    assert "yukselen" not in text and "dusen" not in text
+
+
+def test_trend_nelson_comment_mentions_both_when_present():
+    text = build_trend_nelson_comment(("up", 0.5), nelson_triggered=True)
+    assert "yukselen" in text
+    assert "Nelson" in text
+
+
 def test_plausibility_no_warnings_when_spec_invalid():
     # LSL >= USL (gecersiz spesifikasyon) - kiyaslama anlamsiz, uyari uretilmez
     warnings = measurement_plausibility_warnings(
@@ -245,6 +282,12 @@ if __name__ == "__main__":
     test_demo_scenario_two_sided_product_centers_on_midpoint()
     test_demo_scenario_one_sided_product_centers_below_usl()
     test_demo_scenario_individual_param_shift_defaults_to_three_sigma()
+    test_trend_nelson_comment_empty_when_nothing_to_report()
+    test_trend_nelson_comment_flat_trend_not_reported()
+    test_trend_nelson_comment_mentions_upward_trend()
+    test_trend_nelson_comment_mentions_downward_trend()
+    test_trend_nelson_comment_mentions_nelson_signal()
+    test_trend_nelson_comment_mentions_both_when_present()
     test_plausibility_no_warnings_when_all_within_spec()
     test_plausibility_flags_value_above_usl()
     test_plausibility_flags_value_below_lsl()

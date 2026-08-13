@@ -29,6 +29,8 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from pdf_report import build_pdf_report
 from result_helpers import (
     build_quick_summary,
+    build_trend_nelson_comment,
+    compute_trend,
     demo_scenario_targets,
     format_cpk,
     get_cpk_level,
@@ -2008,7 +2010,7 @@ with tab_chart:
             if spec_valid:
                 imr_quick_summary = build_quick_summary(
                     "olcum", len(values), len(oot_points), oos_raw_count_i, cpk, cpk_label
-                )
+                ) + build_trend_nelson_comment(compute_trend(values), bool(nelson_oot_i))
             else:
                 oot_text = "OOT (kontrol disi) nokta yok" if not oot_points else f"{len(oot_points)} OOT (kontrol disi) nokta var"
                 imr_quick_summary = (
@@ -2308,7 +2310,7 @@ with tab_chart:
             if spec_valid:
                 xbar_quick_summary = build_quick_summary(
                     "alt grup", len(means), len(oot_groups), oos_raw_count_x, cpk, cpk_label
-                )
+                ) + build_trend_nelson_comment(compute_trend(means), bool(nelson_oot_x))
             else:
                 oot_text = "OOT (kontrol disi) nokta yok" if not oot_groups else f"{len(oot_groups)} OOT (kontrol disi) nokta var"
                 xbar_quick_summary = (

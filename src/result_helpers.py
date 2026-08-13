@@ -91,6 +91,38 @@ def build_quick_summary(sample_word: str, n_samples: int, n_oot: int, n_oos: int
     )
 
 
+def build_trend_nelson_comment(trend: tuple[str, float] | None, nelson_triggered: bool) -> str:
+    """v1.2 Madde 11: trend yonu + Nelson sinyaline dayanan kisa yorum
+    cumlesi - build_quick_summary()'nin URETTIGI metne EKLENIR (hem in-app
+    'Ozet' karti hem PDF raporu AYNI quick_summary metnini paylastigi icin
+    bu cumle BURADA uretilip cagiran tarafta birlestirilir, iki ayri yerde
+    tekrar yazilmaz).
+
+    trend=None veya direction='flat' ise trend hakkinda hicbir sey
+    SOYLENMEZ - 'sabit' bir sey rapor edilecek kadar dikkat cekici degildir.
+    nelson_triggered, UCL/LCL asimindan BAGIMSIZ olarak SADECE Nelson
+    oruntu kurallarindan (2/3-2σ, 4/5-1σ, 9-ayni-taraf) en az birinin
+    tetiklenip tetiklenmedigini belirtir - cagiran taraf bunu
+    compute_nelson_oot_indices() sonucundan (UCL/LCL kumesiyle
+    BIRLESTIRILMEDEN once) turetmelidir."""
+    parts = []
+    if trend is not None:
+        direction, _ = trend
+        if direction == "up":
+            parts.append("son noktalarda yukselen bir egilim gozlemleniyor")
+        elif direction == "down":
+            parts.append("son noktalarda dusen bir egilim gozlemleniyor")
+    if nelson_triggered:
+        parts.append(
+            "Nelson kurallarindan biri tetiklendi (oruntu tabanli sinyal - "
+            "tek bir noktanin limit asmasindan farkli olarak surecin "
+            "sistematik bir sapma gosterebilecegine isaret eder)"
+        )
+    if not parts:
+        return ""
+    return " Ayrica " + "; ".join(parts) + "."
+
+
 def demo_scenario_targets(param_config: dict, product_name: str | None) -> tuple[float, float, float]:
     """Secilen demo senaryosuna (urun) gore hedef ortalama, alt grup (R̄) /
     tekli-olcum (sigma) yayilimi ve shift_amount hesaplar. product_name=None
