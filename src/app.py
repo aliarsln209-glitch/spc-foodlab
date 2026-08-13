@@ -35,6 +35,7 @@ from result_helpers import (
     measurement_plausibility_warnings,
 )
 from spc_core import (
+    CONTROL_CHART_CONSTANTS,
     I_CHART_CONSTANT,
     MR_CHART_D2,
     MR_CHART_D4,
@@ -2551,6 +2552,87 @@ with tab_calc:
                 f"Totox kontrolu: {totox_value:.2f} {'<' if totox_ok else '≥'} "
                 f"{TOTOX_LIMIT:.0f} → **{'uygun' if totox_ok else 'sinir disi'}**"
             )
+
+    # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox gibi
+    # session_state.subgroups'a DOKUNMAZ - mevcut compute_xbar_r_limits/
+    # compute_imr_limits fonksiyonlarini dogrudan cagirir (YENI bir formul
+    # YOK, dolayisiyla Method Validation gerekmez - bkz. METHODOLOGY.md v1.2
+    # plani, Madde 9 notu).
+    with st.container(border=True, key="card-26"):
+        st.subheader("Kontrol Limiti Hesaplayici")
+        st.caption(
+            "Elinizde zaten hesaplanmis x̿/R̄ (veya x̄/MR̄) varsa, veri girmeden "
+            "dogrudan UCL/LCL degerlerini hesaplayin. Bu, uygulamanin kendi "
+            "grafik akisiyla AYNI formulleri kullanir - ayri/yeni bir formul "
+            "degildir, sadece tek seferlik bir hesap makinesidir."
+        )
+
+        limit_mode = st.radio(
+            "Grafik turu", ["X-bar / R (alt grup)", "I-MR (tekli olcum)"],
+            key="limit_calc_mode", horizontal=True,
+        )
+
+        if limit_mode == "X-bar / R (alt grup)":
+            lc1, lc2, lc3 = st.columns(3)
+            with lc1:
+                lc_xbb = st.number_input(
+                    "Genel ortalama (x̿)", value=7.0, step=0.01, format="%.4f",
+                    key="limit_calc_xbb",
+                )
+            with lc2:
+                lc_rbar = st.number_input(
+                    "Ortalama alt grup araligi (R̄)", value=0.1, min_value=0.0,
+                    step=0.01, format="%.4f", key="limit_calc_rbar",
+                )
+            with lc3:
+                lc_n = st.selectbox(
+                    "Alt grup buyuklugu (n)", sorted(CONTROL_CHART_CONSTANTS.keys()),
+                    index=1, key="limit_calc_n",
+                )
+            limits = compute_xbar_r_limits(lc_xbb, lc_rbar, lc_n)
+            res1, res2 = st.columns(2)
+            with res1:
+                st.metric("X-bar UCL", f"{limits.ucl_x:.4f}")
+                st.metric("X-bar LCL", f"{limits.lcl_x:.4f}")
+            with res2:
+                st.metric("R UCL", f"{limits.ucl_r:.4f}")
+                st.metric("R LCL", f"{limits.lcl_r:.4f}")
+            with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                st.markdown(
+                    f"A2={limits.a2}, D3={limits.d3}, D4={limits.d4} (n={lc_n})  \n"
+                    f"X-bar UCL/LCL = x̿ ± A2 × R̄ = {lc_xbb:.4f} ± {limits.a2} × {lc_rbar:.4f} "
+                    f"= **{limits.ucl_x:.4f}** / **{limits.lcl_x:.4f}**  \n"
+                    f"R UCL = D4 × R̄ = {limits.d4} × {lc_rbar:.4f} = **{limits.ucl_r:.4f}**  \n"
+                    f"R LCL = D3 × R̄ = {limits.d3} × {lc_rbar:.4f} = **{limits.lcl_r:.4f}**"
+                )
+        else:
+            lc1, lc2 = st.columns(2)
+            with lc1:
+                lc_xbar = st.number_input(
+                    "Genel ortalama (x̄)", value=100.0, step=0.01, format="%.4f",
+                    key="limit_calc_xbar",
+                )
+            with lc2:
+                lc_mrbar = st.number_input(
+                    "Ortalama hareketli aralik (MR̄)", value=2.0, min_value=0.0,
+                    step=0.01, format="%.4f", key="limit_calc_mrbar",
+                )
+            limits = compute_imr_limits(lc_xbar, lc_mrbar)
+            res1, res2 = st.columns(2)
+            with res1:
+                st.metric("I UCL", f"{limits.ucl_i:.4f}")
+                st.metric("I LCL", f"{limits.lcl_i:.4f}")
+            with res2:
+                st.metric("MR UCL", f"{limits.ucl_mr:.4f}")
+                st.metric("MR LCL", f"{limits.lcl_mr:.4f}")
+            with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
+                st.markdown(
+                    f"I UCL/LCL = x̄ ± 2.66 × MR̄ = {lc_xbar:.4f} ± {I_CHART_CONSTANT} × "
+                    f"{lc_mrbar:.4f} = **{limits.ucl_i:.4f}** / **{limits.lcl_i:.4f}**  \n"
+                    f"MR UCL = {MR_CHART_D4} × MR̄ = {MR_CHART_D4} × {lc_mrbar:.4f} "
+                    f"= **{limits.ucl_mr:.4f}**  \n"
+                    f"MR LCL = 0 (sabit)"
+                )
 
 # ---------------------------------------------------------------------------
 # SEKME 4: Hakkinda
