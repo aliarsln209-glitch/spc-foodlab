@@ -1346,16 +1346,64 @@ with tab_data:
             ),
         )
 
+        # v1.2 Madde 12: Demo senaryo galerisi - "Demo senaryosu" (yukarida,
+        # HANGI URUNE gore ortalanacagini secer) ile BAGIMSIZ bir eksen: bu
+        # secim surecin NASIL DAVRANDIGINI (iyi/kayan/degisken/trend) belirler.
+        # Ikisi carpilarak (urun x davranis) kullanilabilir - orn. "Bal" +
+        # "Kayan ortalama" -> Bal'in spesifikasyonu civarinda kalici kayan veri.
+        demo_pattern_labels = {
+            "Ani sicrama (tek nokta)": "point_shift",
+            "Iyi surec (kontrol altinda)": "none",
+            "Kayan ortalama (kalici kayma)": "persistent_shift",
+            "Dusuk Cpk (yuksek degiskenlik)": "high_variation",
+            "Trend (dogrusal kayma)": "trend",
+        }
+        demo_pattern_choice = st.selectbox(
+            "Demo davranis deseni", list(demo_pattern_labels.keys()),
+            key=f"demo_pattern_{st.session_state.active_parameter}",
+            help=(
+                "Surecin demo verisinde NASIL davranacagini secer - Nelson "
+                "kurallarini/dusuk Cpk'yi/trendi gormek icin farkli desenler "
+                "dener. 'Ani sicrama' onceki surumlerin varsayilan demosudur."
+            ),
+        )
+        demo_pattern = demo_pattern_labels[demo_pattern_choice]
+
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
                 scenario_product = None if demo_scenario == "Genel (varsayilan)" else demo_scenario
                 demo_mean, demo_spread, demo_shift_amount = demo_scenario_targets(param_config, scenario_product)
+                # "point_shift" (mevcut varsayilan) TEK bir noktayi carpici
+                # sekilde disari cikarmak icin buyuk bir shift_amount kullanir
+                # (orn. pH icin 0.35 - 3sigma'nin cok uzerinde). "persistent_shift"/
+                # "trend" ise KALICI bir kayma oldugu icin AYNI buyuklukte
+                # kullanilirsa TUM noktalar asiri sekilde disari cikar (manuel
+                # QA'da once denendi: 24/24 nokta hem UCL/LCL hem Nelson ile
+                # isaretleniyordu, Nelson Test 2'nin (9 ardisik) inceligi
+                # kayboluyordu - amac SADECE limit asimini degil, "henuz limit
+                # asmayan ama oruntusel sapma gosteren" durumu da gosterebilmek).
+                # Asagidaki carpanlar/index'ler seed=42 ile deneysel olarak
+                # ayarlandi - cogunlukla Nelson-only bir sinyal, minimal/hic
+                # UCL asimi hedeflenir (bkz. tests/test_demo_data.py, bu
+                # DAVRANIS testlerinde degil sadece yon/genislik kontrol
+                # edilir - kesin sayilar seed'e bagli oldugu icin BURADA
+                # sadece manuel QA ile dogrulanmistir).
+                demo_kwargs = {}
+                if demo_pattern == "persistent_shift":
+                    demo_pattern_shift = demo_spread * (1.8 if is_individual else 0.5)
+                    demo_kwargs["shift_index" if is_individual else "shift_subgroup_index"] = 15 if is_individual else 12
+                elif demo_pattern == "trend":
+                    demo_pattern_shift = demo_spread * (3.0 if is_individual else 1.0)
+                else:
+                    demo_pattern_shift = demo_shift_amount
                 if is_individual:
                     demo_values = generate_demo_individual(
                         target_mean=demo_mean,
                         target_sigma=demo_spread,
-                        shift_amount=demo_shift_amount,
+                        shift_amount=demo_pattern_shift,
+                        pattern=demo_pattern,
+                        **demo_kwargs,
                     )
                     st.session_state.subgroups = [{"shift": "-", "values": [v]} for v in demo_values]
                 else:
@@ -1363,9 +1411,11 @@ with tab_data:
                         subgroup_size=subgroup_n,
                         target_mean=demo_mean,
                         target_r_bar=demo_spread,
-                        shift_amount=demo_shift_amount,
+                        shift_amount=demo_pattern_shift,
+                        pattern=demo_pattern,
                         clip_min=param_config["min_value"],
                         clip_max=param_config["max_value"],
+                        **demo_kwargs,
                     )
                     st.session_state.subgroups = [
                         {"shift": SHIFT_OPTIONS[i % len(SHIFT_OPTIONS)], "values": vals}
