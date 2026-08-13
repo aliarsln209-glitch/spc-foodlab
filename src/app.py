@@ -32,6 +32,7 @@ from result_helpers import (
     demo_scenario_targets,
     format_cpk,
     get_cpk_level,
+    measurement_plausibility_warnings,
 )
 from spc_core import (
     I_CHART_CONSTANT,
@@ -107,6 +108,25 @@ def compute_individual_stats(subgroups):
     return values, moving_ranges, x_bar, mr_bar
 
 
+def resolve_current_spec_hint(param_cfg: dict) -> tuple[float, float, bool]:
+    """su anki (lsl, usl, one_sided) 'tahminini' session_state'ten okur -
+    henuz tab_chart'a hic gidilmemisse veya widget'lar bu run'da render
+    edilmemisse param_cfg'nin varsayilanlarina duser. compute_active_
+    parameter_status() VE render_measurement_plausibility_warning() (Madde
+    8, canli girdi dogrulama) TARAFINDAN AYNI sekilde kullanilir - onceden
+    bu mantik sadece birincisinde tekrarsizdi, ikinci kullanim yeri
+    eklenince ortak fonksiyona cikarildi."""
+    lsl = st.session_state.get("lsl_input", param_cfg["default_lsl"])
+    usl = st.session_state.get("usl_input", param_cfg["default_usl"])
+    selected_product = st.session_state.get("product_select")
+    product_range = param_cfg["products"].get(selected_product)
+    if product_range is not None:
+        one_sided = product_range[0] is None
+    else:
+        one_sided = param_cfg.get("one_sided", False)
+    return lsl, usl, one_sided
+
+
 def compute_active_parameter_status() -> tuple[str, float | None]:
     """Sidebar'daki parametre secici icin: SADECE su an aktif olan parametrenin
     guncel Cpk/Cpu'suna gore ('green'/'red'/'gray') basit bir durum dondurur.
@@ -129,14 +149,7 @@ def compute_active_parameter_status() -> tuple[str, float | None]:
     param_cfg = PARAMETER_CONFIG[active_param]
     is_indiv = param_cfg.get("is_individual", False)
 
-    lsl = st.session_state.get("lsl_input", param_cfg["default_lsl"])
-    usl = st.session_state.get("usl_input", param_cfg["default_usl"])
-    selected_product = st.session_state.get("product_select")
-    product_range = param_cfg["products"].get(selected_product)
-    if product_range is not None:
-        one_sided = product_range[0] is None
-    else:
-        one_sided = param_cfg.get("one_sided", False)
+    lsl, usl, one_sided = resolve_current_spec_hint(param_cfg)
 
     if not is_spec_valid(one_sided, lsl, usl):
         return "gray", None
@@ -1245,6 +1258,23 @@ with tab_data:
 
         with st.form("subgroup_form", clear_on_submit=True):
             default_measurement = param_config["default_measurement"]
+            # Canli girdi dogrulama (v1.2 Madde 8): number_input'un min/max'i
+            # sadece FIZIKSEL siniri (orn. pH 0-14) uygular - urunun kendi
+            # spesifikasyonuna (orn. secili urun icin LSL=6.8/USL=7.2) gore
+            # olagan disi bir deger (orn. yanlislikla 70.1 yazmak) BUNU
+            # yakalayamaz. st.form ICINDEKI widget'lar TUS BASINA rerun
+            # TETIKLEMEDIGI icin (formun butun amaci budur) gercek anlamda
+            # "yazarken" canli bir uyari gosterilemez - bunun yerine (1)
+            # mevcut spesifikasyon araligi burada bir REFERANS olarak
+            # gosterilir, (2) kaydettikten SONRA (asagida) deger(ler)
+            # bu araligin disindaysa engelleyici olmayan bir uyari cikar.
+            _hint_lsl, _hint_usl, _hint_one_sided = resolve_current_spec_hint(param_config)
+            if is_spec_valid(_hint_one_sided, _hint_lsl, _hint_usl):
+                _range_text = f"USL={_hint_usl:g}" if _hint_one_sided else f"{_hint_lsl:g}–{_hint_usl:g}"
+                st.caption(
+                    f"\U00002139️ Mevcut spesifikasyon araligi: {_range_text} {unit} - "
+                    "bu araligin disindaki degerler yine de kaydedilir, sadece uyari gosterilir."
+                )
             if is_individual:
                 # key'e parametre adi dahil edildi: Streamlit, ayni key'e sahip bir
                 # number_input'un onceki gosterilen degerini frontend'de tutar - session_state
@@ -1285,6 +1315,19 @@ with tab_data:
             if submitted:
                 st.session_state.subgroups.append({"shift": shift, "values": measurements})
                 st.success("Olcum eklendi." if is_individual else "Alt grup eklendi.")
+                labeled_values = (
+                    [("Olcum", measurements[0])] if is_individual
+                    else [(f"Olcum {i + 1}", v) for i, v in enumerate(measurements)]
+                )
+                plausibility_warnings = measurement_plausibility_warnings(
+                    labeled_values, _hint_lsl, _hint_usl, _hint_one_sided
+                )
+                if plausibility_warnings:
+                    st.warning(
+                        "Girilen deger(ler) mevcut spesifikasyon araliginin disinda "
+                        "gorunuyor - KAYDEDILDI, yazim hatasi olup olmadigini kontrol edin:  \n"
+                        + "  \n".join(f"- {w}" for w in plausibility_warnings)
+                    )
 
         demo_scenario_options = ["Genel (varsayilan)"] + [
             p for p in param_config["products"] if p != "Ozel/Manuel gir"

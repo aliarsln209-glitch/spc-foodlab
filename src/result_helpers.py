@@ -9,6 +9,8 @@ import'u olmadan pytest ile dogrudan test edilebilmesi (bkz.
 tests/test_result_helpers.py).
 """
 
+from spc_core import is_spec_valid
+
 
 def format_cpk(cpk: float) -> str:
     """Cpk/Cpu metrik gosterimi - r_bar/mr_bar=0 (varyasyon yok) durumunda
@@ -117,3 +119,28 @@ def demo_scenario_targets(param_config: dict, product_name: str | None) -> tuple
     spread = max(span / 8, 1e-6)
     shift_amount = spread * 3
     return mean, spread, shift_amount
+
+
+def measurement_plausibility_warnings(
+    labeled_values: list[tuple[str, float]], lsl: float, usl: float, one_sided: bool
+) -> list[str]:
+    """Girilen olcumlerden MEVCUT spesifikasyon (LSL/USL) araligi disinda
+    kalanlar icin uyari metni uretir - bir HATA/engelleme DEGILDIR, deger
+    yine de kaydedilir (SPC'nin spesifikasyon disi noktalari da GORMESI
+    gerekir). Amac, tipik veri girisi hatalarini (orn. 7.01 yerine
+    yanlislikla 70.1 yazilmasi - pH'in fiziksel araligi olan 0-14'un
+    icinde kaldigi icin number_input'un min/max sinirlamasi bunu YAKALAMAZ,
+    ama urunun spesifikasyonuna gore acikca olagan disidir) YAKALAMAKTIR.
+
+    is_spec_valid() ile LSL/USL GECERSIZSE (orn. henuz urun secilmemis)
+    hicbir uyari uretilmez - boyle bir durumda spesifikasyonun kendisi
+    guvenilir degildir, kiyaslama anlamsiz olur."""
+    if not is_spec_valid(one_sided, lsl, usl):
+        return []
+    warnings = []
+    for label, value in labeled_values:
+        if value > usl:
+            warnings.append(f"{label}={value:g}, mevcut USL'nin ({usl:g}) uzerinde")
+        elif not one_sided and value < lsl:
+            warnings.append(f"{label}={value:g}, mevcut LSL'nin ({lsl:g}) altinda")
+    return warnings

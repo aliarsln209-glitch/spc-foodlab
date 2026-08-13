@@ -19,6 +19,7 @@ from result_helpers import (
     demo_scenario_targets,
     format_cpk,
     get_cpk_level,
+    measurement_plausibility_warnings,
 )
 
 
@@ -174,6 +175,56 @@ def test_demo_scenario_individual_param_shift_defaults_to_three_sigma():
     assert shift == spread * 3
 
 
+# --- measurement_plausibility_warnings (v1.2 Madde 8, canli girdi dogrulama) -
+
+def test_plausibility_no_warnings_when_all_within_spec():
+    warnings = measurement_plausibility_warnings(
+        [("Olcum 1", 7.0), ("Olcum 2", 7.05)], lsl=6.8, usl=7.2, one_sided=False
+    )
+    assert warnings == []
+
+
+def test_plausibility_flags_value_above_usl():
+    warnings = measurement_plausibility_warnings(
+        [("Olcum 1", 7.0), ("Olcum 2", 70.1)], lsl=6.8, usl=7.2, one_sided=False
+    )
+    assert len(warnings) == 1
+    assert "Olcum 2=70.1" in warnings[0]
+    assert "USL" in warnings[0]
+
+
+def test_plausibility_flags_value_below_lsl():
+    warnings = measurement_plausibility_warnings(
+        [("Olcum 1", 6.5)], lsl=6.8, usl=7.2, one_sided=False
+    )
+    assert len(warnings) == 1
+    assert "LSL" in warnings[0]
+
+
+def test_plausibility_one_sided_ignores_lsl_breach():
+    # one_sided=True -> LSL kavrami YOK, dusuk deger asla uyari tetiklememeli
+    warnings = measurement_plausibility_warnings(
+        [("Olcum", 0.0)], lsl=0.0, usl=0.95, one_sided=True
+    )
+    assert warnings == []
+
+
+def test_plausibility_multiple_flagged_values_all_listed():
+    warnings = measurement_plausibility_warnings(
+        [("Olcum 1", 70.1), ("Olcum 2", 7.0), ("Olcum 3", 6.5)],
+        lsl=6.8, usl=7.2, one_sided=False,
+    )
+    assert len(warnings) == 2
+
+
+def test_plausibility_no_warnings_when_spec_invalid():
+    # LSL >= USL (gecersiz spesifikasyon) - kiyaslama anlamsiz, uyari uretilmez
+    warnings = measurement_plausibility_warnings(
+        [("Olcum 1", 100.0)], lsl=7.0, usl=6.0, one_sided=False
+    )
+    assert warnings == []
+
+
 if __name__ == "__main__":
     test_format_cpk_infinite()
     test_format_cpk_normal()
@@ -194,4 +245,10 @@ if __name__ == "__main__":
     test_demo_scenario_two_sided_product_centers_on_midpoint()
     test_demo_scenario_one_sided_product_centers_below_usl()
     test_demo_scenario_individual_param_shift_defaults_to_three_sigma()
+    test_plausibility_no_warnings_when_all_within_spec()
+    test_plausibility_flags_value_above_usl()
+    test_plausibility_flags_value_below_lsl()
+    test_plausibility_one_sided_ignores_lsl_breach()
+    test_plausibility_multiple_flagged_values_all_listed()
+    test_plausibility_no_warnings_when_spec_invalid()
     print("RESULT HELPER TESTLERI GECTI")
