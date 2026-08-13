@@ -378,7 +378,7 @@ genişletmesi, yeni istatistik motoru yok)
   yönetimi, COA yükleme/doğrulama, lot/parti yönetimi, veritabanı — bkz.
   aşağıdaki "Bilinçli olarak reddedilenler".
 
-**v1.2 — Advanced Statistical SPC** (mevcut sürekli-veri motorunun
+**v1.2 — Advanced Statistical SPC ✅ Tamamlandı** (mevcut sürekli-veri motorunun
 genişletilmesi, yeni istatistik ailesi yok — "sadece gerçekten SPC olan
 şeyler")
 - Excel/pano yapıştırma editörü (veri girişi)
