@@ -123,6 +123,31 @@ def build_trend_nelson_comment(trend: tuple[str, float] | None, nelson_triggered
     return " Ayrica " + "; ".join(parts) + "."
 
 
+def build_totox_comment(totox_value: float, anv: float, totox_limit: float, anv_limit: float) -> str:
+    """v1.2 Madde 13 (Totox modulu iyilestirmeleri): genisletilmis yorum +
+    duyarlilik cumlesi - sadece 'uygun/degil' degil, LIMITE NE KADAR
+    yakin/uzak oldugunu da tek satirda ozetler (orn. '%23 pay var' ya da
+    '2.40 birim asildi'). totox_limit=0 (gecersiz konfigurasyon) durumunda
+    yuzde hesaplanamayacagi icin 0.0 kullanilir - ZeroDivisionError'a
+    birakilmaz."""
+    totox_margin = totox_limit - totox_value
+    totox_pct_used = (totox_value / totox_limit * 100) if totox_limit else 0.0
+
+    if totox_value < totox_limit and anv < anv_limit:
+        headroom_pct = max(0.0, 100 - totox_pct_used)
+        return (
+            f"Totox degeri referans sinirinin %{headroom_pct:.0f} altinda "
+            f"({totox_margin:.2f} birim pay var) - GOED/CRN araliginda."
+        )
+
+    reasons = []
+    if totox_value >= totox_limit:
+        reasons.append(f"Totox limiti {abs(totox_margin):.2f} birim asildi")
+    if anv >= anv_limit:
+        reasons.append(f"AnV limiti {anv - anv_limit:.2f} birim asildi")
+    return "Referans araligi disinda: " + "; ".join(reasons) + "."
+
+
 def demo_scenario_targets(param_config: dict, product_name: str | None) -> tuple[float, float, float]:
     """Secilen demo senaryosuna (urun) gore hedef ortalama, alt grup (R̄) /
     tekli-olcum (sigma) yayilimi ve shift_amount hesaplar. product_name=None

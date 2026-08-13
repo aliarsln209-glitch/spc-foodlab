@@ -29,6 +29,7 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from pdf_report import build_pdf_report
 from result_helpers import (
     build_quick_summary,
+    build_totox_comment,
     build_trend_nelson_comment,
     compute_trend,
     demo_scenario_targets,
@@ -2528,21 +2529,56 @@ with tab_chart:
 TOTOX_ANV_LIMIT = 20.0
 TOTOX_LIMIT = 26.0
 
+
+def render_totox_gauge(totox_value: float, totox_limit: float, dark: bool):
+    """v1.2 Madde 13: Totox degerini TEK bir gorselde (ayri KPI karti degil)
+    gosteren birlesik gauge + renkli badge. Yesil/kirmizi bolge sinirin
+    neresinde oldugunu, siyah kesikli cizgi limitin tam yerini, kalin
+    renkli cubuk ise mevcut degeri gosterir - rengi de ayni anda
+    uygun/sinir disi durumunu iletir (ayri bir badge'e ihtiyac kalmadan)."""
+    max_x = max(totox_limit * 1.4, totox_value * 1.15, 1.0)
+    fig, ax = plt.subplots(figsize=(8, 1.1), constrained_layout=True)
+    ax.barh(0, totox_limit, height=0.5, color="#2f9e44", alpha=0.18, zorder=1)
+    ax.barh(0, max_x - totox_limit, left=totox_limit, height=0.5, color="#e03131", alpha=0.14, zorder=1)
+    bar_color = "#2f9e44" if totox_value < totox_limit else "#e03131"
+    ax.barh(0, min(totox_value, max_x), height=0.5, color=bar_color, zorder=2)
+    ax.axvline(totox_limit, color="#495057", linestyle="--", linewidth=1.2, zorder=3)
+    ax.text(totox_limit, 0.34, f"Limit={totox_limit:.0f}", ha="center", fontsize=8, color="#868e96")
+    ax.text(
+        min(totox_value, max_x), -0.42, f"{totox_value:.2f}", ha="center",
+        fontsize=11, fontweight="bold", color=bar_color,
+    )
+    ax.set_xlim(0, max_x)
+    ax.set_ylim(-0.6, 0.55)
+    ax.set_yticks([])
+    ax.set_xticks([])
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    style_chart(fig, ax, dark)
+    ax.grid(False)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    return fig
+
+
 with tab_calc:
     with st.container(border=True, key="card-24"):
         st.subheader("Totox Hesaplayici")
         st.caption(
-            "Totox = 2 × Peroksit Degeri (PV) + Anisidin Degeri (AnV). Bu bir SPC "
-            "kontrol grafigi degildir - tek seferlik bir hesap makinesidir, mevcut "
-            "veri girisi/chart akisindan bagimsizdir ve onu etkilemez."
+            "Bu bir SPC kontrol grafigi degildir - tek seferlik bir hesap "
+            "makinesidir, mevcut veri girisi/chart akisindan bagimsizdir ve "
+            "onu etkilemez."
         )
-        st.caption(
-            "\U0001F3F7️ Kaynak: Schaal firin testi standardi (Wan, 1995). "
-            f"Referans araligi (AnV<{TOTOX_ANV_LIMIT:.0f}, Totox<{TOTOX_LIMIT:.0f}) "
-            "GOED/CRN (Global Organization for EPA and DHA Omega-3s / Council for "
-            "Responsible Nutrition) sektor pratigidir - Turk Gida Kodeksi'nin "
-            "dogrudan bir hukmu DEGILDIR."
-        )
+        st.latex(r"Totox = 2 \times PV + AnV")
+
+        with st.expander("\U0001F3F7️ Kaynaklar"):
+            st.caption(
+                "Kaynak: Schaal firin testi standardi (Wan, 1995). "
+                f"Referans araligi (AnV<{TOTOX_ANV_LIMIT:.0f}, Totox<{TOTOX_LIMIT:.0f}) "
+                "GOED/CRN (Global Organization for EPA and DHA Omega-3s / Council for "
+                "Responsible Nutrition) sektor pratigidir - Turk Gida Kodeksi'nin "
+                "dogrudan bir hukmu DEGILDIR."
+            )
 
         tc1, tc2 = st.columns(2)
         with tc1:
@@ -2570,30 +2606,37 @@ with tab_calc:
         totox_value = 2 * totox_peroxide + totox_anisidine
         anv_ok = totox_anisidine < TOTOX_ANV_LIMIT
         totox_ok = totox_value < TOTOX_LIMIT
+        totox_in_range = anv_ok and totox_ok
 
-        tc3, tc4 = st.columns(2)
-        tc3.metric("Totox Degeri", f"{totox_value:.2f}")
-        tc4.metric("Referans Siniri", f"AnV<{TOTOX_ANV_LIMIT:.0f}, Totox<{TOTOX_LIMIT:.0f}")
+        # Birlesik gauge + renkli badge - ayri bir KPI karti/badge yerine TEK
+        # gorsel (bkz. render_totox_gauge docstring'i): renk hem gauge
+        # cubugunda hem badge'de AYNI anda uygun/sinir disi durumunu tasir.
+        badge_bg, badge_fg, badge_icon, badge_text = (
+            ("#ebfbee", "#2f9e44", "✅", "GOED/CRN referans araliginda")
+            if totox_in_range else
+            ("#fff0f0", "#e03131", "⚠️", "GOED/CRN referans araligi disinda")
+        )
+        st.markdown(
+            f"<div style='background:{badge_bg}; color:{badge_fg}; font-weight:600; "
+            f"border-radius:6px; padding:0.5rem 0.7rem;'>{badge_icon} {badge_text}</div>",
+            unsafe_allow_html=True,
+        )
+        gauge_fig = render_totox_gauge(totox_value, TOTOX_LIMIT, dark)
+        st.pyplot(gauge_fig, use_container_width=True)
+        plt.close(gauge_fig)
 
-        if anv_ok and totox_ok:
-            st.markdown(
-                "<div style='background:#ebfbee; color:#2f9e44; font-weight:600; "
-                "border-radius:6px; padding:0.5rem 0.7rem;'>"
-                "✅ GOED/CRN referans araliginda</div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            reasons = []
-            if not totox_ok:
-                reasons.append(f"Totox={totox_value:.2f} ≥ {TOTOX_LIMIT:.0f}")
-            if not anv_ok:
-                reasons.append(f"AnV={totox_anisidine:.2f} ≥ {TOTOX_ANV_LIMIT:.0f}")
-            st.markdown(
-                "<div style='background:#fff0f0; color:#e03131; font-weight:600; "
-                "border-radius:6px; padding:0.5rem 0.7rem;'>"
-                f"⚠️ GOED/CRN referans araligi disinda ({', '.join(reasons)})</div>",
-                unsafe_allow_html=True,
-            )
+        st.caption(build_totox_comment(totox_value, totox_anisidine, TOTOX_LIMIT, TOTOX_ANV_LIMIT))
+
+        st.dataframe(
+            {
+                "Olcum": ["PV (meq O2/kg)", "AnV", "Totox", "Referans"],
+                "Deger": [
+                    f"{totox_peroxide:.2f}", f"{totox_anisidine:.2f}", f"{totox_value:.2f}",
+                    f"AnV<{TOTOX_ANV_LIMIT:.0f}, Totox<{TOTOX_LIMIT:.0f}",
+                ],
+            },
+            hide_index=True, use_container_width=True,
+        )
 
         with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
             st.markdown(
@@ -2604,6 +2647,30 @@ with tab_calc:
                 f"Totox kontrolu: {totox_value:.2f} {'<' if totox_ok else '≥'} "
                 f"{TOTOX_LIMIT:.0f} → **{'uygun' if totox_ok else 'sinir disi'}**"
             )
+
+        # Session history - v2.0'daki KALICI depolamadan ONCE, sadece bu
+        # oturuma ozel gecici bir liste (sayfa yenilenince/kapatilinca
+        # silinir) - bu acikca belirtilir, kalici bir kayit sistemi gibi
+        # YANLIS bir izlenim verilmez.
+        if "totox_history" not in st.session_state:
+            st.session_state.totox_history = []
+        hist_col1, hist_col2 = st.columns([3, 1])
+        with hist_col2:
+            if st.button("\U0001F4CC Sonucu gecmise ekle", key="totox_add_history"):
+                st.session_state.totox_history.append({
+                    "Zaman": datetime.now().strftime("%H:%M:%S"),
+                    "PV": round(totox_peroxide, 2),
+                    "AnV": round(totox_anisidine, 2),
+                    "Totox": round(totox_value, 2),
+                    "Durum": "Uygun" if totox_in_range else "Sinir disi",
+                })
+        if st.session_state.totox_history:
+            with hist_col1:
+                st.caption(
+                    "⚠️ Bu gecmis SADECE bu oturuma ozeldir - sayfa yenilenince/"
+                    "kapatilinca silinir (kalici depolama v2.0'da eklenecek)."
+                )
+            st.dataframe(st.session_state.totox_history, hide_index=True, use_container_width=True)
 
     # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox gibi
     # session_state.subgroups'a DOKUNMAZ - mevcut compute_xbar_r_limits/

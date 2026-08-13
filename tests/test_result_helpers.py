@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from result_helpers import (
     build_quick_summary,
+    build_totox_comment,
     build_trend_nelson_comment,
     compute_trend,
     demo_scenario_targets,
@@ -254,6 +255,40 @@ def test_trend_nelson_comment_mentions_both_when_present():
     assert "Nelson" in text
 
 
+# --- build_totox_comment (v1.2 Madde 13, Totox modulu iyilestirmeleri) ----
+
+def test_totox_comment_in_range_mentions_headroom():
+    # PV=5, AnV=3 -> Totox=13, limit=26 -> tam %50 pay
+    text = build_totox_comment(totox_value=13.0, anv=3.0, totox_limit=26.0, anv_limit=20.0)
+    assert "%50" in text
+    assert "13.00 birim pay" in text
+    assert "araliginda" in text
+
+
+def test_totox_comment_over_totox_limit_mentions_excess():
+    text = build_totox_comment(totox_value=30.0, anv=3.0, totox_limit=26.0, anv_limit=20.0)
+    assert "Totox limiti 4.00 birim asildi" in text
+    assert "AnV limiti" not in text
+
+
+def test_totox_comment_over_anv_limit_mentions_excess():
+    text = build_totox_comment(totox_value=13.0, anv=22.0, totox_limit=26.0, anv_limit=20.0)
+    assert "AnV limiti 2.00 birim asildi" in text
+
+
+def test_totox_comment_over_both_limits_mentions_both():
+    text = build_totox_comment(totox_value=30.0, anv=22.0, totox_limit=26.0, anv_limit=20.0)
+    assert "Totox limiti" in text
+    assert "AnV limiti" in text
+
+
+def test_totox_comment_zero_limit_does_not_crash():
+    # totox_limit=0 gecersiz bir konfigurasyondur ama ZeroDivisionError
+    # FIRLATILMAMALI - guvenli sekilde "disinda" olarak raporlanir.
+    text = build_totox_comment(totox_value=5.0, anv=1.0, totox_limit=0.0, anv_limit=20.0)
+    assert "Totox limiti" in text
+
+
 def test_plausibility_no_warnings_when_spec_invalid():
     # LSL >= USL (gecersiz spesifikasyon) - kiyaslama anlamsiz, uyari uretilmez
     warnings = measurement_plausibility_warnings(
@@ -288,6 +323,11 @@ if __name__ == "__main__":
     test_trend_nelson_comment_mentions_downward_trend()
     test_trend_nelson_comment_mentions_nelson_signal()
     test_trend_nelson_comment_mentions_both_when_present()
+    test_totox_comment_in_range_mentions_headroom()
+    test_totox_comment_over_totox_limit_mentions_excess()
+    test_totox_comment_over_anv_limit_mentions_excess()
+    test_totox_comment_over_both_limits_mentions_both()
+    test_totox_comment_zero_limit_does_not_crash()
     test_plausibility_no_warnings_when_all_within_spec()
     test_plausibility_flags_value_above_usl()
     test_plausibility_flags_value_below_lsl()
