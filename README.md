@@ -10,8 +10,10 @@ analizi (Cpk/Cpu/Ppk/Pp)** üreten bir Streamlit uygulaması. Bitmiş
 vb.) için ayrı bir **Hammadde QC Referansı** kütüphanesi de içerir (bkz.
 [METHODOLOGY.md](METHODOLOGY.md) "Hammadde Kütüphanesi Genişletmesi").
 v1.2 ile **Nelson kuralları** (örüntü tabanlı sinyaller), **OOS/OOT
-ayrımı**, **Shapiro-Wilk normallik testi** ve daha fazlası eklendi (bkz.
-"v1.2 — Advanced Statistical SPC" bölümü aşağıda).
+ayrımı**, **Shapiro-Wilk normallik testi** ve daha fazlası eklendi; v1.3
+ile **5 mikrobiyoloji parametresi** (log10-CFU, LOD/2 ikamesi, ham/log10
+şeffaflık tablosu) eklendi (bkz. "v1.2 — Advanced Statistical SPC" ve
+"v1.3 — Mikrobiyoloji (kantitatif)" bölümleri aşağıda).
 
 🔗 **Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
@@ -42,9 +44,18 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu/Ppk/Pp, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (164 automated tests across 13 files, plus a data-driven
+  `tests/` (191 automated tests across 14 files, plus a data-driven
   `validation/` folder of reference CSVs, run on every push with
   coverage reporting via GitHub Actions — see badge above).
+- **Microbiology (log10-CFU) parameters** (v1.3): TPC/TMAB, Yeast &
+  Mold, Coliform, Enterobacteriaceae, quantitative *S. aureus* — plate
+  counts are log-normal, so raw CFU/g is never fed directly into the
+  normal-distribution I-MR/Cpk engine; every entry point (manual form,
+  CSV import, paste, edit table, demo data) routes through one
+  centralized `build_subgroup_entry()` that applies the LOD/2
+  below-detection-limit substitution (ICMSF/FDA BAM convention) and the
+  log10 transform, always shown to the user in a raw/log10 transparency
+  table — never applied silently.
 - **Raw material (hammadde) library:** 16 raw materials mapped to the
   relevant subset of the 9 parameters, kept as a clearly separate
   "Raw Material QC Reference" category from finished-product specs — no
@@ -81,11 +92,19 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 | Viskozite | I-MR | cP |
 | Peroksit Değeri | I-MR | meq O2/kg |
 | HMF | I-MR | mg/kg |
+| TPC/TMAB | I-MR (log10) | KOB/g |
+| Küf-Maya | I-MR (log10) | KOB/g |
+| Koliform | I-MR (log10) | KOB/g |
+| Enterobacteriaceae | I-MR (log10) | KOB/g |
+| Kantitatif S. aureus | I-MR (log10) | KOB/g |
 
 Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
 Bal'ın nem spesifikasyonunda sadece üst limit vardır); alt grup büyüklüğü
 (n) sidebar'dan seçilebilir (varsayılan n=4, aralık n=2–10) — detaylı
-mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md).
+mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md). Mikrobiyoloji
+parametreleri (I-MR (log10)) her zaman tek taraflıdır (sadece USL) ve
+grafik/Cpk log10 ölçeğinde hesaplanır — detay için aşağıdaki "v1.3 —
+Mikrobiyoloji (kantitatif)" bölümüne bakın.
 
 "Ürün / Hammadde" seçim listesinde bitmiş ürünlerin yanında 🌾 önekiyle
 16 hammadde de yer alır (her biri sadece ilgili olduğu parametrede
@@ -126,6 +145,32 @@ istatistik ailesi değil — mevcut kontrol grafiği/Cpk motorunun üzerine):
   Trend, Nelson sinyallerini örneklerle göstermek için.
 
 Detaylı madde listesi ve doğrulama notları: [METHODOLOGY.md](METHODOLOGY.md).
+
+## v1.3 — Mikrobiyoloji (kantitatif)
+
+Yeni bir parametre ailesi: **log10-CFU** (TPC/TMAB, Küf-Maya, Koliform,
+Enterobacteriaceae, Kantitatif S. aureus) — mevcut I-MR/Cpk motorunun
+üzerine, yeni bir istatistik ailesi icat edilmeden eklendi:
+
+- **Log10 dönüşüm katmanı** (`src/microbiology.py`, Streamlit'ten
+  bağımsız/pytest ile test edilebilir): mikrobiyal sayımlar log-normal
+  dağılır, ham KOB/g normal-dağılım varsayan I-MR/Cpk'ya doğrudan
+  sokulmaz.
+- **LOD/2 ikamesi** (ICMSF/FDA BAM konvensiyonu): tespit limiti altı
+  ("<10 KOB/g") sonuçlar LOD/2 ile ikame edilir — bu HER ZAMAN bir
+  **ham/log10 şeffaflık tablosunda** (Raw / LOD altı mı / LOD /
+  Kullanılan / log10) açıkça gösterilir, hiçbir zaman sessizce
+  uygulanmaz.
+- **Tek merkezi giriş noktası:** form (LOD altında checkbox'ı), CSV
+  import, Excel/pano yapıştırma (`<10` / `<LOD` öneki), satır düzenleme
+  paneli ve demo veri üretimi — hepsi aynı `build_subgroup_entry()`
+  fonksiyonundan geçer, hiçbirinde tekrarlanan ikame/log10 mantığı yok.
+- Kantitatif S. aureus'un varsayılan LOD'u diğer 4 parametreden
+  yüksektir (100 vs 10 KOB/g) — ISO 6888-1 yönteminin daha düşük
+  duyarlılığı; limit yapısı (tek taraflı/USL) beşinde de aynıdır.
+
+Detaylı doğrulama (elle hesaplanmış referans örnekler) ve kaynaklar:
+[METHODOLOGY.md](METHODOLOGY.md).
 
 ## Hızlı Hesaplayıcılar — Totox
 
@@ -174,6 +219,7 @@ spc-foodlab/
 │   ├── csv_io.py          # CSV/Excel-yapıştırma içe/dışa aktarma: şema doğrulama, hata mesajları, round-trip
 │   ├── pdf_report.py      # Tek sayfalık PDF analiz raporu üretimi
 │   ├── demo_data.py       # Kontrollü simülasyon veri üreteci (5 davranış deseni: iyi/kayan/değişken/trend/nokta-sıçrama)
+│   ├── microbiology.py    # log10-CFU: LOD/2 ikamesi + log10 dönüşümü (build_subgroup_entry - tek merkezi giriş noktası)
 │   └── constants.py       # Sabit yapılandırma (varsayılan n=4, parametre/ürün/kaynak tabloları)
 ├── tests/
 │   ├── test_validation.py        # X-bar/R formül doğrulama testi (pH örneği)
@@ -188,7 +234,8 @@ spc-foodlab/
 │   ├── test_result_helpers.py    # Rozet/trend/özet/Totox-yorumu/demo-senaryosu testleri (result_helpers.py)
 │   ├── test_csv_io.py            # CSV/yapıştırma şema/hata/temizleme + export→import round-trip testleri
 │   ├── test_pdf_report.py        # PDF rapor üretiminin otomatik doğrulanması
-│   └── test_validation_suite.py  # validation/*.csv referans dosyalarını çalıştıran testler
+│   ├── test_validation_suite.py  # validation/*.csv referans dosyalarını çalıştıran testler
+│   └── test_microbiology.py      # LOD/2 ikamesi + log10 dönüşümü + 5 mikrobiyoloji parametresinin PARAMETER_CONFIG smoke testi
 ├── validation/           # Formül doğrulama referans veri seti (bkz. validation/README.md)
 ├── screenshots/         # README ekran görüntüleri
 ├── METHODOLOGY.md       # Formüller, doğrulama, ürün referans kaynakları, sürüm yol haritası

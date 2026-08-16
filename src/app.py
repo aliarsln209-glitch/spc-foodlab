@@ -1,4 +1,4 @@
-"""SPC FoodLab - pH/Brix/Aw/Viskozite Istatistiksel Proses Kontrolu (Streamlit MVP)."""
+"""SPC FoodLab - pH/Brix/Aw/Viskozite/Mikrobiyoloji (log10-CFU) Istatistiksel Proses Kontrolu (Streamlit MVP)."""
 
 import io
 import textwrap
@@ -3031,4 +3031,4 @@ Detayli kaynak ve dogrulama notlari icin bkz. README.
 # disinda oldugu icin hangi sekme secili olursa olsun sayfanin en altinda kalir)
 # ---------------------------------------------------------------------------
 st.divider()
-st.caption(f"SPC FoodLab v1.2 · [GitHub]({GITHUB_URL})")
+st.caption(f"SPC FoodLab v1.3 · [GitHub]({GITHUB_URL})")

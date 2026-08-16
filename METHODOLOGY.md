@@ -203,6 +203,25 @@ R̄/MR̄=0 → ∞/-∞ davranışı `tests/test_cpk_edge_cases.py` ile ayrıca
 doğrulandı (5 test: iki taraflı/tek taraflı × spesifikasyon
 içinde/dışında + normal varyasyon regresyon kontrolü).
 
+### Mikrobiyoloji (log10-CFU, v1.3)
+
+`src/microbiology.py`'deki `substitute_below_lod()`/`to_log10()`
+fonksiyonları ve LOD-sınır uç durumları (`raw=LOD`, `raw=LOD/2`, küçük
+LOD'da negatif log10 sonucu) `tests/test_microbiology.py` ile birim
+seviyesinde test edildi. Ayrıca `validation/microbiology_reference.csv`
+— 5 mikrobiyoloji parametresinin her biri için **bağımsız elle**
+(kodun kendi çıktısına karşı DEĞİL, bilinen log10 sabitleriyle —
+log₁₀2=0.30103, log₁₀3=0.47712, log₁₀5=0.69897 vb.) hesaplanmış birer
+LOD-ikameli worked example — log10-ortalama, ortalama moving range ve
+I-MR (n=2) formülüyle Cpu'yu ±0.001 tolerans içinde doğrular
+(`tests/test_microbiology.py::test_microbiology_reference_csv_matches_pipeline`).
+Ayrıca 5 parametrenin `PARAMETER_CONFIG` girişinin (gerekli anahtarlar,
+tipler, `is_individual`/`one_sided`/`is_microbio` tutarlılığı) doğru
+yüklendiğini doğrulayan bir smoke test seti var. Bu, dış kaynaklı
+(Montgomery/ICMSF worked example) bir doğrulama DEĞİLDİR — `cpk_
+reference.csv`'deki "dahili matematiksel tutarlılık kontrolü" satırlarıyla
+aynı kategoridedir, `validation/README.md`'de böyle etiketlenmiştir.
+
 ## Ürün referans tabloları ve kaynaklar
 
 Her parametredeki "Ürün" seçimi, LSL/USL alanlarını literatür/sektör
@@ -221,6 +240,7 @@ istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 | Viskozite | Prime Resins, Sculpture Supply (teknik viskozite tabloları) | **Tiksotropi uyarısı:** Ketçap, hardal gibi ürünler karıştırma/basınç arttıkça viskozite kaybeder; standardize edilmemiş ölçüm koşulları tutarsız sonuç verebilir |
 | Peroksit Değeri | Codex Alimentarius / IOC (International Olive Council) | Natürel sızma zeytinyağı için ≤20 meq O2/kg; sadece USL anlamlıdır |
 | HMF | TGK Bal Tebliği (≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (sıvı ≤75, katı ≤100 mg/kg), sektör pratiği (meyve suyu konsantresi ≤20 mg/kg) | Sadece USL anlamlıdır |
+| TPC/TMAB, Küf-Maya, Koliform, Enterobacteriaceae, Kantitatif S. aureus | ICMSF genel gıda kategorisi pratiğinden esinlenen GÖSTERGE değerleri (Kantitatif S. aureus için ayrıca ISO 6888-1 yöntem notu) | Sadece USL anlamlıdır, resmi/zorunlu bir TGK limiti DEĞİLDİR. LSL/USL ham KOB/g olarak girilir/gösterilir, Cpk'den önce log10'a çevrilir (bkz. "Mikrobiyoloji (log10-CFU, v1.3)" doğrulama bölümü) |
 
 ## Hammadde Kütüphanesi Genişletmesi (v1.1.1)
 
@@ -445,22 +465,41 @@ AnV/referans aralığı + hesaplama adımları zaten eklendi, bunun üzerine)
 - Session history (uyarı etiketiyle: "bu oturuma özel" — v2.0'daki
   kalıcı depolamadan ÖNCE, session_state-only bir liste)
 
-**v1.3 — Mikrobiyoloji (kantitatif)**
-- Yeni parametre sınıfı: log10-CFU (TPC/TMAB, Küf-Maya, Koliform,
-  Enterobacteriaceae, kantitatif S. aureus) — sayısal, tek taraflı
-  (USL), mevcut I-MR + one_sided altyapısını kullanır.
-- Log10 dönüşüm katmanı: mikrobiyal sayımlar log-normal dağılır
-  (ICMSF, FDA BAM pratiği); ham CFU normal-dağılım varsayan I-MR/Cpk'ya
-  DOĞRUDAN sokulmaz.
-- **Ham/log10 şeffaflık tablosu:** kullanıcıya hem ham CFU hem
-  log10-dönüştürülmüş değer birlikte gösterilir (Batch / Raw CFU/g /
-  log₁₀ CFU/g) — "uygulama veriyi neden değiştirdi?" sorusunu önler.
-- **LOD/LOQ metadata'sı:** tespit limiti altı değerler ("<10 CFU/g")
-  sansürlü veridir; ikame kuralı (örn. LOD/2) kullanıcıya açıkça
-  gösterilir (`LOD = 10 CFU/g, Substitution = LOD/2, Used value = 5`),
-  gizlenmez.
+**v1.3 — Mikrobiyoloji (kantitatif) ✅ Tamamlandı**
+- Yeni parametre sınıfı: log10-CFU — **TPC/TMAB, Küf-Maya, Koliform,
+  Enterobacteriaceae, Kantitatif S. aureus** (5 parametrenin tümü teslim
+  edildi) — sayısal, tek taraflı (USL), mevcut I-MR + `one_sided`
+  altyapısını değiştirmeden kullanır.
+- **Yeni saf mantık modülü** `src/microbiology.py` (Streamlit'ten
+  bağımsız, `spc_core.py`/`nelson_rules.py` ile aynı mimari ilke):
+  `substitute_below_lod()`, `to_log10()`, `build_subgroup_entry()` — bu
+  ÜÇÜNCÜSÜ, TÜM giriş yollarının (form, CSV import, Excel/pano
+  yapıştırma, satır düzenleme paneli, demo veri) geçtiği TEK merkezi
+  inşa noktasıdır; hiçbir yerde inline ikame/log10 mantığı tekrarlanmaz.
+- Log10 dönüşüm katmanı: mikrobiyal sayımlar log-normal dağılır (ICMSF,
+  FDA BAM pratiği); ham CFU normal-dağılım varsayan I-MR/Cpk'ya
+  DOĞRUDAN sokulmaz — `subgroups["values"]` mikrobiyoloji parametreleri
+  için ZATEN log10 değeridir, `spc_core.py`'ye hiçbir değişiklik
+  gerekmedi (grafik/Cpk fonksiyonları parametre-tipinden habersizdir).
+- **Ham/log10 şeffaflık tablosu:** "Ham verileri görüntüle/düzenle"
+  paneli, mikrobiyoloji parametrelerinde Raw (KOB/g) / LOD altı mı /
+  LOD / Kullanılan (KOB/g) / log10 sütunlarını gösterir — "uygulama
+  veriyi neden değiştirdi?" sorusunu önler, aynı zamanda düzenlenebilir
+  (Raw/LOD altı/LOD elle değiştirilir, Kullanılan/log10 türetilmiş
+  olduğu için salt-okunurdur).
+- **LOD/LOQ metadata'sı:** tespit limiti altı değerler sansürlü veridir;
+  ikame kuralı ICMSF/FDA BAM konvensiyonuna göre **LOD/2**'dir, HER ZAMAN
+  yukarıdaki tabloda açıkça gösterilir, gizlenmez. Veri giriş formunda
+  "Bu değer LOD altında" checkbox'ı işaretlenince ham girdi devre dışı
+  kalır; Excel/pano yapıştırmada aynı bilgi `<10` veya `<LOD` metin
+  önekiyle taşınır (regex ile ayrıştırılır, UI'da açıkça belirtilir).
+- **Parametreye özgü fark (kasıtlı, dokümante edildi):** Kantitatif
+  S. aureus'un varsayılan LOD'u (100 KOB/g) diğer 4 parametreden
+  (10 KOB/g) yüksektir — ISO 6888-1 doğrudan yüzey ekimi yöntemi, diğer
+  3 parametrenin tipik dökme plaka yönteminden daha az duyarlıdır. Limit
+  yapısı (tek taraflı/USL) beşinde de AYNIDIR, fark YALNIZCA LOD'dadır.
 - Patojen (Salmonella, Listeria — var/yok) parametreleri BU sürüme
-  dahil edilmez: bunlar kantitatif değildir, Cpk kavramı uygulanamaz
+  dahil edilmedi: bunlar kantitatif değildir, Cpk kavramı uygulanamaz
   (bkz. Extended Roadmap → v2.2).
 
 **v1.4 — Food Quality Parameters** (aynı istatistik motoruyla yeni
