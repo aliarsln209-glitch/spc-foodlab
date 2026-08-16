@@ -26,6 +26,7 @@ from constants import (
     SHIFT_OPTIONS,
 )
 from demo_data import generate_demo_individual, generate_demo_subgroups
+from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from result_helpers import (
     build_quick_summary,
@@ -157,6 +158,14 @@ def compute_active_parameter_status() -> tuple[str, float | None]:
 
     if not is_spec_valid(one_sided, lsl, usl):
         return "gray", None
+
+    if param_cfg.get("is_microbio", False):
+        # LSL/USL widget'lari HAM KOB/g olceginde tutulur (bkz. resolve_current_
+        # spec_hint) ama compute_individual_stats() ASAGIDA zaten log10 degerler
+        # dondurur (subgroups["values"] mikrobiyoloji icin log10'dur) - Cpk'ye
+        # girmeden ONCE usl/lsl'i AYNI olcege (log10) cevirmek gerekir, aksi
+        # halde ham/log olcek karisir ve anlamsiz bir Cpk uretilir.
+        usl = to_log10(usl) if usl > 0 else usl
 
     if is_indiv:
         _, _, center, spread = compute_individual_stats(st.session_state.subgroups)
@@ -311,6 +320,7 @@ unit = param_config["unit"]
 # tum grafik etiketi/tablo/Cpk-adim gosterimi buna gore yuvarlanir.
 decimal_places = param_config["decimal_places"]
 is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
+is_microbio = param_config.get("is_microbio", False)  # True: log10-CFU (TPC/TMAB) - bkz. microbiology.py
 
 if not is_individual:
     with st.sidebar:
@@ -1279,7 +1289,36 @@ with tab_data:
                     f"\U00002139️ Mevcut spesifikasyon araligi: {_range_text} {unit} - "
                     "bu araligin disindaki degerler yine de kaydedilir, sadece uyari gosterilir."
                 )
-            if is_individual:
+            if is_individual and is_microbio:
+                # Mikrobiyoloji: ham KOB/g + "LOD altinda" checkbox + LOD alani.
+                # Checkbox isaretliyken ham input DEVRE DISI kalir (deger LOD/2
+                # ile otomatik ikame edilir, kullanici bir sayi girmek zorunda
+                # DEGILDIR) - substitute_below_lod/to_log10 mantigi burada
+                # YAZILMAZ, kaydederken build_subgroup_entry() cagrilir (bkz.
+                # asagidaki submitted bloğu).
+                below_lod = st.checkbox(
+                    "Bu deger LOD altinda", key=f"below_lod_{st.session_state.active_parameter}",
+                    help="Isaretlenirse ham deger yerine LOD/2 (asagidaki LOD'a gore) kullanilir.",
+                )
+                mcol1, mcol2 = st.columns(2)
+                with mcol1:
+                    raw_val = st.number_input(
+                        f"Olcum ({unit})", min_value=param_config["min_value"],
+                        max_value=param_config["max_value"],
+                        value=default_measurement, step=1.0, format="%.0f",
+                        key=f"m_0_{st.session_state.active_parameter}",
+                        disabled=below_lod,
+                    )
+                with mcol2:
+                    lod_val = st.number_input(
+                        f"LOD ({unit})", min_value=0.01,
+                        value=param_config.get("default_lod", 10.0), step=1.0, format="%.2f",
+                        key=f"lod_{st.session_state.active_parameter}",
+                        help="Tespit limiti - LOD altinda isaretlenirse LOD/2 ikame edilir.",
+                    )
+                measurements = None  # asagida submitted bloğunda build_subgroup_entry ile olusturulur
+                shift = "-"
+            elif is_individual:
                 # key'e parametre adi dahil edildi: Streamlit, ayni key'e sahip bir
                 # number_input'un onceki gosterilen degerini frontend'de tutar - session_state
                 # taraftan silinse bile "value=" ile verilen yeni varsayilani yoksayip eski
@@ -1316,7 +1355,30 @@ with tab_data:
                         )
                         measurements.append(val)
             submitted = st.form_submit_button("Olcumu kaydet" if is_individual else "Alt grubu kaydet")
-            if submitted:
+            if submitted and is_individual and is_microbio:
+                try:
+                    entry = build_subgroup_entry(
+                        raw=None if below_lod else raw_val, is_below_lod=below_lod, lod=lod_val,
+                    )
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state.subgroups.append({
+                        "shift": shift, "values": [entry["log_value"]],
+                        "raw": entry["raw"], "is_below_lod": entry["is_below_lod"], "lod": entry["lod"],
+                    })
+                    st.success("Olcum eklendi.")
+                    if not below_lod:
+                        plausibility_warnings = measurement_plausibility_warnings(
+                            [("Olcum", raw_val)], _hint_lsl, _hint_usl, _hint_one_sided,
+                        )
+                        if plausibility_warnings:
+                            st.warning(
+                                "Girilen deger mevcut spesifikasyon araliginin disinda "
+                                "gorunuyor - KAYDEDILDI, yazim hatasi olup olmadigini kontrol edin:  \n"
+                                + "  \n".join(f"- {w}" for w in plausibility_warnings)
+                            )
+            elif submitted:
                 st.session_state.subgroups.append({"shift": shift, "values": measurements})
                 st.success("Olcum eklendi." if is_individual else "Alt grup eklendi.")
                 labeled_values = (
@@ -1398,7 +1460,35 @@ with tab_data:
                     demo_pattern_shift = demo_spread * (3.0 if is_individual else 1.0)
                 else:
                     demo_pattern_shift = demo_shift_amount
-                if is_individual:
+                if is_individual and is_microbio:
+                    # demo_mean HAM KOB/g'dir (digerleriyle ayni kaynak: demo_
+                    # scenario_targets) - generate_demo_individual'a vermeden
+                    # ONCE log10'a cevrilir; demo_spread (RAW olcekte, urun
+                    # araligina bagli) burada KULLANILMAZ, sabit log10_sigma
+                    # (PARAMETER_CONFIG["demo_target_sigma"]) tercih edilir
+                    # (bkz. constants.py notu). Uretilen log10 seri, HER
+                    # DEGER icin build_subgroup_entry() uzerinden gecirilir
+                    # (raw=10**log_deger, is_below_lod=False) - ayri bir mock
+                    # ikame/log10 mantigi YAZILMAZ.
+                    log_mean = to_log10(demo_mean)
+                    log_sigma = param_config["demo_target_sigma"]
+                    demo_log_values = generate_demo_individual(
+                        target_mean=log_mean,
+                        target_sigma=log_sigma,
+                        shift_amount=demo_pattern_shift / demo_spread * log_sigma if demo_spread else None,
+                        pattern=demo_pattern,
+                        **demo_kwargs,
+                    )
+                    new_subgroups = []
+                    for log_v in demo_log_values:
+                        raw_cfu = max(10 ** log_v, param_config["min_value"])
+                        entry = build_subgroup_entry(raw=raw_cfu, is_below_lod=False, lod=param_config.get("default_lod"))
+                        new_subgroups.append({
+                            "shift": "-", "values": [entry["log_value"]],
+                            "raw": entry["raw"], "is_below_lod": False, "lod": entry["lod"],
+                        })
+                    st.session_state.subgroups = new_subgroups
+                elif is_individual:
                     demo_values = generate_demo_individual(
                         target_mean=demo_mean,
                         target_sigma=demo_spread,
@@ -1472,14 +1562,21 @@ with tab_data:
 
     with st.container(border=True, key="card-03"):
         with st.expander("\U0001F4E4 CSV'den veri yukle", expanded=False):
-            expected_cols = "Sira, Olcum 1" if is_individual else f"Grup, Vardiya, Olcum 1..{subgroup_n}"
+            if is_microbio:
+                expected_cols = "Sira, Raw (KOB/g), LOD altimi (istege bagli), LOD (istege bagli)"
+            elif is_individual:
+                expected_cols = "Sira, Olcum 1"
+            else:
+                expected_cols = f"Grup, Vardiya, Olcum 1..{subgroup_n}"
             st.caption(
                 f"Uygulamanin kendi 'CSV olarak indir' formatiyla uyumlu olmalidir - "
                 f"beklenen sutunlar: **{expected_cols}** (birim: {unit}). "
                 "Yuklenen veri MEVCUT VERININ YERINI ALIR (baseline da sifirlanir)."
             )
 
-            if is_individual:
+            if is_microbio:
+                template_cols = ["Sira", "Raw (KOB/g)", "LOD altimi", "LOD"]
+            elif is_individual:
                 template_cols = ["Sira", "Olcum 1"]
             else:
                 template_cols = ["Grup", "Vardiya"] + [f"Olcum {i + 1}" for i in range(subgroup_n)]
@@ -1521,7 +1618,8 @@ with tab_data:
                             )
 
                         new_subgroups, err = csv_io.parse_uploaded_dataframe(
-                            import_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit
+                            import_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit,
+                            is_microbio=is_microbio, default_lod=param_config.get("default_lod"),
                         )
                         if err:
                             st.error(err)
@@ -1542,6 +1640,11 @@ with tab_data:
                 f"yapistirin (Ctrl+V) - BASLIK SATIRI OLMAMALIDIR, dogrudan sayilar "
                 f"({paste_format_hint}, birim: {unit}). CSV yuklemenin AKSINE mevcut "
                 "veriyi SILMEZ - yapistirilan satirlar mevcut verinin SONUNA EKLENIR."
+                + (
+                    "  \nLOD altindaki bir olcum icin sayi yerine **'<10'** (LOD degeri, "
+                    "orn. 10) veya **'<LOD'** yazin - otomatik olarak LOD/2 ile ikame edilir."
+                    if is_microbio else ""
+                )
             )
             paste_placeholder = (
                 "7.01\n7.02\n6.99"
@@ -1560,7 +1663,8 @@ with tab_data:
                     st.error("Once Excel'den kopyaladiginiz veriyi yukaridaki alana yapistirin.")
                 else:
                     new_rows, err = csv_io.parse_pasted_text(
-                        pasted_text, is_individual, subgroup_n, SHIFT_OPTIONS, unit
+                        pasted_text, is_individual, subgroup_n, SHIFT_OPTIONS, unit,
+                        is_microbio=is_microbio, default_lod=param_config.get("default_lod"),
                     )
                     if err:
                         st.error(err)
@@ -1594,25 +1698,49 @@ with tab_data:
 
             st.divider()
 
-            with st.expander("\U0001F4CB Ham verileri goruntule / duzenle", expanded=False):
-                rows = csv_io.subgroups_to_records(st.session_state.subgroups, is_individual)
+            with st.expander(
+                "\U0001F4CB Ham/log10 seffaflik tablosu - goruntule / duzenle" if is_microbio
+                else "\U0001F4CB Ham verileri goruntule / duzenle", expanded=False,
+            ):
+                rows = csv_io.subgroups_to_records(st.session_state.subgroups, is_individual, is_microbio=is_microbio)
                 df = pd.DataFrame(rows)
-                # Sadece GORUNUMU laboratuvar hassasiyetine yuvarlar - alttaki veri
-                # (ve CSV export'u) kullanicinin girdigi tam degerleri korur.
-                numeric_cols = [c for c in df.columns if c not in ("Sira", "Grup", "Vardiya")]
-                derived_cols = {"Ortalama", "Range"} & set(df.columns)  # turetilmis, elle DUZENLENEMEZ
                 index_col = "Sira" if is_individual else "Grup"
-                column_config = {
-                    c: st.column_config.NumberColumn(
-                        format=f"%.{decimal_places}f", disabled=(c in derived_cols)
+                if is_microbio:
+                    # "Kullanilan (KOB/g)" ve "log10" TURETILMIS (LOD ikamesi +
+                    # log10 donusumunun sonucu) - elle DUZENLENEMEZ, sadece
+                    # seffaflik icin gosterilir. Duzenlenebilir tek alanlar
+                    # Raw/LOD altimi/LOD'dir - kaydedince ayni build_subgroup_
+                    # entry() zinciri (parse_uploaded_dataframe) yeniden calisir.
+                    derived_cols = {"Kullanilan (KOB/g)", "log10"}
+                    column_config = {
+                        "Raw (KOB/g)": st.column_config.NumberColumn(format="%.0f"),
+                        "LOD altimi": st.column_config.CheckboxColumn(),
+                        "LOD": st.column_config.NumberColumn(format="%.2f"),
+                        "Kullanilan (KOB/g)": st.column_config.NumberColumn(format="%.2f", disabled=True),
+                        "log10": st.column_config.NumberColumn(format="%.3f", disabled=True),
+                        index_col: st.column_config.NumberColumn(disabled=True),
+                    }
+                    st.caption(
+                        "**Kullanilan (KOB/g)** ve **log10**, LOD ikamesi/log10 donusumunun "
+                        "SONUCUDUR - dogrudan duzenlenemez; degistirmek icin Raw/LOD "
+                        "altimi/LOD sutunlarini duzenleyip kaydedin."
                     )
-                    for c in numeric_cols
-                }
-                column_config[index_col] = st.column_config.NumberColumn(disabled=True)
-                if not is_individual:
-                    column_config["Vardiya"] = st.column_config.SelectboxColumn(
-                        options=SHIFT_OPTIONS, required=True
-                    )
+                else:
+                    # Sadece GORUNUMU laboratuvar hassasiyetine yuvarlar - alttaki veri
+                    # (ve CSV export'u) kullanicinin girdigi tam degerleri korur.
+                    numeric_cols = [c for c in df.columns if c not in ("Sira", "Grup", "Vardiya")]
+                    derived_cols = {"Ortalama", "Range"} & set(df.columns)  # turetilmis, elle DUZENLENEMEZ
+                    column_config = {
+                        c: st.column_config.NumberColumn(
+                            format=f"%.{decimal_places}f", disabled=(c in derived_cols)
+                        )
+                        for c in numeric_cols
+                    }
+                    column_config[index_col] = st.column_config.NumberColumn(disabled=True)
+                    if not is_individual:
+                        column_config["Vardiya"] = st.column_config.SelectboxColumn(
+                            options=SHIFT_OPTIONS, required=True
+                        )
 
                 st.caption(
                     "Hucreleri duzenleyebilir, bir satiri SILEBILIR (satiri secip "
@@ -1644,7 +1772,8 @@ with tab_data:
                             )
                         else:
                             new_subgroups, err = csv_io.parse_uploaded_dataframe(
-                                clean_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit
+                                clean_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit,
+                                is_microbio=is_microbio, default_lod=param_config.get("default_lod"),
                             )
                             if err:
                                 st.error(err)
@@ -1899,6 +2028,21 @@ with tab_chart:
                     "Alt limit ust limitten kucuk olmalidir - asagidaki Cpk/kontrol "
                     "semasi sonuclari bu duzeltilene kadar anlamsizdir."
                 )
+
+        if is_microbio:
+            # KRITIK: lsl/usl widget'lari (yukarida) HAM KOB/g olceginde
+            # girilir/gosterilir, ama subgroups["values"] (compute_individual_
+            # stats -> values/x_bar/mr_bar) ZATEN log10'dur (bkz. build_
+            # subgroup_entry). Bu blok ASAGIDAKI TUM chart/Cpk/OOS/histogram
+            # kodu (satirin sonuna kadar, is_individual dalinin ICINDE) log10
+            # olcekte calisir - lsl/usl'i BURADA (widget'in session_state
+            # degerini DEGIL, sadece bu run'daki YEREL degiskeni) log10'a
+            # ceviriyoruz. st.session_state.lsl_input/usl_input HAM kalir,
+            # widget bir sonraki run'da yine HAM KOB/g gosterir.
+            usl = to_log10(usl) if usl > 0 else usl
+            lsl = to_log10(lsl) if lsl > 0 else lsl  # one_sided=True oldugu icin kullanilmiyor, tutarlilik icin
+            unit = param_config.get("log_axis_label", unit)
+            decimal_places = param_config.get("log_decimal_places", decimal_places)
 
         st.write("")
 

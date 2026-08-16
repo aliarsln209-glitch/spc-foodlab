@@ -12,7 +12,10 @@ import re
 
 import pandas as pd
 
+from microbiology import build_subgroup_entry
+
 _DECIMAL_COMMA_RE = re.compile(r"^-?\d+,\d+$")
+_BELOW_LOD_PASTE_RE = re.compile(r"^<\s*(LOD|[\d.,]+)$", re.IGNORECASE)
 
 
 def _find_first_bad_value(raw_series: pd.Series, numeric_series: pd.Series) -> tuple[int, str] | None:
@@ -83,15 +86,33 @@ def count_duplicate_rows(df: pd.DataFrame) -> int:
     return int(df.duplicated().sum())
 
 
-def subgroups_to_records(subgroups: list[dict], is_individual: bool) -> list[dict]:
+def subgroups_to_records(subgroups: list[dict], is_individual: bool, is_microbio: bool = False) -> list[dict]:
     """Session state formatindaki subgroups listesini CSV/tablo satirlarina
     cevirir - hem 'Ham verileri goruntule' tablosunda hem CSV export'ta
     kullanilan TEK ortak fonksiyon (onceden ikisi de app.py icinde ayri
-    ayri elle olusturuluyordu)."""
+    ayri elle olusturuluyordu).
+
+    is_microbio=True (yalnizca is_individual=True ile birlikte anlamlidir):
+    'Olcum 1' yerine Raw/LOD altimi/LOD/log10 sutunlari uretilir - "values"
+    icindeki tek eleman ZATEN log10 degeridir (bkz. app.py'nin subgroup
+    dict'e ek olarak tuttugu 'raw'/'is_below_lod'/'lod' anahtarlari),
+    kullaniciya HAM KOB/g ve log10'u YAN YANA gosterip seffafligi korur."""
     rows = []
     for i, sg in enumerate(subgroups, start=1):
         vals = sg["values"]
-        if is_individual:
+        if is_individual and is_microbio:
+            is_below = sg.get("is_below_lod", False)
+            lod = sg.get("lod")
+            used_value = (lod / 2) if (is_below and lod is not None) else sg.get("raw")
+            rows.append({
+                "Sira": i,
+                "Raw (KOB/g)": sg.get("raw"),
+                "LOD altimi": is_below,
+                "LOD": lod,
+                "Kullanilan (KOB/g)": used_value,
+                "log10": vals[0],
+            })
+        elif is_individual:
             rows.append({
                 "Sira": i,
                 **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
@@ -107,15 +128,65 @@ def subgroups_to_records(subgroups: list[dict], is_individual: bool) -> list[dic
     return rows
 
 
+def _parse_microbio_dataframe(df: pd.DataFrame, unit: str, default_lod: float | None) -> tuple[list[dict] | None, str | None]:
+    """parse_uploaded_dataframe'in is_microbio=True dali - 'Raw (KOB/g)'
+    sutununu (yoksa 'Olcum 1'i HAM KOB/g olarak) okur, opsiyonel 'LOD altimi'
+    (bool-benzeri: True/False, Evet/Hayir) ve 'LOD' sutunlarini kullanir.
+    Sutun yoksa is_below_lod=False / lod=default_lod varsayilir. Asil
+    ikame/log10 mantigi burada YAZILMAZ - microbiology.build_subgroup_entry
+    cagrilir (TEK merkezi insa noktasi)."""
+    raw_col = "Raw (KOB/g)" if "Raw (KOB/g)" in df.columns else "Olcum 1"
+    if raw_col not in df.columns:
+        return None, (
+            "Beklenen sutun bulunamadi: mikrobiyoloji parametreleri icin 'Raw (KOB/g)' "
+            "(veya 'Olcum 1') sutunu gereklidir. CSV'deki sutunlar: "
+            f"{', '.join(df.columns) or '(sutun yok)'}."
+        )
+
+    below_col = next((c for c in df.columns if c.lower() in ("lod altimi", "is_below_lod")), None)
+    lod_col = next((c for c in df.columns if c.lower() == "lod"), None)
+
+    subgroups = []
+    for i in range(len(df)):
+        raw_cell = df[raw_col].iloc[i]
+        is_below = False
+        if below_col is not None:
+            below_cell = df[below_col].iloc[i]
+            is_below = str(below_cell).strip().lower() in ("true", "1", "evet", "yes")
+        lod = default_lod
+        if lod_col is not None and pd.notna(df[lod_col].iloc[i]):
+            lod = float(df[lod_col].iloc[i])
+
+        raw_val = None if (is_below or pd.isna(raw_cell)) else float(raw_cell)
+        try:
+            entry = build_subgroup_entry(raw=raw_val, is_below_lod=is_below, lod=lod)
+        except ValueError as exc:
+            return None, f"{i + 1}. satir: {exc}"
+        subgroups.append({
+            "shift": "-", "values": [entry["log_value"]],
+            "raw": entry["raw"], "is_below_lod": entry["is_below_lod"], "lod": entry["lod"],
+        })
+    return subgroups, None
+
+
 def parse_uploaded_dataframe(
-    df: pd.DataFrame, is_individual: bool, subgroup_n: int, shift_options: list[str], unit: str = ""
+    df: pd.DataFrame, is_individual: bool, subgroup_n: int, shift_options: list[str], unit: str = "",
+    is_microbio: bool = False, default_lod: float | None = None,
 ) -> tuple[list[dict] | None, str | None]:
     """CSV'den okunan DataFrame'i subgroups formatina (session_state.subgroups
     ile ayni sekil) cevirir. Basarili olursa (subgroups, None), basarisiz
     olursa (None, kullaniciya gosterilecek Turkce hata mesaji) dondurur.
     'Ortalama'/'Range' gibi export'ta bulunan ama 'Olcum' ile baslamayan
     ekstra sutunlar yok sayilir - export edilen bir dosyanin aynen geri
-    yuklenebilmesi (round-trip) bu yuzden calisir, bkz. tests/test_csv_io.py."""
+    yuklenebilmesi (round-trip) bu yuzden calisir, bkz. tests/test_csv_io.py.
+
+    is_microbio=True (sadece is_individual=True ile birlikte kullanilir):
+    HAM KOB/g + opsiyonel LOD-altmi/LOD sutunlarini okuyup
+    microbiology.build_subgroup_entry uzerinden gecirir - bkz.
+    _parse_microbio_dataframe."""
+    if is_individual and is_microbio:
+        return _parse_microbio_dataframe(df, unit, default_lod)
+
     measurement_cols = [c for c in df.columns if c.startswith("Olcum")]
     expected_count = 1 if is_individual else subgroup_n
 
@@ -174,7 +245,8 @@ def _parse_pasted_float(raw: str, unit: str, line_no: int, col_no: int) -> tuple
 
 
 def parse_pasted_text(
-    text: str, is_individual: bool, subgroup_n: int, shift_options: list[str], unit: str = ""
+    text: str, is_individual: bool, subgroup_n: int, shift_options: list[str], unit: str = "",
+    is_microbio: bool = False, default_lod: float | None = None,
 ) -> tuple[list[dict] | None, str | None]:
     """Excel/pano'dan kopyalanan HAM (basliksiz) veriyi subgroups formatina
     cevirir - parse_uploaded_dataframe'in aksine "Olcum N" basligi ARANMAZ:
@@ -212,6 +284,34 @@ def parse_pasted_text(
         if len(fields) == 1 and "," in line and not _DECIMAL_COMMA_RE.match(line.strip()):
             fields = line.split(",")
         fields = [f.strip() for f in fields]
+
+        if is_individual and is_microbio:
+            if len(fields) != 1:
+                return None, (
+                    f"{line_no}. satirda {len(fields)} deger bulundu, 1 bekleniyor "
+                    f"(her satir tek bir {unit} olcumudur - LOD altindaki degerler icin "
+                    "'<10' veya '<LOD' yazin)."
+                )
+            token = fields[0]
+            below_match = _BELOW_LOD_PASTE_RE.match(token)
+            if below_match:
+                captured = below_match.group(1)
+                lod = default_lod if captured.upper() == "LOD" else float(captured.replace(",", "."))
+                raw_val, is_below = None, True
+            else:
+                num_val, err = _parse_pasted_float(token, unit, line_no, 1)
+                if err:
+                    return None, err
+                raw_val, is_below, lod = num_val, False, default_lod
+            try:
+                entry = build_subgroup_entry(raw=raw_val, is_below_lod=is_below, lod=lod)
+            except ValueError as exc:
+                return None, f"{line_no}. satir: {exc}"
+            subgroups.append({
+                "shift": "-", "values": [entry["log_value"]],
+                "raw": entry["raw"], "is_below_lod": entry["is_below_lod"], "lod": entry["lod"],
+            })
+            continue
 
         if is_individual:
             if len(fields) != 1:

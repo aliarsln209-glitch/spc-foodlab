@@ -20,6 +20,11 @@ PARAMETER_DESCRIPTIONS = {
     "Titrasyon Asitligi": "Titre edilebilir toplam asitlik (%). pH'tan farkli, toplam asit miktarini olcer.",
     "Peroksit Degeri": "Yaglarda oksidatif bozulma gostergesi (meq O2/kg). Tek tek olculur, tek tarafli.",
     "HMF": "Isil islem/depolama sirasinda olusan bozulma belirteci (mg/kg). Tek tek olculur, tek tarafli.",
+    "TPC/TMAB": "Toplam canli bakteri sayimi (KOB/g). Log-normal dagilir - grafik/Cpk log10 olceginde hesaplanir.",
+    "Kuf-Maya": "Kuf ve maya sayimi (KOB/g). Log-normal dagilir - grafik/Cpk log10 olceginde hesaplanir.",
+    "Koliform": "Genel hijyen/proses kontrol gostergesi (KOB/g). Log-normal dagilir - grafik/Cpk log10 olceginde hesaplanir.",
+    "Enterobacteriaceae": "Fekal/cevresel kontaminasyon gostergesi (KOB/g). Log-normal dagilir - grafik/Cpk log10 olceginde hesaplanir.",
+    "Kantitatif S. aureus": "Staphylococcus aureus sayimi (KOB/g). Log-normal dagilir - grafik/Cpk log10 olceginde hesaplanir.",
 }
 
 # "Parametre Bilgi Karti" (tab_chart ustunde) icin daha uzun (2-3 cumle)
@@ -76,6 +81,45 @@ PARAMETER_INFO = {
         "sirasinda sekerlerin bozunmasiyla olusan bir belirtectir. Yuksek "
         "HMF, asiri isil islem veya kotu depolama kosullarina isaret eder."
     ),
+    "TPC/TMAB": (
+        "TPC/TMAB (Toplam Canli Sayim / Toplam Mezofilik Aerobik Bakteri), "
+        "bir numunedeki genel mikrobiyal yuku KOB/g (koloni olusturan "
+        "birim/gram) cinsinden olcer. Mikrobiyal sayimlar log-normal "
+        "dagildigindan HAM deger yerine log10-donusturulmus deger uzerinden "
+        "SPC/Cpk hesaplanir - bkz. asagidaki 'Ham/log10 seffaflik tablosu'. "
+        "LOD (tespit limiti) altindaki sonuclar ICMSF/FDA BAM konvensiyonuna "
+        "gore LOD/2 ile ikame edilir, bu ikame HER ZAMAN acikca gosterilir."
+    ),
+    "Kuf-Maya": (
+        "Kuf-Maya sayimi, bir numunedeki kuf ve maya yukunu KOB/g cinsinden "
+        "olcer - yuksek Kuf-Maya, urunun raf omru/depolama kosullariyla "
+        "ilgili bir bozulma riskine isaret eder. TPC/TMAB ile AYNI mimari: "
+        "log10-donusturulmus deger uzerinden SPC/Cpk hesaplanir, LOD-alti "
+        "sonuclar LOD/2 ile ikame edilir (bkz. 'Ham/log10 seffaflik tablosu')."
+    ),
+    "Koliform": (
+        "Koliform sayimi (KOB/g), genel hijyen/proses kontrolunun bir "
+        "gostergesidir - dogrudan bir patojen olmasa da yuksek koliform "
+        "sayisi uretim hijyeninde bir sorunun isareti olabilir. TPC/TMAB "
+        "ile AYNI mimari: log10-donusturulmus deger uzerinden SPC/Cpk "
+        "hesaplanir, LOD-alti sonuclar LOD/2 ile ikame edilir."
+    ),
+    "Enterobacteriaceae": (
+        "Enterobacteriaceae sayimi (KOB/g), Koliform'dan daha genis bir "
+        "bakteri ailesini kapsayan bir fekal/cevresel kontaminasyon "
+        "gostergesidir. TPC/TMAB ile AYNI mimari: log10-donusturulmus "
+        "deger uzerinden SPC/Cpk hesaplanir, LOD-alti sonuclar LOD/2 ile "
+        "ikame edilir."
+    ),
+    "Kantitatif S. aureus": (
+        "Kantitatif S. aureus sayimi (KOB/g), Staphylococcus aureus "
+        "yukunu olcer - yuksek sayilar hem urun guvenligi hem de uretim "
+        "hijyeni acisindan onemlidir. TPC/TMAB ile AYNI mimari (log10-"
+        "donusturulmus deger, LOD/2 ikamesi); TEK fark, tipik LOD'unun "
+        "diger 3 mikrobiyoloji parametresine gore DAHA YUKSEK olmasidir "
+        "(ISO 6888-1 dogrudan yuzey ekimi yontemi, dokme plaka yontemine "
+        "gore daha az duyarlidir - bkz. constants.py PRODUCT_RANGES notu)."
+    ),
 }
 
 # "Kaynak Rozeti" (urun secildikten sonra LSL/USL'in dayandigi kaynagin kisa
@@ -90,6 +134,10 @@ PARAMETER_CATEGORIES = [
     ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite"]),
     ("kimyasal", "\U00002697\U0000FE0F Kimyasal Kompozisyon", ["Nem/Rutubet", "Tuz/NaCl", "Titrasyon Asitligi"]),
     ("oksidasyon", "\U0001F6E2\U0000FE0F Oksidasyon/Bozulma", ["Peroksit Degeri", "HMF"]),
+    (
+        "mikrobiyoloji", "\U0001F9A0 Mikrobiyoloji (kantitatif)",
+        ["TPC/TMAB", "Kuf-Maya", "Koliform", "Enterobacteriaceae", "Kantitatif S. aureus"],
+    ),
 ]
 
 PARAMETER_SOURCES = {
@@ -102,6 +150,11 @@ PARAMETER_SOURCES = {
     "Viskozite": "Prime Resins, Sculpture Supply (teknik viskozite tablolari)",
     "Peroksit Degeri": "Codex Alimentarius / IOC (International Olive Council)",
     "HMF": "TGK Bal Tebligi, TGK Uzum Pekmezi Tebligi, sektor pratigi",
+    "TPC/TMAB": "ICMSF (International Commission on Microbiological Specifications for Foods) genel pratigi",
+    "Kuf-Maya": "ICMSF genel pratigi",
+    "Koliform": "ICMSF genel pratigi",
+    "Enterobacteriaceae": "ICMSF genel pratigi",
+    "Kantitatif S. aureus": "ICMSF genel pratigi, ISO 6888-1 yontem notu",
 }
 
 # Gosterge amacli pH araligi (LSL, USL). Kaynak: Oklahoma State University
@@ -264,6 +317,69 @@ HMF_PRODUCT_RANGES = {
     "Pekmez (sivi)": (None, 75.0),  # TGK Uzum Pekmezi Tebligi
     "Pekmez (kati)": (None, 100.0),  # TGK Uzum Pekmezi Tebligi
     "Meyve suyu (konsantre)": (None, 20.0),  # genel sektor pratigi
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli TPC/TMAB (Toplam Canli Sayim / Toplam Mezofilik Aerobik
+# Bakteri, KOB/g - koloni olusturan birim) UST limiti. Mikrobiyal sayimlar
+# LOG-NORMAL dagildigindan, LSL/USL burada HAM KOB/g olarak (kullaniciya
+# tanidik olceke) tutulur - Cpk hesabindan ONCE app.py bunlari log10'a
+# cevirir (bkz. PARAMETER_CONFIG["TPC/TMAB"]["is_microbio"] ve
+# src/microbiology.py). Sadece USL anlamlidir (alt limit kavrami yoktur -
+# az bakteri her zaman iyidir). Kaynak: ICMSF (International Commission on
+# Microbiological Specifications for Foods) genel gida kategorisi
+# pratiginden esinlenen GOSTERGE degerleri - resmi/zorunlu bir TGK limiti
+# DEGILDIR, kullanici kendi spesifikasyonuna gore degistirmelidir.
+TPC_TMAB_PRODUCT_RANGES = {
+    "Pastorize sut": (None, 20000.0),
+    "Cig kirmizi et (parekende)": (None, 1000000.0),
+    "Hazir yemek (sogutulmus)": (None, 100000.0),
+    "Meyve suyu (pastorize)": (None, 100.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli Kuf-Maya (KOB/g) UST limiti. TPC/TMAB ile AYNI mimari/
+# ayni desen (bkz. yukaridaki not) - sadece USL anlamlidir, log10 donusumu
+# app.py'de yapilir. Kaynak: ICMSF genel pratigi.
+YEAST_MOLD_PRODUCT_RANGES = {
+    "Yogurt": (None, 100.0),
+    "Recel/marmelat": (None, 1000.0),
+    "Meyve suyu (pastorize)": (None, 100.0),
+    "Baharat/kuru gida": (None, 10000.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli Koliform (KOB/g) UST limiti - genel hijyen/proses
+# kontrol gostergesidir (dogrudan patojen degil). Ayni mimari/desen.
+COLIFORM_PRODUCT_RANGES = {
+    "Pastorize sut": (None, 10.0),
+    "Icme suyu/proses suyu": (None, 1.0),
+    "Hazir yemek (sogutulmus)": (None, 100.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli Enterobacteriaceae (KOB/g) UST limiti - Koliform'dan
+# daha genis bir aile (fekal/cevresel kontaminasyonun genel gostergesi).
+# Ayni mimari/desen.
+ENTEROBACTERIACEAE_PRODUCT_RANGES = {
+    "Pastorize sut": (None, 10.0),
+    "Hazir yemek (sogutulmus)": (None, 100.0),
+    "Toz formul/bebek maması": (None, 3.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Gosterge amacli KANTITATIF S. aureus (KOB/g) UST limiti. DIGER 3
+# mikrobiyoloji parametresiyle AYNI mimariyi (one_sided=True, sadece USL,
+# log10 donusumu) kullanir - TEK fark, TIPIK LOD'unun daha YUKSEK olmasidir
+# (bkz. PARAMETER_CONFIG["Kantitatif S. aureus"]["default_lod"] notu):
+# yontem farkindan kaynaklanir (ISO 6888-1 dogrudan yuzey ekimi, TPC/Kuf-
+# Maya/Koliform/Enterobacteriaceae'nin tipik dokme plaka yontemine gore
+# daha az duyarlidir). Limit yapisi (one_sided/two_sided) AYNIDIR, FARKLI
+# DEGILDIR.
+STAPH_AUREUS_PRODUCT_RANGES = {
+    "Hazir yemek (sogutulmus)": (None, 100.0),
+    "Peynir (olgunlasmamis)": (None, 1000.0),
+    "Et urunleri (isil islem gormus)": (None, 100.0),
     "Ozel/Manuel gir": None,
 }
 
@@ -590,5 +706,116 @@ PARAMETER_CONFIG = {
         "demo_target_sigma": 3.0,
         "one_sided": True,
         "is_individual": True,
+    },
+    "TPC/TMAB": {
+        "unit": "KOB/g",
+        # min_value=1.0 (0 DEGIL): 0 KOB/g log10-tanimsizdir (log10(0) yok) -
+        # gercek "hic bakteri tespit edilemedi" durumu HAM SIFIR olarak degil,
+        # "Bu deger LOD altinda" checkbox'i ile ayrica modellenir (bkz.
+        # src/microbiology.py substitute_below_lod).
+        "min_value": 1.0,
+        "max_value": 10_000_000.0,
+        "decimal_places": 0,  # ham KOB/g tam sayidir; log10 goruntusu ayri decimal_places (asagida) kullanir
+        "products": TPC_TMAB_PRODUCT_RANGES,
+        "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
+        "default_usl": 100000.0,
+        "default_measurement": 1000.0,
+        # demo_target_mean DIGER parametrelerle AYNI sekilde HAM KOB/g'dir
+        # (urun senaryosu secildiginde demo_scenario_targets() de HAM
+        # olcekte bir ortalama uretir - bkz. result_helpers.py) - app.py demo
+        # yukleme kodu bunu generate_demo_individual'a vermeden ONCE log10'a
+        # cevirir. demo_target_sigma ise (RAW spread'in aksine) DOGRUDAN
+        # LOG10 OLCEGINDE SABIT bir sigma'dir - urun senaryosunun HAM
+        # spread'i (araligin genisligine bagli) log-normal dagilimda dogal
+        # bir karsiliga sahip olmadigindan BILEREK kullanilmaz; bu, ilk
+        # adimda (TPC/TMAB) kabul edilen bir sadelestirmedir.
+        "demo_target_mean": 1000.0,
+        "demo_target_sigma": 0.3,  # log10 olceginde sabit sigma
+        "one_sided": True,
+        "is_individual": True,
+        "is_microbio": True,
+        "default_lod": 10.0,  # KOB/g - kullanici LOD alaninda degistirebilir
+        "log_axis_label": "log10(KOB/g)",
+        "log_decimal_places": 3,  # grafikte/Cpk hesap adimlarinda log10 degerler icin
+    },
+    "Kuf-Maya": {
+        # TPC/TMAB ile BIREBIR AYNI sema/mimari - tek farklar unit disi
+        # alanlarin (products/default_lsl/default_usl/default_measurement/
+        # demo_target_mean) parametreye ozgu degerleridir.
+        "unit": "KOB/g",
+        "min_value": 1.0,
+        "max_value": 10_000_000.0,
+        "decimal_places": 0,
+        "products": YEAST_MOLD_PRODUCT_RANGES,
+        "default_lsl": 0.0,
+        "default_usl": 1000.0,
+        "default_measurement": 100.0,
+        "demo_target_mean": 100.0,
+        "demo_target_sigma": 0.3,
+        "one_sided": True,
+        "is_individual": True,
+        "is_microbio": True,
+        "default_lod": 10.0,
+        "log_axis_label": "log10(KOB/g)",
+        "log_decimal_places": 3,
+    },
+    "Koliform": {
+        "unit": "KOB/g",
+        "min_value": 1.0,
+        "max_value": 10_000_000.0,
+        "decimal_places": 0,
+        "products": COLIFORM_PRODUCT_RANGES,
+        "default_lsl": 0.0,
+        "default_usl": 100.0,
+        "default_measurement": 10.0,
+        "demo_target_mean": 10.0,
+        "demo_target_sigma": 0.3,
+        "one_sided": True,
+        "is_individual": True,
+        "is_microbio": True,
+        "default_lod": 10.0,
+        "log_axis_label": "log10(KOB/g)",
+        "log_decimal_places": 3,
+    },
+    "Enterobacteriaceae": {
+        "unit": "KOB/g",
+        "min_value": 1.0,
+        "max_value": 10_000_000.0,
+        "decimal_places": 0,
+        "products": ENTEROBACTERIACEAE_PRODUCT_RANGES,
+        "default_lsl": 0.0,
+        "default_usl": 100.0,
+        "default_measurement": 10.0,
+        "demo_target_mean": 10.0,
+        "demo_target_sigma": 0.3,
+        "one_sided": True,
+        "is_individual": True,
+        "is_microbio": True,
+        "default_lod": 10.0,
+        "log_axis_label": "log10(KOB/g)",
+        "log_decimal_places": 3,
+    },
+    "Kantitatif S. aureus": {
+        "unit": "KOB/g",
+        "min_value": 1.0,
+        "max_value": 10_000_000.0,
+        "decimal_places": 0,
+        "products": STAPH_AUREUS_PRODUCT_RANGES,
+        "default_lsl": 0.0,
+        "default_usl": 1000.0,
+        "default_measurement": 100.0,
+        "demo_target_mean": 100.0,
+        "demo_target_sigma": 0.3,
+        "one_sided": True,  # DIGER 3 mikrobiyoloji parametresiyle AYNI - limit yapisi FARKLI DEGIL
+        "is_individual": True,
+        "is_microbio": True,
+        # TEK parametreye-ozgu fark: tipik LOD DAHA YUKSEK (100 vs 10) -
+        # ISO 6888-1 dogrudan yuzey ekimi yonteminin tipik duyarliligi,
+        # TPC/Kuf-Maya/Koliform/Enterobacteriaceae'nin dokme plaka
+        # yontemine gore daha dusuktur (bkz. constants.py PRODUCT_RANGES
+        # notu ve PARAMETER_INFO).
+        "default_lod": 100.0,
+        "log_axis_label": "log10(KOB/g)",
+        "log_decimal_places": 3,
     },
 }
