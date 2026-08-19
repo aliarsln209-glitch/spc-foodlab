@@ -2747,8 +2747,11 @@ with tab_chart:
 # SEKME 3: Hizli Hesaplayicilar
 # ---------------------------------------------------------------------------
 # NOT: Bu sekme, mevcut SPC chart/veri akisindan BILINCLI OLARAK izole tutuldu.
-# Totox tek seferlik bir hesap makinesidir - session_state.subgroups'a hicbir
-# sekilde dokunmaz, kontrol grafigi/baseline mantigiyla etkilesime girmez.
+# Totox ve Gravimetrik Nem tek seferlik hesap makineleridir - session_state.
+# subgroups'a normalde dokunmazlar, kontrol grafigi/baseline mantigiyla
+# etkilesime girmezler. TEK istisna: kullanicinin acikca tetikledigi, aktif
+# parametre + I-MR tipi kontrolune tabi "SPC Veri Setine Aktar" kopru
+# butonlari (bkz. asagida) - bilincli, gated bir istisnadir.
 TOTOX_ANV_LIMIT = 20.0
 TOTOX_LIMIT = 26.0
 
@@ -2807,20 +2810,35 @@ with tab_calc:
             ["Nem/Rutubet", "Kuru Madde"],
             key="qc_moisture_target_param",
         )
-        if st.button("📌 SPC Veri Setine Aktar (Nem/Kuru Madde)", key="qc_moisture_bridge_button"):
-            value = (
-                moisture_result["moisture_pct"]
-                if moisture_target == "Nem/Rutubet"
-                else moisture_result["dry_matter_pct"]
+        moisture_target_config = PARAMETER_CONFIG.get(moisture_target, {})
+        moisture_target_is_individual = moisture_target_config.get("is_individual", False)
+        moisture_target_is_active = moisture_target == st.session_state.active_parameter
+
+        if not moisture_target_is_active:
+            st.info(
+                f"'{moisture_target}' şu anda aktif parametre değil. Aktarım yapabilmek için "
+                f"önce Veri Girişi/Chart sekmesinden aktif parametreyi '{moisture_target}' "
+                "olarak değiştirin."
             )
-            entry = build_bridge_subgroup_entry(
-                value=value, shift_label=f"QC Dönüştürücü - Gravimetrik {moisture_target}",
+        elif not moisture_target_is_individual:
+            st.warning(
+                f"'{moisture_target}' bir X-bar/R parametresidir (alt grup büyüklüğü n>1). "
+                "Bu köprü sadece I-MR (tekli ölçüm) parametrelerine aktarım yapabilir - "
+                "tek bir değeri X-bar/R alt grubuna eklemek Range'i yapay olarak sıfırlar "
+                "ve Cpk'yı yanıltıcı şekilde şişirir."
             )
-            st.session_state.subgroups.append(entry)
-            st.success(
-                f"{moisture_target} değeri SPC veri setine eklendi. "
-                f"Chart & Cpk sekmesinde Parametre olarak '{moisture_target}' seçili olduğundan emin olun."
-            )
+        else:
+            if st.button("📌 SPC Veri Setine Aktar (Nem/Kuru Madde)", key="qc_moisture_bridge_button"):
+                value = (
+                    moisture_result["moisture_pct"]
+                    if moisture_target == "Nem/Rutubet"
+                    else moisture_result["dry_matter_pct"]
+                )
+                entry = build_bridge_subgroup_entry(
+                    value=value, shift_label=f"QC Dönüştürücü - Gravimetrik {moisture_target}",
+                )
+                st.session_state.subgroups.append(entry)
+                st.success(f"{moisture_target} değeri SPC veri setine eklendi (I-MR).")
     except ValueError as exc:
         st.error(f"Girdi hatası: {exc}")
 
@@ -2939,19 +2957,36 @@ with tab_calc:
         # Bilinclı, kullanici tetikli bir istisna: Totox sekmesi normalde
         # session_state.subgroups'a DOKUNMAZ (sekme izolasyon politikasi),
         # ancak kullanici bu butona basarak Totox degerini SPC I-MR veri
-        # setine ham deger olarak koprulemeyi acikca talep edebilir.
-        if st.button("\U0001F4CC SPC Veri Setine Aktar (Totox -> I-MR)", key="totox_spc_bridge_button"):
-            entry = build_bridge_subgroup_entry(
-                value=totox_value, shift_label="QC Donusturucu - Totox",
+        # setine ham deger olarak koprulemeyi acikca talep edebilir. Bu
+        # istisna, aktif parametrenin I-MR (is_individual=True) olmasi
+        # SARTIYLA gecerlidir - X-bar/R aktifken n=1 alt grup eklemek
+        # Range'i sifirlayip Cpk'yi yapay olarak sisirir, bu yuzden
+        # engellenir (bkz. Gravimetrik Nem panelindeki ayni mantik).
+        if not is_individual:
+            st.warning(
+                f"Aktif parametre '{st.session_state.active_parameter}' bir X-bar/R "
+                "parametresidir (alt grup büyüklüğü n>1). Bu köprü sadece I-MR (tekli "
+                "ölçüm) parametreleri aktifken çalışır - önce Veri Girişi/Chart "
+                "sekmesinden aktif parametreyi bir I-MR parametresine değiştirin."
             )
-            st.session_state.subgroups.append(entry)
-            st.success(
-                "Totox degeri SPC veri setine eklendi. Bu, Totox'u tam bir SPC "
-                "parametresi yapmaz - sadece I-MR zaman serisine ham deger kaydeder "
-                f"(evrensel USL={TOTOX_BRIDGE_PARAMETER_CONFIG['default_usl']} meq O2/kg)."
-            )
+        else:
+            st.caption(f"Aktif parametre: {st.session_state.active_parameter} (I-MR)")
+            if st.button("\U0001F4CC SPC Veri Setine Aktar (Totox -> I-MR)", key="totox_spc_bridge_button"):
+                entry = build_bridge_subgroup_entry(
+                    value=totox_value, shift_label="QC Donusturucu - Totox",
+                )
+                st.session_state.subgroups.append(entry)
+                st.success(
+                    f"Totox değeri SPC veri setine eklendi (aktif parametre: "
+                    f"{st.session_state.active_parameter}). Not: bu köprü sadece I-MR "
+                    "zaman serisine ham değer kaydeder; grafik/Cpk hesaplaması aktif "
+                    "parametrenin kendi LSL/USL spesifikasyonunu kullanır, Totox'un "
+                    f"referans üst sınırı ({TOTOX_BRIDGE_PARAMETER_CONFIG['default_usl']} "
+                    "meq O2/kg) sadece bilgi amaçlıdır."
+                )
 
-    # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox gibi
+    # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox/Gravimetrik Nem
+    # panellerindeki gated kopru butonlarinin aksine, bu hesaplayici
     # session_state.subgroups'a DOKUNMAZ - mevcut compute_xbar_r_limits/
     # compute_imr_limits fonksiyonlarini dogrudan cagirir (YENI bir formul
     # YOK, dolayisiyla Method Validation gerekmez - bkz. METHODOLOGY.md v1.2
