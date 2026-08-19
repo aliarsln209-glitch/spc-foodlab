@@ -648,7 +648,7 @@ physical/optics/microbiology'den ayrı bir kategori, çünkü bunlar ürün
 spesifikasyonu değil, **ölçüm standardizasyon formülü** doğrulamasıdır
 (ICUMSA, Mohr, AOAC asit faktörleri, Ball formula gibi).
 
-**Faz 1 — Köprü Altyapısı + 2 modül + Totox bağlantısı**
+**Faz 1 — Köprü Altyapısı + 2 modül + Totox bağlantısı ✅ Tamamlandı (Brix hariç — bkz. aşağıdaki not)**
 
 Önce bunlar çünkü: SPC Entegrasyon Köprüsü paylaşılan altyapıdır (v1.4'teki
 Parameter Framework'ün rolünü oynar, sonraki tüm moduller buna bağlanacak);
@@ -675,6 +675,19 @@ parametreye doğrudan bağlanıyor).
   serisine (I-MR) besleyen bir "kayıt" gibi davranır, tam
   parametre-registry üyeliği gerekmez. Bu ayrım Faz 1 implementasyon
   planında netleştirilecek teknik bir detay, roadmap'i etkilemez.
+
+Implementasyon: `src/qc_converters.py` (pure logic — gravimetrik nem,
+köprü fonksiyonu), `src/app.py` "Hızlı Hesaplayıcılar" sekmesi
+(Gravimetrik Nem/Kuru Madde paneli + Totox köprü butonu),
+`validation/process/`.
+
+**Brix Sıcaklık Düzeltmesi bu tamamlanmaya DAHİL DEĞİL** — kaynak
+(AOAC 932.14c veya USDA AMS resmi tablosu) bu oturumda erişilemedi
+(paywall/bot engelleme, kaynağın güvenilirlik sorunu DEĞİL). Proje
+disiplini gereği ("kaynak doğrulanamazsa sayı uydurulmaz") bu tek
+madde, kaynağa erişildiğinde ayrı bir mini-implementasyonla
+tamamlanacak şekilde bekletiliyor — bkz. implementasyon planı Task 8-9
+(`docs/superpowers/plans/2026-08-19-v1.7-faz1-qc-donusturucu-koprusu.md`).
 
 **Faz 2 — Titrimetrik Dönüştürücüler**
 
