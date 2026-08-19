@@ -521,7 +521,7 @@ araştırma yükü. Bu yüzden aynı istatistik motoru (X-bar/R, I-MR, Cpk/Cpu
 (çekirdek framework + ilk 4 parametre) onaylanıp tamamlanmadan Faz 2'ye
 geçilmez.
 
-**v1.4 — Faz 1: Parameter Framework + Kimyasal/Fiziksel Temel**
+**v1.4 — Faz 1: Parameter Framework + Kimyasal/Fiziksel Temel ✅ Tamamlandı**
 
 *Framework (config-driven Internal Parameter Registry):* her parametre
 tek bir config nesnesiyle tanımlanır — isim, birim, `decimal_places`,
@@ -582,7 +582,7 @@ araştırması, placeholder'ların gerçek değerlerle değiştirilmesi; (4)
 validation (worked example + pytest); (5) Ters Cpk delta/k-faktör + CSV
 şablon üretici (framework'ten bağımsız, herhangi bir noktada yapılabilir).
 
-**v1.5 — Faz 2: Yoğunluk, Refraktif İndeks + Tutarlılık Kontrolleri**
+**v1.5 — Faz 2: Yoğunluk, Refraktif İndeks + Tutarlılık Kontrolleri ✅ Tamamlandı**
 
 Framework zaten kurulu olduğu için bu fazda iş sadece config + LSL/USL
 araştırması + worked example — ayrı bir mimari çalışması yok.
