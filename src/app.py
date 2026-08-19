@@ -29,6 +29,7 @@ from constants import (
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
+from qc_converters import build_bridge_subgroup_entry, gravimetric_moisture
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -2783,6 +2784,47 @@ def render_totox_gauge(totox_value: float, totox_limit: float, dark: bool):
 
 
 with tab_calc:
+    st.markdown("### ⚖️ Gravimetrik Nem / Kuru Madde")
+    st.caption("AOAC 925.10 yöntemi: dara + yaş numune + kuru kalıntı ağırlığından hesaplar.")
+
+    col_g1, col_g2, col_g3 = st.columns(3)
+    with col_g1:
+        dish_tare = st.number_input("Kap darası (g)", min_value=0.0, value=25.000, step=0.001, format="%.3f", key="qc_moisture_tare")
+    with col_g2:
+        wet_with_dish = st.number_input("Kap + yaş numune (g)", min_value=0.0, value=30.000, step=0.001, format="%.3f", key="qc_moisture_wet")
+    with col_g3:
+        dry_with_dish = st.number_input("Kap + kuru kalıntı (g)", min_value=0.0, value=29.400, step=0.001, format="%.3f", key="qc_moisture_dry")
+
+    try:
+        moisture_result = gravimetric_moisture(dish_tare, wet_with_dish, dry_with_dish)
+        col_r1, col_r2 = st.columns(2)
+        col_r1.metric("Nem (%)", f"{moisture_result['moisture_pct']:.2f}")
+        col_r2.metric("Kuru Madde (%)", f"{moisture_result['dry_matter_pct']:.2f}")
+
+        moisture_target = st.selectbox(
+            "Hangi SPC parametresine aktarılsın?",
+            ["Nem/Rutubet", "Kuru Madde"],
+            key="qc_moisture_target_param",
+        )
+        if st.button("📌 SPC Veri Setine Aktar (Nem/Kuru Madde)", key="qc_moisture_bridge_button"):
+            value = (
+                moisture_result["moisture_pct"]
+                if moisture_target == "Nem/Rutubet"
+                else moisture_result["dry_matter_pct"]
+            )
+            entry = build_bridge_subgroup_entry(
+                value=value, shift_label=f"QC Dönüştürücü - Gravimetrik {moisture_target}",
+            )
+            st.session_state.subgroups.append(entry)
+            st.success(
+                f"{moisture_target} değeri SPC veri setine eklendi. "
+                f"Chart & Cpk sekmesinde Parametre olarak '{moisture_target}' seçili olduğundan emin olun."
+            )
+    except ValueError as exc:
+        st.error(f"Girdi hatası: {exc}")
+
+    st.divider()
+
     with st.container(border=True, key="card-24"):
         st.subheader("Totox Hesaplayici")
         st.caption(
