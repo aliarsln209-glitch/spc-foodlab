@@ -12,8 +12,12 @@ vb.) için ayrı bir **Hammadde QC Referansı** kütüphanesi de içerir (bkz.
 v1.2 ile **Nelson kuralları** (örüntü tabanlı sinyaller), **OOS/OOT
 ayrımı**, **Shapiro-Wilk normallik testi** ve daha fazlası eklendi; v1.3
 ile **5 mikrobiyoloji parametresi** (log10-CFU, LOD/2 ikamesi, ham/log10
-şeffaflık tablosu) eklendi (bkz. "v1.2 — Advanced Statistical SPC" ve
-"v1.3 — Mikrobiyoloji (kantitatif)" bölümleri aşağıda).
+şeffaflık tablosu) eklendi; v1.4→v1.6 ile fazlı bir **Food Quality
+Parameters** genişlemesi (Protein, Yağ, Kül, Kuru Madde, Yoğunluk,
+Refraktif İndeks, L*/a*/b*, Bulanıklık, İletkenlik — 10 yeni parametre,
+tek bir config-driven Parameter Framework üzerinden) eklendi (bkz. "v1.2
+— Advanced Statistical SPC", "v1.3 — Mikrobiyoloji (kantitatif)" ve
+"v1.4 → v1.6 — Food Quality Parameters" bölümleri aşağıda).
 
 🔗 **Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
@@ -44,9 +48,20 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu/Ppk/Pp, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (191 automated tests across 14 files, plus a data-driven
-  `validation/` folder of reference CSVs, run on every push with
-  coverage reporting via GitHub Actions — see badge above).
+  `tests/` (222+ automated tests, plus a data-driven `validation/`
+  folder of reference CSVs organized by domain — `shared/`,
+  `microbiology/`, `chemistry/`, `physical/`, `optics/` — run on every
+  push with coverage reporting via GitHub Actions — see badge above).
+- **Food Quality Parameters** (v1.4→v1.6): a config-driven Internal
+  Parameter Registry adds 10 new parameters (Protein, Fat, Ash, Dry
+  Matter, Density, Refractive Index, L*/a*/b*, Turbidity, Conductivity)
+  on top of the *same* I-MR/Cpk engine — no new statistics invented.
+  Every product-level LSL/USL is either sourced from a verified,
+  full-text-read Turkish Food Codex notification (wheat flour, butter,
+  jam/marmalade, olive oil) or, where no verified source exists (the
+  5 optical parameters — color is typically a plant-specific quality
+  target, not a regulation), left as manual entry — same no-fabrication
+  discipline as the raw-material library below.
 - **Microbiology (log10-CFU) parameters** (v1.3): TPC/TMAB, Yeast &
   Mold, Coliform, Enterobacteriaceae, quantitative *S. aureus* — plate
   counts are log-normal, so raw CFU/g is never fed directly into the
@@ -97,8 +112,21 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 | Koliform | I-MR (log10) | KOB/g |
 | Enterobacteriaceae | I-MR (log10) | KOB/g |
 | Kantitatif S. aureus | I-MR (log10) | KOB/g |
+| Protein | I-MR | % |
+| Yağ | I-MR | % |
+| Kül | I-MR | % |
+| Kuru Madde | I-MR | % |
+| Yoğunluk | I-MR | g/cm³ |
+| Refraktif İndeks | I-MR | nD |
+| L* | I-MR | L* (0–100) |
+| a* | I-MR | a* (-128/+127) |
+| b* | I-MR | b* (-128/+127) |
+| Bulanıklık | I-MR | NTU |
+| İletkenlik | I-MR | µS/cm |
 
-Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
+Son 10 parametre (Protein…İletkenlik) v1.4→v1.6 "Food Quality
+Parameters" genişlemesiyle geldi — detay için aşağıdaki ilgili bölüme
+bakın. Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
 Bal'ın nem spesifikasyonunda sadece üst limit vardır); alt grup büyüklüğü
 (n) sidebar'dan seçilebilir (varsayılan n=4, aralık n=2–10) — detaylı
 mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md). Mikrobiyoloji
@@ -172,6 +200,49 @@ Enterobacteriaceae, Kantitatif S. aureus) — mevcut I-MR/Cpk motorunun
 Detaylı doğrulama (elle hesaplanmış referans örnekler) ve kaynaklar:
 [METHODOLOGY.md](METHODOLOGY.md).
 
+## v1.4 → v1.6 — Food Quality Parameters (fazlı)
+
+11 yeni parametrenin tamamını tek sürümde yapmak yerine (her biri için
+ayrı LSL/USL kaynak araştırması + worked example gerektirdiğinden),
+**config-driven bir Internal Parameter Registry** kuruldu ve 10 yeni
+parametre üç fazda eklendi — X-bar/R, I-MR, Cpk/Cpu hesaplama motoruna
+HİÇ dokunulmadı, sadece yeni parametreler bu motoru kullanacak şekilde
+tanımlandı:
+
+- **Parameter Framework:** her parametre `unit`, `decimal_places`,
+  `physical_bounds`, `recommended_chart`, `subgroup_guidance`,
+  `method_source`, `category` alanlarını içeren tek bir config
+  nesnesiyle tanımlanır — sidebar, bilgi kartı, CSV/export hepsi bu TEK
+  registry'den okur (`src/constants.py`
+  `FOOD_QUALITY_PARAMETER_CONFIG`).
+- **v1.4 — Faz 1:** Protein, Yağ, Kül, Kuru Madde. Kaynaklar: TGK Buğday
+  Unu Tebliği (99/1), TGK Tereyağı/Sadeyağ Tebliği (2005/19), TGK
+  Reçel/Marmelat Tebliği (2006/55) — tam metin okunarak doğrulandı.
+  Sadece-minimum tanımlı ürünlerde (spc_core.py'nin LSL-only/Cpl
+  desteklemediği durumlar için) USL=100.0 matematiksel tavan eklendi
+  (Hammadde Kütüphanesi'ndeki "Tuz" girişiyle aynı desen).
+- **v1.5 — Faz 2:** Yoğunluk, Refraktif İndeks (TGK Zeytinyağı Tebliği
+  98/7, Ek-1 — tam metin doğrulandı) + Kuru Madde/Nem çapraz tutarlılık
+  kontrolü (bloklamayan, bilgilendirici — uygulamanın tek-seferde-tek-
+  parametre veri modeli nedeniyle elle girilen bir referans Nem
+  değerine karşı kontrol edilir).
+- **v1.6 — Faz 3:** L*, a*, b*, Bulanıklık, İletkenlik. Kaynak
+  araştırması yapıldı ama ürüne özgü doğrulanmış bir TGK/Codex limiti
+  **bulunamadı** — renk çoğu üründe mevzuat değil, işletme-içi bir kalite
+  hedefidir. Bu yüzden tüm ürün listesi "Özel/Manuel gir"e bırakıldı
+  (sayı uydurulmadı) — framework yine de tam kuruldu (fiziksel sınırlar:
+  L* 0–100, a*/b* -128/+127 CIELAB, Bulanıklık/İletkenlik ≥ 0).
+
+Method Validation kuralı (her yeni parametre için worked
+example+`validation/` referansı) burada da uygulandı —
+`validation/chemistry/`, `validation/physical/`, `validation/optics/`
+altında elle hesaplanmış "dahili matematiksel tutarlılık kontrolü"
+referansları var (bu YENİ bir formül değil, mevcut doğrulanmış I-MR/Cpk
+formülünün yeni parametrelere doğru uygulandığının kanıtı).
+
+Detaylı kaynak notları, fazlı roadmap ve mimari kararlar:
+[METHODOLOGY.md](METHODOLOGY.md).
+
 ## Hızlı Hesaplayıcılar — Totox
 
 Ayrı bir sekmede, SPC akışından izole, tek seferlik bir hesaplayıcı:
@@ -235,8 +306,14 @@ spc-foodlab/
 │   ├── test_csv_io.py            # CSV/yapıştırma şema/hata/temizleme + export→import round-trip testleri
 │   ├── test_pdf_report.py        # PDF rapor üretiminin otomatik doğrulanması
 │   ├── test_validation_suite.py  # validation/*.csv referans dosyalarını çalıştıran testler
-│   └── test_microbiology.py      # LOD/2 ikamesi + log10 dönüşümü + 5 mikrobiyoloji parametresinin PARAMETER_CONFIG smoke testi
+│   ├── test_microbiology.py      # LOD/2 ikamesi + log10 dönüşümü + 5 mikrobiyoloji parametresinin PARAMETER_CONFIG smoke testi
+│   └── test_food_quality_framework.py  # v1.4→v1.6 Parameter Framework semasi + kaynak dogrulama smoke testleri
 ├── validation/           # Formül doğrulama referans veri seti (bkz. validation/README.md)
+│   ├── shared/           # Parametre-bağımsız formül doğrulaması (X-bar/R, I-MR, Cpk, Ppk)
+│   ├── microbiology/     # v1.3 log10-CFU referansları
+│   ├── chemistry/        # v1.4 Faz 1: Protein, Kül
+│   ├── physical/         # v1.4 Faz 1 (Kuru Madde) + v1.5 Faz 2 (Yoğunluk, Refraktif İndeks)
+│   └── optics/           # v1.6 Faz 3 (framework mekanizma testi — ürün spesifikasyonu değil)
 ├── screenshots/         # README ekran görüntüleri
 ├── METHODOLOGY.md       # Formüller, doğrulama, ürün referans kaynakları, sürüm yol haritası
 └── requirements.txt
