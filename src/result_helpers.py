@@ -231,6 +231,37 @@ def build_parameter_info_card(param_config: dict) -> str:
     )
 
 
+def build_dry_matter_moisture_consistency_note(
+    kuru_madde_mean: float, nem_percent: float, tolerance: float = 2.0
+) -> str:
+    """v1.5 Faz 2: Kuru Madde + Nem/Rutubet CAPRAZ tutarlilik kontrolu -
+    fiziksel olarak Kuru Madde(%) + Nem(%) ~= 100 olmasi beklenir (bir
+    numunenin tamami ya nem ya da nem-disi katı maddedir). Uygulamanin veri
+    modeli tek seferde TEK parametre tutar (bkz. compute_active_parameter_
+    status() docstring'i) - bu yuzden GERCEK bir ikinci parametre veri seti
+    yerine, kullanicinin Kuru Madde sekmesinde ELLE girdigi bir referans Nem
+    yuzdesine karsi kontrol edilir (bkz. app.py'deki 'Referans Nem %' input'u).
+
+    BLOKLAYICI DEGILDIR - sadece bilgilendirme metni dondurur, veriyi
+    reddetmez/degistirmez (METHODOLOGY.md v1.5 Faz 2: 'BLOKLAMAYAN,
+    bilgilendirici bir uyari'). tolerance=2.0 (puan) varsayilani, olcum
+    hatasi/yuvarlama icin makul bir pay biraz gevsek tutulmustur - eldeki
+    tek bir worked example'a degil, genel laboratuvar pratigine dayanir."""
+    total = kuru_madde_mean + nem_percent
+    diff = total - 100.0
+    if abs(diff) <= tolerance:
+        return (
+            f"Kuru Madde ({kuru_madde_mean:.2f}%) + Nem ({nem_percent:.2f}%) "
+            f"= {total:.2f}% — beklenen ~100% ile tutarlı."
+        )
+    return (
+        f"Kuru Madde ({kuru_madde_mean:.2f}%) + Nem ({nem_percent:.2f}%) "
+        f"= {total:.2f}% — beklenen ~100%'den {abs(diff):.2f} puan sapıyor. "
+        "Bu bloklayıcı bir hata DEĞİLDİR, sadece bilgilendirme amaçlıdır "
+        "(farklı numune/parti, ölçüm hatası veya yuvarlama farkı olabilir)."
+    )
+
+
 def measurement_plausibility_warnings(
     labeled_values: list[tuple[str, float]], lsl: float, usl: float, one_sided: bool
 ) -> list[str]:

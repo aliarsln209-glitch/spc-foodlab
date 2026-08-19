@@ -14,6 +14,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from result_helpers import (
+    build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
     build_quick_summary,
     build_totox_comment,
@@ -365,6 +366,26 @@ def test_parameter_info_card_handles_missing_fields_gracefully():
     assert isinstance(card, str)
 
 
+# --- build_dry_matter_moisture_consistency_note (v1.5 Faz 2) -------------
+
+def test_dry_matter_moisture_consistency_within_tolerance():
+    note = build_dry_matter_moisture_consistency_note(kuru_madde_mean=90.0, nem_percent=10.0)
+    assert "tutarlı" in note
+    assert "sapıyor" not in note
+
+
+def test_dry_matter_moisture_consistency_flags_large_deviation():
+    note = build_dry_matter_moisture_consistency_note(kuru_madde_mean=90.0, nem_percent=5.0)
+    assert "sapıyor" in note
+    assert "5.00 puan" in note  # 90+5=95, |95-100|=5
+
+
+def test_dry_matter_moisture_consistency_is_never_blocking():
+    # Buyuk sapmada bile bir uyari METNI doner, exception/None DEGIL
+    note = build_dry_matter_moisture_consistency_note(kuru_madde_mean=50.0, nem_percent=10.0)
+    assert isinstance(note, str) and note
+
+
 if __name__ == "__main__":
     test_format_cpk_infinite()
     test_format_cpk_normal()
@@ -412,4 +433,7 @@ if __name__ == "__main__":
     test_parameter_info_card_flags_placeholder_data()
     test_parameter_info_card_no_placeholder_note_when_not_placeholder()
     test_parameter_info_card_handles_missing_fields_gracefully()
+    test_dry_matter_moisture_consistency_within_tolerance()
+    test_dry_matter_moisture_consistency_flags_large_deviation()
+    test_dry_matter_moisture_consistency_is_never_blocking()
     print("RESULT HELPER TESTLERI GECTI")

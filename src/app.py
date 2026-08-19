@@ -30,6 +30,7 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from result_helpers import (
+    build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
     build_quick_summary,
     build_totox_comment,
@@ -1847,6 +1848,21 @@ with tab_chart:
                     st.session_state.confirm_reset_baseline = False
                     st.success("Analiz sifirlandi (olculen veriler korundu).")
                     st.rerun()
+
+        if st.session_state.active_parameter == "Kuru Madde":
+            # v1.5 Faz 2: Kuru Madde + Nem capraz tutarlilik kontrolu -
+            # BLOKLAMAYAN, bilgilendirici (bkz. METHODOLOGY.md v1.5 Faz 2 ve
+            # result_helpers.build_dry_matter_moisture_consistency_note
+            # docstring'i - neden GERCEK bir ikinci parametre yerine elle
+            # girilen bir referans Nem % kullanildigini acikliyor).
+            with st.expander("\U0001F50D Capraz kontrol: Kuru Madde + Nem"):
+                _dm_values, _dm_mr, _dm_xbar, _ = compute_individual_stats(st.session_state.subgroups)
+                _nem_ref = st.number_input(
+                    "Referans Nem % (aynı numune icin, elle girilir)",
+                    min_value=0.0, max_value=100.0, value=10.0, step=0.1,
+                    key="kuru_madde_nem_check_input",
+                )
+                st.caption(build_dry_matter_moisture_consistency_note(_dm_xbar, _nem_ref))
 
         products = list(param_config["products"].keys())
         default_index = products.index("Ozel/Manuel gir")

@@ -245,6 +245,8 @@ istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 | Yağ (v1.4 Faz 1) | TGK Tereyağı, Diğer Süt Yağı Esaslı Sürülebilir Ürünler ve Sadeyağ Tebliği (No: 2005/19), Ek tablosu — tam metin doğrulandı | Tereyağı/Yarım yağlı tereyağı iki taraflıdır (mevzuattan); Sadeyağ'da sadece LSL (%99) tanımlı, USL=100.0 matematiksel tavan |
 | Kül (v1.4 Faz 1) | TGK Buğday Unu Tebliği (No: 99/1) Madde 5/c — tam metin doğrulandı | Sadece USL anlamlıdır (kül her zaman bir üst limit spesifikasyonudur) |
 | Kuru Madde (v1.4 Faz 1) | TGK Reçel, Jöle, Marmelat ve Tatlandırılmış Kestane Püresi Tebliği (No: 2006/55) Madde 5 — tam metin doğrulandı | Sadece LSL (minimum çözünebilir kuru madde) tanımlıdır; USL=100.0 matematiksel tavan |
+| Yoğunluk (v1.5 Faz 2) | TGK Yemeklik Zeytinyağı ve Yemeklik Prina Yağı Tebliği (No: 98/7), Ek-1 Madde 2.1 — tam metin doğrulandı | İki taraflıdır (0.910–0.916, 20°C/20°C su); sadece zeytinyağı için, diğer ürünler "Özel/Manuel gir" |
+| Refraktif İndeks (v1.5 Faz 2) | Aynı tebliğ, Ek-1 Madde 2.2 — tam metin doğrulandı | İki taraflıdır; naturel/rafine/riviera zeytinyağı (1.4677–1.4700) ile karma prina yağı (1.4680–1.4707) FARKLI aralıklara sahiptir, tebliğ bu ayrımı açıkça yapar. Fiziksel alt sınır nD≥1.333 (su) |
 
 > **Not:** Yukarıdaki 99/1 (Buğday Unu Tebliği), sonraki 2013/9 sürümüyle güncellenmiş olabilir — 2013/9'un TAM METNİ doğrulanamadığı için kaynak olarak 99/1 belirtilir (bu, `RAW_MATERIAL_QC_REFERENCE`'daki "Buğday unu" notuyla AYNI durumdur, bkz. aşağıdaki "Hammadde Kütüphanesi Genişletmesi"). Detaylı worked example ve doğrulama: `validation/chemistry/` ve `validation/physical/` (bkz. `validation/README.md`).
 

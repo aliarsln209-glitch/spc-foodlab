@@ -91,6 +91,30 @@ def test_ash_is_one_sided_upper_limit_only():
         assert usl is not None
 
 
+def test_faz2_parameters_present_and_verified():
+    # v1.5 Faz 2: Yogunluk, Refraktif Indeks - AYNI disiplin (dogrulanmis
+    # TGK tebligi kaynagi, kaynagi bulunamayan urun icin sayi uydurulmadi).
+    for param_name in ("Yogunluk", "Refraktif Indeks"):
+        assert param_name in FOOD_QUALITY_PARAMETER_CONFIG
+        config = FOOD_QUALITY_PARAMETER_CONFIG[param_name]
+        assert config["placeholder"] is False
+        real_products = [p for p in config["products"] if p != "Ozel/Manuel gir"]
+        assert real_products, f"{param_name}: dogrulanmis urun girisi yok"
+
+
+def test_refraktif_indeks_physical_lower_bound_is_water():
+    # nD >= 1.333 (su) - METHODOLOGY.md v1.5 notu
+    lower, _upper = FOOD_QUALITY_PARAMETER_CONFIG["Refraktif Indeks"]["physical_bounds"]
+    assert lower == 1.333
+
+
+def test_yogunluk_and_refraktif_indeks_are_two_sided():
+    # Zeytinyagi Tebligi (98/7) her ikisini de min-max araligi olarak tanimlar
+    # - matematiksel tavan hilesine GEREK yok (Protein/Kuru Madde'nin AKSINE).
+    for param_name in ("Yogunluk", "Refraktif Indeks"):
+        assert FOOD_QUALITY_PARAMETER_CONFIG[param_name]["one_sided"] is False
+
+
 def test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs():
     # spc_core.py sadece USL-only (Cpu) tek tarafli hesaplamayi destekler,
     # LSL-only (Cpl) YOKTUR - bu yuzden gercekte sadece minimum tanimli olan
@@ -119,6 +143,9 @@ if __name__ == "__main__":
     test_food_quality_entries_merged_into_main_parameter_config()
     test_food_quality_category_group_present_in_sidebar_categories()
     test_ash_is_one_sided_upper_limit_only()
+    test_faz2_parameters_present_and_verified()
+    test_refraktif_indeks_physical_lower_bound_is_water()
+    test_yogunluk_and_refraktif_indeks_are_two_sided()
     test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs()
     test_food_quality_parameters_have_sidebar_descriptions()
     print("FOOD QUALITY FRAMEWORK TESTLERI GECTI")

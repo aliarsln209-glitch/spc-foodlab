@@ -49,6 +49,7 @@ satirlarinin AYNI kategorisi (bkz. asagidaki tablo, kaynak sutunu).
 | `microbiology/microbiology_reference.csv` | log10-CFU + I-MR + Cpu (v1.3) | Bilinen log10 sabitleri (log₁₀2, log₁₀3, log₁₀5) ile elle hesaplanmış LOD-ikameli örnekler |
 | `chemistry/cpk_reference.csv` | Protein, Kül — I-MR + Cpk/Cpu (v1.4 Faz 1) | Dahili matematiksel tutarlılık kontrolü (5 elle seçilmiş ölçüm, formül elle uygulanmış) |
 | `physical/cpk_reference.csv` | Kuru Madde — I-MR + Cpk (v1.4 Faz 1) | Dahili matematiksel tutarlılık kontrolü |
+| `physical/yogunluk_refraktif_cpk_reference.csv` | Yoğunluk, Refraktif İndeks — I-MR + Cpk (v1.5 Faz 2) | Dahili matematiksel tutarlılık kontrolü |
 
 ### Nelson kuralları (v1.2) — CSV formatında DEĞİL, neden
 

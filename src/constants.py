@@ -1019,6 +1019,73 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
 # Faz 2 (v1.5): Yogunluk, Refraktif Indeks eklenecek.
 # Faz 3 (v1.6): L*, a*, b*, Bulaniklik, Iletkenlik eklenecek.
 
+# --- Faz 2 (v1.5): Yogunluk, Refraktif Indeks -------------------------------
+# Kaynak: TGK Yemeklik Zeytinyagi ve Yemeklik Prina Yagi Tebligi (Tebligg No:
+# 98/7, 25.04.1998 R.G. 23323), EK-1 "Saflik Kriterleri" 2.1 (Yogunluk) ve 2.2
+# (Kirilma Indisi) - TAM METIN okunarak dogrulandi (madde numaralari dahil).
+# Her iki ozellik de tebligde IKI TARAFLI (min-max) araliktir - matematiksel
+# tavan hilesine GEREK YOK (Protein/Kuru Madde'deki LSL-only durumunun
+# AKSINE).
+YOGUNLUK_PRODUCT_RANGES = {
+    "Zeytinyagi (naturel/rafine/riviera, 20C/20C su)": (0.910, 0.916),
+    "Ozel/Manuel gir": None,
+}
+
+REFRAKTIF_INDEKS_PRODUCT_RANGES = {
+    "Zeytinyagi (naturel/rafine/riviera, nD 20C)": (1.4677, 1.4700),
+    "Zeytinyagi (karma prina yagi, nD 20C)": (1.4680, 1.4707),
+    "Ozel/Manuel gir": None,
+}
+
+FOOD_QUALITY_PARAMETER_CONFIG.update({
+    "Yogunluk": {
+        "unit": "g/cm3",
+        "min_value": 0.0,
+        "max_value": 2.0,  # coğu gida sivisi/surubu icin genis bir ust sinir (bal ~1.4, seker surubu ~1.5)
+        "decimal_places": 3,
+        "products": YOGUNLUK_PRODUCT_RANGES,
+        "default_lsl": 0.8,
+        "default_usl": 1.5,
+        "default_measurement": 1.0,
+        "demo_target_mean": 1.0,
+        "demo_target_sigma": 0.01,
+        "one_sided": False,
+        "is_individual": True,  # piknometre/hidrometre ile tekil olcum
+        "physical_bounds": (0.0, 2.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (piknometre/hidrometre ile tekil olcum), ancak "
+            "alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "TGK Yemeklik Zeytinyagi ve Yemeklik Prina Yagi Tebligi (No: 98/7), Ek-1 Madde 2.1 (bkz. constants.py YOGUNLUK_PRODUCT_RANGES notu).",
+        "category": "Fiziksel",
+        "placeholder": False,
+    },
+    "Refraktif Indeks": {
+        "unit": "nD",
+        "min_value": 1.333,  # su - fiziksel alt sinir (bkz. METHODOLOGY.md v1.5 notu)
+        "max_value": 1.7,
+        "decimal_places": 4,  # tipik refraktometre hassasiyeti (orn. 1.4690)
+        "products": REFRAKTIF_INDEKS_PRODUCT_RANGES,
+        "default_lsl": 1.40,
+        "default_usl": 1.50,
+        "default_measurement": 1.45,
+        "demo_target_mean": 1.45,
+        "demo_target_sigma": 0.001,
+        "one_sided": False,
+        "is_individual": True,  # Abbe refraktometre ile tekil olcum
+        "physical_bounds": (1.333, 1.7),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (Abbe refraktometre ile tekil olcum), ancak alt "
+            "grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "TGK Yemeklik Zeytinyagi ve Yemeklik Prina Yagi Tebligi (No: 98/7), Ek-1 Madde 2.2 (bkz. constants.py REFRAKTIF_INDEKS_PRODUCT_RANGES notu).",
+        "category": "Fiziksel",
+        "placeholder": False,
+    },
+})
+
 # Kisa sidebar aciklamalari (PARAMETER_DESCRIPTIONS ile ayni role, Food
 # Quality Parameters icin AYRI tutuldu).
 FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
@@ -1026,19 +1093,21 @@ FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
     "Yag": "Toplam yag yuzdesi (%). Soxhlet/Gerber tipi tahribatli analiz.",
     "Kul": "Mineral kalinti yuzdesi (%) - urun rafinasyon derecesinin gostergesi.",
     "Kuru Madde": "Nem disi kalan katı madde yuzdesi (%).",
+    "Yogunluk": "Kutle/hacim orani (g/cm3) - piknometre/hidrometre ile olculur.",
+    "Refraktif Indeks": "Kirilma indisi (nD) - Abbe refraktometre ile olculur, safligin gostergesi.",
 }
 
 # Sidebar'da Food Quality Parameters icin AYRI bir kategori grubu - legacy
 # PARAMETER_CATEGORIES'e KARISTIRILMADAN eklenir (app.py her iki listeyi de
-# gezip radio grubu olusturur). id "gida_kalite_v14" - Faz 1 (v1.4)
-# tamamlandigi icin "taslak" ibaresi kaldirildi (bkz. yukaridaki kaynak
-# dogrulama notlari); Faz 2 (v1.5) Yogunluk/Refraktif Indeks eklendiginde
-# bu listeye enjekte edilecek, id SABIT kalacak.
+# gezip radio grubu olusturur). id "gida_kalite_v14" SABIT kalir (Faz 1'de
+# baslatildigi ismi tasir, faz numarasi degil) - Faz 2 (v1.5) parametreleri
+# (Yogunluk, Refraktif Indeks) AYNI gruba eklendi, Faz 3'te de (v1.6) ayni
+# sekilde devam edecek.
 FOOD_QUALITY_PARAMETER_CATEGORIES = [
     (
         "gida_kalite_v14",
-        "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri (Protein/Yag/Kul/Kuru Madde)",
-        ["Protein", "Yag", "Kul", "Kuru Madde"],
+        "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri",
+        ["Protein", "Yag", "Kul", "Kuru Madde", "Yogunluk", "Refraktif Indeks"],
     ),
 ]
 
