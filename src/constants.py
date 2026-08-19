@@ -819,3 +819,44 @@ PARAMETER_CONFIG = {
         "log_decimal_places": 3,
     },
 }
+
+
+# --- v1.4 Parameter Framework (Food Quality Parameters, fazli) --------------
+# Faz 1/2/3'te eklenecek yeni parametreler (Protein, Yag, Kul, Kuru Madde,
+# Yogunluk, Refraktif Indeks, L*/a*/b*, Bulaniklik, Iletkenlik) icin ortak
+# "Internal Parameter Registry" semasi (bkz. METHODOLOGY.md "v1.4 -> v1.6 -
+# Food Quality Parameters (fazli)"). Legacy PARAMETER_CONFIG (pH..Kantitatif
+# S. aureus) BILEREK bu semaya retrofit EDILMEDI - onlarin kendi
+# PARAMETER_CATEGORIES gruplamasi (4 grup: fiziksel/kimyasal/oksidasyon/
+# mikrobiyoloji) zaten calisiyor; burasi FARKLI bir 3-gruplu semantik
+# (Kimyasal/Fiziksel/Optik) kullandigi icin karistirilmamasi icin
+# FOOD_QUALITY_PARAMETER_CONFIG ayri bir sozluk olarak tutulur.
+#
+# Her kayit (Faz 1'den itibaren doldurulacak) su alanlari icerir:
+#   unit, decimal_places          - mevcut PARAMETER_CONFIG ile ayni anlam
+#   physical_bounds: (min, max)   - LSL/USL giris siniri VE hesaplanan LCL'in
+#                                    fiziksel olarak imkansiz bir degere
+#                                    (orn. negatif yuzde) dusup dusmedigini
+#                                    kontrol etmek icin kullanilir (bkz.
+#                                    check_physical_bound_breach(), asagida
+#                                    result_helpers.py'ye tasindi)
+#   recommended_chart: "auto"     - sabit bir chart turu DAYATILMAZ; kullanici
+#                                    subgroup_guidance metnine gore kendi
+#                                    laboratuvar pratigine uygun olani secer
+#   subgroup_guidance: str        - serbest metin, hangi chart'in NEDEN uygun
+#                                    olabilecegine dair yonlendirme (orn.
+#                                    Protein icin "genellikle I-MR, alt grup
+#                                    alinabiliyorsa X-bar/R da uygun")
+#   method_source: str            - AOAC/ISO metodolojisi + LSL/USL kaynagi
+#   category: str                 - "Kimyasal" | "Fiziksel" | "Optik" - bu
+#                                    UCUNUN disina cikilmaz, Food Quality
+#                                    Parameters'a OZGU bir gruplamadir
+FOOD_QUALITY_CATEGORIES = ["Kimyasal", "Fiziksel", "Optik"]
+
+# Faz 1 (v1.4): Protein, Yag, Kul, Kuru Madde eklenecek.
+# Faz 2 (v1.5): Yogunluk, Refraktif Indeks eklenecek.
+# Faz 3 (v1.6): L*, a*, b*, Bulaniklik, Iletkenlik eklenecek.
+# Su an bilincli olarak BOS - bu commit sadece semayi/mekanizmayi kurar,
+# placeholder'i bile LSL/USL arastirmasindan ONCE gercek numara olarak
+# gostermez (bkz. METHODOLOGY.md "Baslangic sirasi" adim 2).
+FOOD_QUALITY_PARAMETER_CONFIG: dict = {}

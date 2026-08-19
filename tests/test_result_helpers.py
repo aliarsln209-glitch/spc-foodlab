@@ -17,6 +17,7 @@ from result_helpers import (
     build_quick_summary,
     build_totox_comment,
     build_trend_nelson_comment,
+    check_physical_bound_breach,
     compute_trend,
     demo_scenario_targets,
     format_cpk,
@@ -297,6 +298,34 @@ def test_plausibility_no_warnings_when_spec_invalid():
     assert warnings == []
 
 
+# --- check_physical_bound_breach (v1.4 Parameter Framework) -------------
+
+def test_physical_bound_no_warning_when_bounds_undefined():
+    # legacy parametre (henuz framework'e eklenmemis) - physical_bounds=None
+    assert check_physical_bound_breach(None, lcl=-5.0) is None
+
+
+def test_physical_bound_no_warning_when_lcl_none():
+    # one_sided parametre - LCL kavrami yok
+    assert check_physical_bound_breach((0.0, 100.0), lcl=None) is None
+
+
+def test_physical_bound_no_warning_when_lcl_within_bounds():
+    assert check_physical_bound_breach((0.0, 100.0), lcl=5.0) is None
+
+
+def test_physical_bound_warns_when_lcl_below_hard_min():
+    warning = check_physical_bound_breach((0.0, 100.0), lcl=-1.234)
+    assert warning is not None
+    assert "LCL=0" in warning
+    assert "-1.234" in warning
+
+
+def test_physical_bound_no_warning_when_hard_min_is_none():
+    # one-sided physical_bounds (orn. sadece USL anlamli parametreler)
+    assert check_physical_bound_breach((None, 100.0), lcl=-50.0) is None
+
+
 if __name__ == "__main__":
     test_format_cpk_infinite()
     test_format_cpk_normal()
@@ -334,4 +363,9 @@ if __name__ == "__main__":
     test_plausibility_one_sided_ignores_lsl_breach()
     test_plausibility_multiple_flagged_values_all_listed()
     test_plausibility_no_warnings_when_spec_invalid()
+    test_physical_bound_no_warning_when_bounds_undefined()
+    test_physical_bound_no_warning_when_lcl_none()
+    test_physical_bound_no_warning_when_lcl_within_bounds()
+    test_physical_bound_warns_when_lcl_below_hard_min()
+    test_physical_bound_no_warning_when_hard_min_is_none()
     print("RESULT HELPER TESTLERI GECTI")

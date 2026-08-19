@@ -178,6 +178,28 @@ def demo_scenario_targets(param_config: dict, product_name: str | None) -> tuple
     return mean, spread, shift_amount
 
 
+def check_physical_bound_breach(physical_bounds: tuple[float | None, float | None] | None,
+                                 lcl: float | None) -> str | None:
+    """v1.4 Parameter Framework: hesaplanan LCL, parametrenin fiziksel alt
+    sinirinin (physical_bounds[0]) ALTINDAYSA kisa bir uyari metni dondurur -
+    LCL'in kendisini DEGISTIRMEZ (istatistiksel olarak oldugu gibi kalir,
+    grafik ustunde ayri bir sinirlandirma cizgisi/notu icin kullanilir),
+    sadece kullaniciya "bu limit fiziksel olarak anlamsiz" bilgisini verir.
+
+    physical_bounds=None (henuz framework'e eklenmemis legacy parametre) veya
+    lcl=None (one_sided parametre, LCL yok) durumunda hicbir sey dondurmez.
+    Bkz. METHODOLOGY.md 'v1.4 -> v1.6 - Food Quality Parameters (fazli)'."""
+    if physical_bounds is None or lcl is None:
+        return None
+    hard_min, _hard_max = physical_bounds
+    if hard_min is not None and lcl < hard_min:
+        return (
+            f"Fiziksel Sinir: LCL={hard_min:g} olarak sinirlandirildi "
+            f"(hesaplanan LCL={lcl:.3f} fiziksel olarak imkansiz)"
+        )
+    return None
+
+
 def measurement_plausibility_warnings(
     labeled_values: list[tuple[str, float]], lsl: float, usl: float, one_sided: bool
 ) -> list[str]:
