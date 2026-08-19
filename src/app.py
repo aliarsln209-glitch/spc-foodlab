@@ -25,6 +25,7 @@ from constants import (
     RAW_MATERIAL_PREFIX,
     RAW_MATERIAL_QC_REFERENCE,
     SHIFT_OPTIONS,
+    TOTOX_BRIDGE_PARAMETER_CONFIG,
 )
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
@@ -2934,6 +2935,21 @@ with tab_calc:
                     "kapatilinca silinir (kalici depolama v2.0'da eklenecek)."
                 )
             st.dataframe(st.session_state.totox_history, hide_index=True, use_container_width=True)
+
+        # Bilinclı, kullanici tetikli bir istisna: Totox sekmesi normalde
+        # session_state.subgroups'a DOKUNMAZ (sekme izolasyon politikasi),
+        # ancak kullanici bu butona basarak Totox degerini SPC I-MR veri
+        # setine ham deger olarak koprulemeyi acikca talep edebilir.
+        if st.button("\U0001F4CC SPC Veri Setine Aktar (Totox -> I-MR)", key="totox_spc_bridge_button"):
+            entry = build_bridge_subgroup_entry(
+                value=totox_value, shift_label="QC Donusturucu - Totox",
+            )
+            st.session_state.subgroups.append(entry)
+            st.success(
+                "Totox degeri SPC veri setine eklendi. Bu, Totox'u tam bir SPC "
+                "parametresi yapmaz - sadece I-MR zaman serisine ham deger kaydeder "
+                f"(evrensel USL={TOTOX_BRIDGE_PARAMETER_CONFIG['default_usl']} meq O2/kg)."
+            )
 
     # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox gibi
     # session_state.subgroups'a DOKUNMAZ - mevcut compute_xbar_r_limits/
