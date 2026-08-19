@@ -2787,6 +2787,79 @@ def render_totox_gauge(totox_value: float, totox_limit: float, dark: bool):
     return fig
 
 
+def render_bridge_widget(
+    values_by_target: dict, source_label: str, widget_key_prefix: str, extra_note: str | None = None,
+) -> None:
+    """QC donusturucu sonucunu SPC subgroups'a koprulemek icin PAYLASILAN UI
+    bileseni - Faz 1 final review bulgusu (X-bar/R aktifken n=1 alt grup
+    eklemek Range'i sifirlayip Cpk'yi yapay sisirir) burada TEK yerde
+    ele alinir. Her yeni donusturucu (Faz 2/3: Titrasyon Asitligi, Tuz,
+    Bostwick, F0) kendi gating mantigini yeniden yazmak yerine bu
+    fonksiyonu cagirir - ayni koruma otomatik gelir.
+
+    values_by_target: {parametre_adi: koprulenecek_deger} - secilebilecek
+    her hedef parametre icin ayri bir deger (Gravimetrik Nem'de hedefe gore
+    farkli deger; Totox gibi tek sayi ureten donusturuculerde tum hedefler
+    ayni degeri paylasir).
+    source_label: shift etiketinde ve basari mesajinda kullanilan kaynak adi.
+    widget_key_prefix: Streamlit widget key benzersizligi icin onek.
+    extra_note: basari mesajina eklenecek kaynak-ozel ek not (orn. Totox'un
+    kendi referans ustsiniri ile aktif parametrenin spesifikasyonu ARASINDAKI
+    farki acikliga kavusturan not).
+
+    UX karari (kullanicinin hangi I-MR parametresine aktaracagini SECMESI
+    gerekir, sadece "su an aktif olan" varsayimina guvenilmez): tek paylasilan
+    subgroups listesi mimarisi nedeniyle (ayri parametre-bazli depolama yok)
+    hedef HER ZAMAN aktif parametreyle eslesmek ZORUNDADIR - ama kullanici
+    niyetini acikca bir selectbox'tan SECER (varsayilani aktif parametre
+    olsa bile), boylece "hangi parametreye gittigi" asla sessizce/kazara
+    belirlenmez - selectbox + eslesme kontrolu KOMBINASYONU, sadece birinin
+    tek basina saglayamayacagi guvenceyi verir.
+    """
+    target_options = list(values_by_target.keys())
+    default_index = (
+        target_options.index(st.session_state.active_parameter)
+        if st.session_state.active_parameter in target_options
+        else 0
+    )
+    target = st.selectbox(
+        "Hangi SPC parametresine aktarılsın?",
+        target_options,
+        index=default_index,
+        key=f"{widget_key_prefix}_target_param",
+    )
+    target_config = PARAMETER_CONFIG.get(target, {})
+    target_is_individual = target_config.get("is_individual", False)
+    target_is_active = target == st.session_state.active_parameter
+
+    if not target_is_active:
+        st.info(
+            f"'{target}' şu anda aktif parametre değil. Aktarım yapabilmek için "
+            f"önce Veri Girişi/Chart sekmesinden aktif parametreyi '{target}' "
+            "olarak değiştirin."
+        )
+        return
+    if not target_is_individual:
+        st.warning(
+            f"'{target}' bir X-bar/R parametresidir (alt grup büyüklüğü n>1). "
+            "Bu köprü sadece I-MR (tekli ölçüm) parametrelerine aktarım yapabilir - "
+            "tek bir değeri X-bar/R alt grubuna eklemek Range'i yapay olarak sıfırlar "
+            "ve Cpk'yı yanıltıcı şekilde şişirir."
+        )
+        return
+
+    st.caption(f"Aktif parametre: {target} (I-MR)")
+    if st.button(f"📌 SPC Veri Setine Aktar ({source_label})", key=f"{widget_key_prefix}_bridge_button"):
+        entry = build_bridge_subgroup_entry(
+            value=values_by_target[target], shift_label=f"QC Dönüştürücü - {source_label}",
+        )
+        st.session_state.subgroups.append(entry)
+        message = f"{source_label} değeri SPC veri setine eklendi ({target}, I-MR)."
+        if extra_note:
+            message += " " + extra_note
+        st.success(message)
+
+
 with tab_calc:
     st.markdown("### ⚖️ Gravimetrik Nem / Kuru Madde")
     st.caption("AOAC 925.10 yöntemi: dara + yaş numune + kuru kalıntı ağırlığından hesaplar.")
@@ -2805,40 +2878,14 @@ with tab_calc:
         col_r1.metric("Nem (%)", f"{moisture_result['moisture_pct']:.2f}")
         col_r2.metric("Kuru Madde (%)", f"{moisture_result['dry_matter_pct']:.2f}")
 
-        moisture_target = st.selectbox(
-            "Hangi SPC parametresine aktarılsın?",
-            ["Nem/Rutubet", "Kuru Madde"],
-            key="qc_moisture_target_param",
+        render_bridge_widget(
+            values_by_target={
+                "Nem/Rutubet": moisture_result["moisture_pct"],
+                "Kuru Madde": moisture_result["dry_matter_pct"],
+            },
+            source_label="Gravimetrik Nem/Kuru Madde",
+            widget_key_prefix="qc_moisture",
         )
-        moisture_target_config = PARAMETER_CONFIG.get(moisture_target, {})
-        moisture_target_is_individual = moisture_target_config.get("is_individual", False)
-        moisture_target_is_active = moisture_target == st.session_state.active_parameter
-
-        if not moisture_target_is_active:
-            st.info(
-                f"'{moisture_target}' şu anda aktif parametre değil. Aktarım yapabilmek için "
-                f"önce Veri Girişi/Chart sekmesinden aktif parametreyi '{moisture_target}' "
-                "olarak değiştirin."
-            )
-        elif not moisture_target_is_individual:
-            st.warning(
-                f"'{moisture_target}' bir X-bar/R parametresidir (alt grup büyüklüğü n>1). "
-                "Bu köprü sadece I-MR (tekli ölçüm) parametrelerine aktarım yapabilir - "
-                "tek bir değeri X-bar/R alt grubuna eklemek Range'i yapay olarak sıfırlar "
-                "ve Cpk'yı yanıltıcı şekilde şişirir."
-            )
-        else:
-            if st.button("📌 SPC Veri Setine Aktar (Nem/Kuru Madde)", key="qc_moisture_bridge_button"):
-                value = (
-                    moisture_result["moisture_pct"]
-                    if moisture_target == "Nem/Rutubet"
-                    else moisture_result["dry_matter_pct"]
-                )
-                entry = build_bridge_subgroup_entry(
-                    value=value, shift_label=f"QC Dönüştürücü - Gravimetrik {moisture_target}",
-                )
-                st.session_state.subgroups.append(entry)
-                st.success(f"{moisture_target} değeri SPC veri setine eklendi (I-MR).")
     except ValueError as exc:
         st.error(f"Girdi hatası: {exc}")
 
@@ -2956,34 +3003,28 @@ with tab_calc:
 
         # Bilinclı, kullanici tetikli bir istisna: Totox sekmesi normalde
         # session_state.subgroups'a DOKUNMAZ (sekme izolasyon politikasi),
-        # ancak kullanici bu butona basarak Totox degerini SPC I-MR veri
-        # setine ham deger olarak koprulemeyi acikca talep edebilir. Bu
-        # istisna, aktif parametrenin I-MR (is_individual=True) olmasi
-        # SARTIYLA gecerlidir - X-bar/R aktifken n=1 alt grup eklemek
-        # Range'i sifirlayip Cpk'yi yapay olarak sisirir, bu yuzden
-        # engellenir (bkz. Gravimetrik Nem panelindeki ayni mantik).
-        if not is_individual:
-            st.warning(
-                f"Aktif parametre '{st.session_state.active_parameter}' bir X-bar/R "
-                "parametresidir (alt grup büyüklüğü n>1). Bu köprü sadece I-MR (tekli "
-                "ölçüm) parametreleri aktifken çalışır - önce Veri Girişi/Chart "
-                "sekmesinden aktif parametreyi bir I-MR parametresine değiştirin."
-            )
-        else:
-            st.caption(f"Aktif parametre: {st.session_state.active_parameter} (I-MR)")
-            if st.button("\U0001F4CC SPC Veri Setine Aktar (Totox -> I-MR)", key="totox_spc_bridge_button"):
-                entry = build_bridge_subgroup_entry(
-                    value=totox_value, shift_label="QC Donusturucu - Totox",
-                )
-                st.session_state.subgroups.append(entry)
-                st.success(
-                    f"Totox değeri SPC veri setine eklendi (aktif parametre: "
-                    f"{st.session_state.active_parameter}). Not: bu köprü sadece I-MR "
-                    "zaman serisine ham değer kaydeder; grafik/Cpk hesaplaması aktif "
-                    "parametrenin kendi LSL/USL spesifikasyonunu kullanır, Totox'un "
-                    f"referans üst sınırı ({TOTOX_BRIDGE_PARAMETER_CONFIG['default_usl']} "
-                    "meq O2/kg) sadece bilgi amaçlıdır."
-                )
+        # ancak kullanici asagidaki paylasilan render_bridge_widget()
+        # araciligiyla Totox degerini SPC I-MR veri setine ham deger olarak
+        # koprulemeyi acikca talep edebilir. Totox'un kendi ayri bir
+        # PARAMETER_CONFIG kaydi olmadigi icin (bkz. yukaridaki
+        # TOTOX_BRIDGE_PARAMETER_CONFIG notu) hedef, uygulamadaki TUM I-MR
+        # parametreleri arasindan acikca secilir - "su an hangisi aktifse
+        # o" varsayimina guvenilmez (Faz 1 final review bulgusu).
+        _totox_individual_params = sorted(
+            p for p, cfg in PARAMETER_CONFIG.items() if cfg.get("is_individual", False)
+        )
+        render_bridge_widget(
+            values_by_target=dict.fromkeys(_totox_individual_params, totox_value),
+            source_label="Totox",
+            widget_key_prefix="qc_totox",
+            extra_note=(
+                "Not: bu köprü sadece I-MR zaman serisine ham değer kaydeder; "
+                "grafik/Cpk hesaplaması seçilen parametrenin kendi LSL/USL "
+                "spesifikasyonunu kullanır, Totox'un referans üst sınırı "
+                f"({TOTOX_BRIDGE_PARAMETER_CONFIG['default_usl']} meq O2/kg) sadece "
+                "bilgi amaçlıdır."
+            ),
+        )
 
     # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox/Gravimetrik Nem
     # panellerindeki gated kopru butonlarinin aksine, bu hesaplayici
