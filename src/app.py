@@ -14,6 +14,7 @@ from scipy import stats
 import csv_io
 from constants import (
     DEFAULT_SUBGROUP_SIZE,
+    FOOD_QUALITY_PARAMETER_CONFIG,
     MAX_SUBGROUP_SIZE,
     MIN_SUBGROUP_SIZE,
     PARAMETER_CATEGORIES,
@@ -29,6 +30,7 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from result_helpers import (
+    build_parameter_info_card,
     build_quick_summary,
     build_totox_comment,
     build_trend_nelson_comment,
@@ -38,6 +40,19 @@ from result_helpers import (
     get_cpk_level,
     measurement_plausibility_warnings,
 )
+
+
+def get_parameter_info_text(param_name: str) -> str:
+    """Parametre bilgi karti icin gosterilecek metni dondurur - Food Quality
+    Parameters (Protein/Yag/Kul/Kuru Madde, v1.4 Faz 1) FOOD_QUALITY_
+    PARAMETER_CONFIG'de tanimliysa framework'un OTOMATIK urettigi karti
+    (bkz. result_helpers.build_parameter_info_card) kullanir; legacy
+    parametreler (pH..Kantitatif S. aureus) icin elle yazilmis PARAMETER_INFO
+    metnine geri doner - iki farkli yazim tarzi ayni fonksiyondan cikmasin
+    diye burada ayristirilir."""
+    if param_name in FOOD_QUALITY_PARAMETER_CONFIG:
+        return build_parameter_info_card(FOOD_QUALITY_PARAMETER_CONFIG[param_name])
+    return PARAMETER_INFO.get(param_name, "")
 from spc_core import (
     CONTROL_CHART_CONSTANTS,
     I_CHART_CONSTANT,
@@ -1819,7 +1834,7 @@ with tab_chart:
             with info_col:
                 st.caption(
                     f"ℹ️ **{st.session_state.active_parameter}** — "
-                    f"{PARAMETER_INFO.get(st.session_state.active_parameter, '')}"
+                    f"{get_parameter_info_text(st.session_state.active_parameter)}"
                 )
             with clear_col:
                 if st.button(

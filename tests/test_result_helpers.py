@@ -14,6 +14,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from result_helpers import (
+    build_parameter_info_card,
     build_quick_summary,
     build_totox_comment,
     build_trend_nelson_comment,
@@ -326,6 +327,44 @@ def test_physical_bound_no_warning_when_hard_min_is_none():
     assert check_physical_bound_breach((None, 100.0), lcl=-50.0) is None
 
 
+# --- build_parameter_info_card (v1.4 Parameter Framework) ---------------
+
+def test_parameter_info_card_includes_unit_chart_and_method():
+    card = build_parameter_info_card({
+        "unit": "%",
+        "method_source": "AOAC 981.10",
+        "is_individual": True,
+        "subgroup_guidance": "Genellikle I-MR.",
+        "decimal_places": 2,
+    })
+    assert "%" in card
+    assert "I-MR" in card
+    assert "AOAC 981.10" in card
+    assert "Genellikle I-MR." in card
+
+
+def test_parameter_info_card_defaults_to_xbar_r_when_not_individual():
+    card = build_parameter_info_card({"unit": "%"})
+    assert "X-bar/R" in card
+    assert "I-MR" not in card
+
+
+def test_parameter_info_card_flags_placeholder_data():
+    card = build_parameter_info_card({"unit": "%", "placeholder": True})
+    assert "HENUZ dogrulanmadi" in card
+
+
+def test_parameter_info_card_no_placeholder_note_when_not_placeholder():
+    card = build_parameter_info_card({"unit": "%", "placeholder": False})
+    assert "HENUZ dogrulanmadi" not in card
+
+
+def test_parameter_info_card_handles_missing_fields_gracefully():
+    # bos config bile KeyError firlatmamali - salt sunum fonksiyonu
+    card = build_parameter_info_card({})
+    assert isinstance(card, str)
+
+
 if __name__ == "__main__":
     test_format_cpk_infinite()
     test_format_cpk_normal()
@@ -368,4 +407,9 @@ if __name__ == "__main__":
     test_physical_bound_no_warning_when_lcl_within_bounds()
     test_physical_bound_warns_when_lcl_below_hard_min()
     test_physical_bound_no_warning_when_hard_min_is_none()
+    test_parameter_info_card_includes_unit_chart_and_method()
+    test_parameter_info_card_defaults_to_xbar_r_when_not_individual()
+    test_parameter_info_card_flags_placeholder_data()
+    test_parameter_info_card_no_placeholder_note_when_not_placeholder()
+    test_parameter_info_card_handles_missing_fields_gracefully()
     print("RESULT HELPER TESTLERI GECTI")

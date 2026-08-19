@@ -853,10 +853,145 @@ PARAMETER_CONFIG = {
 #                                    Parameters'a OZGU bir gruplamadir
 FOOD_QUALITY_CATEGORIES = ["Kimyasal", "Fiziksel", "Optik"]
 
-# Faz 1 (v1.4): Protein, Yag, Kul, Kuru Madde eklenecek.
+# Baslangic sirasi adim 2 (bkz. METHODOLOGY.md): mimariyi erken test etmek
+# icin Faz 1'in 4 parametresi PLACEHOLDER limitlerle burada tanimlanir -
+# "placeholder": True bayragi VE default_lsl/default_usl'in acikca
+# rastgele/gecici oldugu, HENUZ dogrulanmis bir kaynaga dayanmadigi anlamina
+# gelir. Bu degerler kalite kontrol karari icin KULLANILAMAZ - sadece
+# sidebar/bilgi karti/CSV sablonu/grafik akisinin yeni framework semasiyla
+# gercekten calistigini kanitlamak icindir. Adim 3'te (LSL/USL kaynak
+# arastirmasi) "placeholder"/"method_source" alanlari gercek degerlerle
+# degistirilecek, sema (anahtar isimleri) DEGISMEYECEK.
+FOOD_QUALITY_PARAMETER_CONFIG: dict = {
+    "Protein": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 100.0,
+        "decimal_places": 2,
+        "products": {"Ozel/Manuel gir": None},
+        "default_lsl": 0.0,
+        "default_usl": 100.0,
+        "default_measurement": 50.0,
+        "demo_target_mean": 50.0,
+        "demo_target_sigma": 5.0,
+        "one_sided": False,
+        "is_individual": True,  # tahribatli/tekil analiz (Kjeldahl/Dumas tipi yontemler) - bkz. subgroup_guidance
+        "physical_bounds": (0.0, 100.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (tahribatli/tekil analiz), ancak alt grup "
+            "alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "category": "Kimyasal",
+        "placeholder": True,
+    },
+    "Yag": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 100.0,
+        "decimal_places": 2,
+        "products": {"Ozel/Manuel gir": None},
+        "default_lsl": 0.0,
+        "default_usl": 100.0,
+        "default_measurement": 20.0,
+        "demo_target_mean": 20.0,
+        "demo_target_sigma": 2.0,
+        "one_sided": False,
+        "is_individual": True,
+        "physical_bounds": (0.0, 100.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (Soxhlet/Gerber tipi tahribatli tekil analiz), "
+            "ancak alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "category": "Kimyasal",
+        "placeholder": True,
+    },
+    "Kul": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 100.0,
+        "decimal_places": 2,
+        "products": {"Ozel/Manuel gir": None},
+        "default_lsl": 0.0,
+        "default_usl": 100.0,
+        "default_measurement": 2.0,
+        "demo_target_mean": 2.0,
+        "demo_target_sigma": 0.3,
+        "one_sided": False,
+        "is_individual": True,
+        "physical_bounds": (0.0, 100.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (firinlama/kul firinini gerektiren tahribatli "
+            "tekil analiz), ancak alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "category": "Kimyasal",
+        "placeholder": True,
+    },
+    "Kuru Madde": {
+        "unit": "%",
+        "min_value": 0.0,
+        "max_value": 100.0,
+        "decimal_places": 2,
+        "products": {"Ozel/Manuel gir": None},
+        "default_lsl": 0.0,
+        "default_usl": 100.0,
+        "default_measurement": 90.0,
+        "demo_target_mean": 90.0,
+        "demo_target_sigma": 1.5,
+        "one_sided": False,
+        "is_individual": True,
+        "physical_bounds": (0.0, 100.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (nem tayininden turetilen tahribatli tekil "
+            "analiz), ancak alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "category": "Fiziksel",
+        "placeholder": True,
+    },
+}
+
 # Faz 2 (v1.5): Yogunluk, Refraktif Indeks eklenecek.
 # Faz 3 (v1.6): L*, a*, b*, Bulaniklik, Iletkenlik eklenecek.
-# Su an bilincli olarak BOS - bu commit sadece semayi/mekanizmayi kurar,
-# placeholder'i bile LSL/USL arastirmasindan ONCE gercek numara olarak
-# gostermez (bkz. METHODOLOGY.md "Baslangic sirasi" adim 2).
-FOOD_QUALITY_PARAMETER_CONFIG: dict = {}
+
+# Kisa sidebar aciklamalari (PARAMETER_DESCRIPTIONS ile ayni role, Food
+# Quality Parameters icin AYRI tutuldu - taslak/placeholder oldugunu acikca
+# belirtir).
+FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
+    "Protein": "Toplam protein yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
+    "Yag": "Toplam yag yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
+    "Kul": "Mineral kalinti yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
+    "Kuru Madde": "Nem disi kalan katı madde yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
+}
+
+# Sidebar'da Food Quality Parameters icin AYRI bir kategori grubu - legacy
+# PARAMETER_CATEGORIES'e KARISTIRILMADAN eklenir (app.py her iki listeyi de
+# gezip radio grubu olusturur). id "gida_kalite_v14_taslak" - "taslak" sozcugu
+# BILEREK id'de degil sadece etikette var (id sabit kalmali, etiket Faz 1
+# tamamlaninca "(taslak)" ibaresinden arindirilacak).
+FOOD_QUALITY_PARAMETER_CATEGORIES = [
+    (
+        "gida_kalite_v14_taslak",
+        "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri (v1.4 - TASLAK, LSL/USL dogrulanmadi)",
+        ["Protein", "Yag", "Kul", "Kuru Madde"],
+    ),
+]
+
+# Yeni Food Quality Parameters kayitlarini ana yapilara enjekte eder - app.py
+# TEK bir PARAMETER_CONFIG/PARAMETER_CATEGORIES/PARAMETER_DESCRIPTIONS okur,
+# iki ayri sozluk/liste arasinda dallanma yazmak zorunda kalmaz. Bu, planin
+# "sidebar, CSV sablonu, PDF, validation, bilgi karti ve export hepsi ayni
+# registry'den okur" gereksinimini karsilar - FOOD_QUALITY_PARAMETER_CONFIG
+# yine de AYRI/isimlendirilmis kalir (yeni framework alanlarinin - physical_
+# bounds, recommended_chart, subgroup_guidance, method_source, category,
+# placeholder - kaynagi burasidir; result_helpers.build_parameter_info_card()
+# bu alanlari PARAMETER_CONFIG uzerinden degil, gerektiginde bu sozlukten okur).
+PARAMETER_CONFIG.update(FOOD_QUALITY_PARAMETER_CONFIG)
+PARAMETER_CATEGORIES.extend(FOOD_QUALITY_PARAMETER_CATEGORIES)
+PARAMETER_DESCRIPTIONS.update(FOOD_QUALITY_PARAMETER_DESCRIPTIONS)

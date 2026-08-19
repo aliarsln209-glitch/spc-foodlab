@@ -200,6 +200,37 @@ def check_physical_bound_breach(physical_bounds: tuple[float | None, float | Non
     return None
 
 
+def build_parameter_info_card(param_config: dict) -> str:
+    """v1.4 Parameter Framework: legacy PARAMETER_INFO'daki (pH..Kantitatif
+    S. aureus) elle yazilmis 2-3 cumlelik aciklamalarin AKSINE, Food Quality
+    Parameters (Protein, Yag, Kul, Kuru Madde, ...) icin bilgi karti metni
+    framework config'inden OTOMATIK uretilir - elle yazilmaz (bkz.
+    METHODOLOGY.md 'v1.4 -> v1.6 - Food Quality Parameters (fazli)', Faz 1
+    UI maddesi).
+
+    Framework alanlari (unit, method_source, subgroup_guidance,
+    decimal_places, is_individual, placeholder) eksikse KeyError firlatmaz -
+    bu bir dogrulama fonksiyonu DEGILDIR, sadece sunum; eksik alan '-' ile
+    gosterilir."""
+    unit = param_config.get("unit", "-")
+    method_source = param_config.get("method_source", "-")
+    chart = "I-MR" if param_config.get("is_individual") else "X-bar/R"
+    guidance = param_config.get("subgroup_guidance", "")
+    decimals = param_config.get("decimal_places", "-")
+    placeholder_note = (
+        " ⚠️ Bu parametrenin LSL/USL degerleri HENUZ dogrulanmadi - "
+        "sadece mimari test amacli placeholder degerlerdir, gercek kalite "
+        "kontrol kararinda KULLANILMAMALIDIR."
+        if param_config.get("placeholder") else ""
+    )
+    return (
+        f"Birim: {unit} | Onerilen grafik: {chart} | "
+        f"Ondalik hassasiyet: {decimals}. "
+        f"Kaynak/Metodoloji: {method_source} "
+        f"Alt grup notu: {guidance}{placeholder_note}"
+    )
+
+
 def measurement_plausibility_warnings(
     labeled_values: list[tuple[str, float]], lsl: float, usl: float, one_sided: bool
 ) -> list[str]:
