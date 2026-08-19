@@ -502,27 +502,111 @@ AnV/referans aralığı + hesaplama adımları zaten eklendi, bunun üzerine)
   dahil edilmedi: bunlar kantitatif değildir, Cpk kavramı uygulanamaz
   (bkz. Extended Roadmap → v2.2).
 
-**v1.4 — Food Quality Parameters** (aynı istatistik motoruyla yeni
-parametreler)
-- Kimyasal: Protein, Yağ, Kül
-- Fiziksel: Yoğunluk, Kuru Madde
-- Optik: L*, a*, b*, Bulanıklık, İletkenlik, Refraktif İndeks
-- AQL/numune boyutu hesaplayıcısı (bkz. Extended Roadmap'teki v2.2'de
-  detaylandırma)
-- Cp/Cpk ters hesaplama (hedef-bazlı: "Cpk'yi X'e çıkarmak için sigma ne
-  olmalı")
-- Not: bu 8 parametrenin her biri için geçerli LSL/USL kaynağı bulmak,
-  Hammadde Kütüphanesi (v1.1.1) ile kıyaslanabilir büyüklükte bir
-  araştırma yükü — kaynağı doğrulanamayan kombinasyonlar için AYNI
-  disiplin uygulanır: rastgele sayı konulmaz, "Özel/Manuel gir"e
-  bırakılır.
+**v1.4 → v1.6 — Food Quality Parameters (fazlı)**
 
-**Totox alt öğeleri** (buraya taşındı — v1.4)
+11 parametrenin tamamını + tüm ek özellikleri tek sürümde yapmak
+gerçekçi değil: her parametre için ayrı bir LSL/USL kaynak araştırması +
+worked example gerekiyor (v1.2 Method Validation kuralı — bkz. yukarıda),
+bu da Hammadde Kütüphanesi (v1.1.1) ile kıyaslanabilir büyüklükte bir
+araştırma yükü. Bu yüzden aynı istatistik motoru (X-bar/R, I-MR, Cpk/Cpu
+— yeni motor İCAT EDİLMEZ) üç fazda, üç ayrı sürümde uygulanır. Faz 1
+(çekirdek framework + ilk 4 parametre) onaylanıp tamamlanmadan Faz 2'ye
+geçilmez.
+
+**v1.4 — Faz 1: Parameter Framework + Kimyasal/Fiziksel Temel**
+
+*Framework (config-driven Internal Parameter Registry):* her parametre
+tek bir config nesnesiyle tanımlanır — isim, birim, `decimal_places`,
+`physical_bounds` (hard_min/hard_max; örn. Kül/Kuru Madde/Yağ ≥ 0),
+`recommended_chart: "auto"` + `subgroup_guidance` (serbest metin —
+örn. Protein için "genellikle I-MR, alt grup alınabiliyorsa X-bar/R da
+uygun"; sabit grafik dayatılmaz), metodoloji kaynağı (AOAC/ISO), kategori
+(Kimyasal/Fiziksel/Optik). Sidebar, CSV şablonu, PDF, validation, bilgi
+kartı ve export hepsi bu TEK registry'den okur — yeni parametre eklemek
+sadece registry'ye kayıt eklemek anlamına gelir, ayrı UI/CSV/PDF kodu
+yazılmaz.
+
+*Faz 1 parametreleri (SADECE bunlar implement edilir):*
+- Kimyasal: Protein (%), Yağ (%), Kül (%)
+- Fiziksel: Kuru Madde (%)
+
+Her biri için: LSL/USL kaynak araştırması → `constants.py` referans
+tablosu → worked example → `validation/chemistry/` veya
+`validation/physical/` altına pytest. Kaynağı doğrulanamayan
+kombinasyonlarda sayı uydurulmaz, "Özel/Manuel gir"e bırakılır (aynı
+disiplin — bkz. Hammadde Kütüphanesi).
+
+*UI:* Kategori gruplama (Kimyasal / Fiziksel / Optik başlıkları — Optik
+bu fazda boş, sadece placeholder); parametre bilgi kartı (unit, method,
+chart, capability, decimal) framework config'inden otomatik üretilir,
+elle yazılmaz.
+
+*Validation klasör yeniden yapılanması:*
+```
+validation/
+  chemistry/
+  physical/
+  optics/       (boş, Faz 3'te dolacak)
+  microbiology/ (v1.3'ten mevcut)
+  shared/       (parametre-bağımsız: Cp/Cpk/Ppk, Nelson kuralları, Totox)
+```
+
+*Ters Cpk hesaplayıcısı:* gereken sigma hesabı + Δσ% (mevcut sigma →
+hedef sigma azaltma oranı) + k-faktörü analizi (sadece merkez kaydırarak
+hedefe ulaşılabilir mi).
+
+*Dinamik CSV şablon üretici:* Faz 1'in 4 parametresi için birim/format
+uyumlu `st.download_button` şablonu; şablon içine "Template Version:
+v1.4" damgası eklenir (ileride CSV formatı değişirse hangi şablonun
+kullanıldığı takip edilebilir).
+
+*Totox alt öğeleri* (buraya taşındı):
 - Yağ tipi preset seçimi (Balık Yağı/Omega-3, Rafine Bitkisel, Sızma
   Zeytinyağı)
 - Oksidasyon eğrisi şeması ("About Totox" panelinin parçası)
 
-**v1.5 — Laboratory Utilities** (SPC değil, laboratuvar yardımcı
+*Başlangıç sırası:* (1) framework config şema + physical_bounds/
+recommended_chart mekanizması — küçük iş, her şeyi unblock eder; (2) UI
+entegrasyonu (kategori gruplama + bilgi kartı), mimariyi erken test etmek
+için **placeholder/manuel limitlerle** kurulur (henüz doğrulanmış numara
+olarak gösterilmez); (3) Faz 1 — 4 parametre için LSL/USL kaynak
+araştırması, placeholder'ların gerçek değerlerle değiştirilmesi; (4)
+validation (worked example + pytest); (5) Ters Cpk delta/k-faktör + CSV
+şablon üretici (framework'ten bağımsız, herhangi bir noktada yapılabilir).
+
+**v1.5 — Faz 2: Yoğunluk, Refraktif İndeks + Tutarlılık Kontrolleri**
+
+Framework zaten kurulu olduğu için bu fazda iş sadece config + LSL/USL
+araştırması + worked example — ayrı bir mimari çalışması yok.
+- Yoğunluk (g/cm³) — LSL/USL kaynak araştırması + worked example
+- Refraktif İndeks (nD) — `physical_bounds`: nD ≥ 1.333 (su)
+- Çapraz parametre tutarlılık kontrolü (Kuru Madde + Nem ≈ 100 vb.) —
+  bu faza alınma nedeni: Nem parametresi bu fazda framework içinde zaten
+  tanımlı olduğu için bağımlılık kurulabilir hale gelir. Yağ+Protein+Kül
+  toplamının Kuru Madde'yi aşması durumunda BLOKLAMAYAN, bilgilendirici
+  bir uyarı gösterilir.
+- `validation/physical/` genişletilir.
+
+**v1.6 — Faz 3: Optik Parametreler**
+- L*, a*, b* — fiziksel sınır: **L* 0–100**, **a*/b* yaklaşık -128/+127**
+  (CIELAB standardı — a*/b*, L* ile AYNI 0-100 aralığında DEĞİLDİR;
+  framework'te üçü için ayrı `physical_bounds` tanımlanır, aynı bound
+  üçüne birden uygulanmaz)
+- Bulanıklık (NTU) — `physical_bounds`: ≥ 0
+- İletkenlik (µS/cm) — `physical_bounds`: ≥ 0
+- `validation/optics/` ilk kez doldurulur
+- **ΔE bu fazda eklenmez** (L*/a*/b*'den türetilir, kapsam dışı — bkz.
+  "Kalıcı Hariç Tutulanlar")
+
+> **Kalıcı hariç tutulanlar (Food Quality Parameters kapsamında, hiçbir
+> fazda yok):** ΔE, ağır metal, pestisit, mikotoksin, alerjen, patojen.
+
+> **Not — AQL/numune boyutu hesaplayıcısı:** bu üç fazın hiçbirinde
+> iskelet bile kurulmaz; ISO 2859-1 (TSE 2756-1) tam implementasyonu
+> doğrudan Extended Roadmap'teki **v2.2 — Sampling & Acceptance
+> Quality**'de bir kerede yapılır (bkz. aşağıda).
+
+**v1.7 — Laboratory Utilities** (SPC değil, laboratuvar yardımcı
 araçları)
 - Totox (mevcut, taşınmış modül)
 - Thermal Processing Calculator (D-value → z-value → F₀, tek zincir
@@ -616,7 +700,7 @@ yanlışlıkla Omurga'ya, sıradan v2.1/v2.2 olarak konulmuştu — düzeltildi.
 5. İstatistiksel sabitler tablosu (interaktif), LaTeX formül sözlüğü
    (tüm proje için), veri akış şeması (workflow diagram).
 6. Export (PDF/PNG) — Totox için.
-7. pH Buffer Preparation, Genel Unit Converter (bkz. v1.5 notu —
+7. pH Buffer Preparation, Genel Unit Converter (bkz. v1.7 notu —
    Laboratory Utilities omurgasının DIŞINDA tutuldu, burada düşük
    öncelikli birer stretch fikri olarak dururlar).
 8. **Etkileşimli grafikler (hover/click ile değer gösterme) — Plotly'ye
