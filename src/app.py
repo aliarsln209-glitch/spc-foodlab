@@ -1432,6 +1432,24 @@ with tab_data:
         )
         demo_pattern = demo_pattern_labels[demo_pattern_choice]
 
+        if is_microbio:
+            # Ayri bir "Normal SPC Demo / Microbiology Demo" secici EKLENMEDI -
+            # is_microbio zaten parametre secimiyle otomatik belirlendigi icin
+            # (bu parametre TPC/TMAB ise demo HER ZAMAN log-normal uretilir,
+            # baska turlusu anlamsiz olurdu) boyle bir secici sadece TEK gecerli
+            # cevabi olan bir soru sorar - kafa karistirir. Bunun yerine burada
+            # NEDEN log-normal uretildigi aciklanir (bkz. asagidaki demo yukleme
+            # kodu: generate_demo_individual log10 uzayinda cagrilir, sonra
+            # 10**log_deger ile ham KOB/g'ye cevrilip build_subgroup_entry()'den
+            # gecirilir).
+            st.caption(
+                "\U0001F9EA Bu parametre icin demo veri **log-normal dagilimdan** "
+                "uretilir (once log10 olceginde normal dagilim uretilir, sonra ham "
+                "KOB/g'ye cevrilir) - mikrobiyal sayimlarin gercek dagilimini "
+                "yansitir, bu yuzden neden log10 donusumu kullanildigini gorsel "
+                "olarak da gosterir."
+            )
+
         col_a, col_b = st.columns(2)
         with col_a:
             if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
@@ -1989,13 +2007,41 @@ with tab_chart:
                     "degeri yaglarda oksidasyon derecesini gosterir, ne kadar "
                     "dusukse o kadar iyidir; alt limit kavrami yoktur."
                 )
-            else:  # HMF
+            elif active_param == "HMF":
                 st.caption(
                     "Bu degerler TGK Bal Tebligi, TGK Uzum Pekmezi Tebligi ve "
                     "genel sektor pratigine dayanir. **Sadece USL anlamlidir**: "
                     "HMF, isil islem/depolama sirasinda sekerlerin bozunmasinin "
                     "gostergesidir; alt limit kavrami yoktur."
                 )
+            else:  # is_microbio (TPC/TMAB, Kuf-Maya, Koliform, Enterobacteriaceae, Kantitatif S. aureus)
+                # v1.3 Madde 3 (kalan mikrobiyoloji parametreleri) ONCESI bu else
+                # dali sadece HMF'i kapsiyordu - 5 yeni mikrobiyoloji parametresi
+                # eklenince YANLISLIKLA HMF'e ozgu metni (TGK Bal Tebligi vb.)
+                # gosteriyordu (gercek bir hata, yukaridaki elif active_param ==
+                # "HMF" ile duzeltildi). Method referanslari PARAMETER_SOURCES'tan
+                # (constants.py) okunur - ayri bir kopya metin YAZILMAZ.
+                st.caption(
+                    f"Bu deger {PARAMETER_SOURCES.get(active_param, '-')} kaynagina "
+                    "dayanan GOSTERGE degeridir, resmi/zorunlu bir TGK limiti "
+                    "DEGILDIR. **Sadece USL anlamlidir** (mikrobiyal sayimlarda "
+                    "alt limit kavrami yoktur - az bakteri her zaman iyidir); "
+                    "grafik/Cpk **log10 olceginde** hesaplanir (bkz. asagidaki "
+                    "'Parametre Bilgi Karti')."
+                )
+                with st.container(border=True):
+                    ic1, ic2, ic3 = st.columns(3)
+                    ic1.markdown(f"**Unit**  \n{unit}")
+                    ic1.markdown(f"**Chart**  \n{'I-MR' if is_individual else 'X-bar/R'}")
+                    ic2.markdown(f"**Capability**  \n{'Cpu (tek tarafli)' if one_sided else 'Cpk'}")
+                    ic2.markdown(f"**Default LOD**  \n{param_config.get('default_lod', '-'):g} {unit}")
+                    _typical_usl = param_config["default_usl"]
+                    ic3.markdown(f"**Typical Specification**  \n≤ {_typical_usl:g} {unit}")
+                    ic3.markdown(f"**Transformation**  \n{param_config.get('log_axis_label', 'log10')}")
+                    _methods = ["ICMSF", "FDA BAM (LOD/2 ikamesi)"]
+                    if active_param == "Kantitatif S. aureus":
+                        _methods.append("ISO 6888-1")
+                    st.caption(f"\U0001F4D0 Method: {' · '.join(_methods)}")
 
             col1, col2 = st.columns(2)
             with col1:
