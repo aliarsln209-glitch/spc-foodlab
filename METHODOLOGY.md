@@ -648,7 +648,7 @@ physical/optics/microbiology'den ayrı bir kategori, çünkü bunlar ürün
 spesifikasyonu değil, **ölçüm standardizasyon formülü** doğrulamasıdır
 (ICUMSA, Mohr, AOAC asit faktörleri, Ball formula gibi).
 
-**Faz 1 — Köprü Altyapısı + 2 modül + Totox bağlantısı ✅ Tamamlandı (Brix hariç — bkz. aşağıdaki not)**
+**Faz 1 — Köprü Altyapısı + 2 modül + Totox bağlantısı 🟡 Kısmen tamamlandı (Brix sıcaklık düzeltmesi kaynak bekliyor — bkz. aşağıdaki not)**
 
 Önce bunlar çünkü: SPC Entegrasyon Köprüsü paylaşılan altyapıdır (v1.4'teki
 Parameter Framework'ün rolünü oynar, sonraki tüm moduller buna bağlanacak);
