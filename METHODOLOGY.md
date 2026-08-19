@@ -629,18 +629,106 @@ araştırması + worked example — ayrı bir mimari çalışması yok.
 > doğrudan Extended Roadmap'teki **v2.2 — Sampling & Acceptance
 > Quality**'de bir kerede yapılır (bkz. aşağıda).
 
-**v1.7 — Laboratory Utilities** (SPC değil, laboratuvar yardımcı
-araçları)
-- Totox (mevcut, taşınmış modül)
-- Thermal Processing Calculator (D-value → z-value → F₀, tek zincir
-  hesaplayıcı)
-- Brix Temperature Correction (ICUMSA standardına göre)
-- Solution Dilution Calculator (C₁V₁ = C₂V₂)
+**v1.7 — QC Veri Dönüştürücüler (fazlı)**
 
-*Not: pH Buffer Preparation ve genel Unit Converter kapsam dışı
-bırakıldı — "Food Engineering Toolbox"a kayma riski; bkz. Stretch
-Goals (Laboratory Utilities'in omurga teslimatının parçası DEĞİL,
-zaman kalırsa ayrıca değerlendirilebilir).*
+"Laboratory Utilities" adı terk edildi — **"QC Veri Dönüştürücüler
+(Data Pre-processors)"** olarak yeniden çerçevelendi. Bu isim değişikliği
+kozmetik değil: sidebar'da SPC Analiz'in ALTINDA, ayrı bir "araçlar
+sayfası" gibi değil, **veri giriş kapısı** olarak konumlanır — SPC
+FoodLab'in kimliğini ("odaklı bir SPC aracı") koruyan mimari karar bu.
+
+**Altın Kural (her modül için zorunlu kabul testi):** *"Bu
+dönüştürücünün çıktısı SPC kontrol kartının Y eksenine doğrudan bir
+kalite metriği olarak giriyor mu?"* Hayırsa, modül bu kapsama girmez.
+pH Buffer ve genel Unit Converter bu testi geçemediği için kalıcı
+reddedildi (aşağıya bakınız).
+
+*Validation klasörü:* `validation/process/` açılır — chemistry/
+physical/optics/microbiology'den ayrı bir kategori, çünkü bunlar ürün
+spesifikasyonu değil, **ölçüm standardizasyon formülü** doğrulamasıdır
+(ICUMSA, Mohr, AOAC asit faktörleri, Ball formula gibi).
+
+**Faz 1 — Köprü Altyapısı + 2 modül + Totox bağlantısı**
+
+Önce bunlar çünkü: SPC Entegrasyon Köprüsü paylaşılan altyapıdır (v1.4'teki
+Parameter Framework'ün rolünü oynar, sonraki tüm moduller buna bağlanacak);
+ilk 2 modül en düşük validation riskini taşır (basit matematik, mevcut
+parametreye doğrudan bağlanıyor).
+
+- **SPC Entegrasyon Köprüsü:** `append_to_spc_session(param, value, lot)`
+  — hesaplayıcı sonucu, mevcut parametrenin session-state veri setine tek
+  tıkla eklenir ("SPC Veri Setine Aktar" butonu). Ayrı bir teknik iş
+  kalemi, her modülün "ayrıca ekle"si değil.
+- **Brix Düzeltmesi** (ICUMSA SPS-4): mevcut Brix parametresine bağlanır.
+  Worked example + `validation/process/` altına pytest.
+- **Gravimetrik Nem/Kuru Madde:** dara + yaş + kuru ağırlıktan %Nem/%Kuru
+  Madde hesabı, mevcut parametrelere bağlanır. Basit matematik, düşük
+  validation riski.
+- **Totox köprüsü (kesin — bağlanacak):** Totox v1.0'dan beri mevcut,
+  PV/AnV'den türeyen tek bir sayısal değer üretiyor — diğer parametreler
+  gibi zaman içinde I-MR ile izlenebilir, teknik olarak farksız. Ayrı
+  görünümde kalmasının (session history, v1.2) hiçbir mimari gerekçesi
+  yok, sadece köprü konsepti o zaman yoktu. Totox'u tam bir SPC
+  parametresi (LSL/USL, chart, Cpk) olarak `FOOD_QUALITY_PARAMETER_CONFIG`'e
+  sokmak gereksiz iş — zaten kendi referans aralığı (Codex/IOC, ≤20 meq
+  O2/kg) ve gösterimi var; köprü sadece ham Totox değerini zaman
+  serisine (I-MR) besleyen bir "kayıt" gibi davranır, tam
+  parametre-registry üyeliği gerekmez. Bu ayrım Faz 1 implementasyon
+  planında netleştirilecek teknik bir detay, roadmap'i etkilemez.
+
+**Faz 2 — Titrimetrik Dönüştürücüler**
+
+Sonra bunlar çünkü: faktör katsayı tabloları (asit faktörleri, AgNO₃
+faktörü) kendi başına küçük bir kaynak araştırması gerektiriyor — Faz
+1'deki köprü hazır olduktan sonra bu araştırmaya odaklanılır.
+
+- **Titre Edilebilir Asitlik:** sitrik/laktik/malik/asetik faktör
+  katsayıları AOAC yöntemine göre kaynaklanır, mevcut "Titrasyon
+  Asitliği" parametresine bağlanır. Bir ürün-asit kombinasyonu için
+  faktör kaynaklanamazsa (Hammadde Kütüphanesi'ndeki AYNI disiplin) sayı
+  uydurulmaz — kullanıcı "Özel/Manuel gir" ile kendi faktörünü girer, tam
+  Hammadde Kütüphanesi'ndeki "kaynaksız, kullanıcı girişi" etiketleme
+  deseni tekrar kullanılır (yeni bir mekanizma icat edilmez).
+- **Tuz (Mohr Metodu):** AgNO₃ faktörü kaynaklanır, mevcut "Tuz/NaCl"
+  parametresine bağlanır. Aynı fallback kuralı geçerli.
+- Her ikisi için worked example + `validation/process/` altına pytest.
+
+**Faz 3 — Karmaşık Validasyon Gerektirenler**
+
+En son bunlar çünkü: en yüksek validation riski — F₀ için hem formül
+(Ball formula) hem de olası yeni bir LSL kaynağı araştırması gerekiyor
+(v1.4→v1.6'daki aynı disiplinle: kaynak doğrulanamazsa "Özel/Manuel gir").
+
+- **Bostwick/Viskozite Sıcaklık Normalizasyonu:** normalizasyon
+  formülünün kaynağı (ASTM veya sektör pratiği) doğrulanır, mevcut
+  "Viskozite" parametresine bağlanır. Worked example +
+  `validation/process/`.
+- **Termal Letalite (F₀, Bigelow/Ball formülü):** hesaplama formülü
+  standarttır (z=10°C, T_ref=121.1°C) ama F₀'ın kendisi SPC parametresi
+  olarak izlenecekse LSL kaynağı araştırılmalı (12D/low-acid canned food
+  literatürü) — kaynak doğrulanamazsa sayı uydurulmaz, manuel giriş.
+  Worked example zorunlu, `validation/process/` altına.
+
+**Kapsam dışı (bu roadmap'in parçası değil):**
+- **ΔE — KESİN, dışarıda.** v1.6'daki "Kalıcı Hariç Tutulanlar" kararı
+  KORUNUYOR: L*, a*, b* zaten ayrı ayrı izleniyor, ΔE bunlardan türeyen
+  bir metrik, yeni bilgi eklemiyor. Tek gerçek değeri "hedefe göre sapma"
+  vermesi ama bunun için bir "referans parti" (hedef L₀a₀b₀) kavramı
+  tanımlanması gerekir — mevcut sistemde olmayan yeni bir SPC kullanım
+  paterni (her parametre şu an bağımsız limit karşılaştırması yapıyor,
+  hedefe-göre-fark izleme yapmıyor). Küçük bir formül değil, yeni bir
+  kavramsal eksen açmak demek. Tartışma KAPANMIŞTIR.
+- **C₁V₁=C₂V₂, pH Buffer Preparation, genel Unit Converter** — kalıcı
+  reddedildi (Altın Kural'ı geçemiyorlar: SPC akışının parçası değiller,
+  gıda-lab'a özgü de değiller — "Food Engineering Toolbox"a kayma riski).
+- **Toplu/Batch mod** (Excel sütun yükleyip topluca dönüştürme) — Faz
+  1-3'ün hiçbirinde yok. Ayrı bir özellik, köprü + tekil dönüştürücüler
+  oturduktan sonra ayrıca değerlendirilir (v1.7.1 veya sonrası).
+
+**Validation zorunluluğu (tüm fazlarda geçerli):** her yeni formül
+(ICUMSA, Mohr, asit faktörleri, Bostwick normalizasyonu, Ball formula)
+için literatür worked example + `validation/` altına pytest — v1.2'den
+beri zorunlu Method Validation kuralı burada da aynen işler.
 
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
@@ -724,7 +812,7 @@ yanlışlıkla Omurga'ya, sıradan v2.1/v2.2 olarak konulmuştu — düzeltildi.
    (tüm proje için), veri akış şeması (workflow diagram).
 6. Export (PDF/PNG) — Totox için.
 7. pH Buffer Preparation, Genel Unit Converter (bkz. v1.7 notu —
-   Laboratory Utilities omurgasının DIŞINDA tutuldu, burada düşük
+   QC Veri Dönüştürücüler omurgasının DIŞINDA tutuldu, burada düşük
    öncelikli birer stretch fikri olarak dururlar).
 8. **Etkileşimli grafikler (hover/click ile değer gösterme) — Plotly'ye
    geçiş**: GELECEK DEĞERLENDİRME, HENÜZ KARAR VERİLMEDİ. Mevcut mimaride
