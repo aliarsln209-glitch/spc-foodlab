@@ -5,6 +5,8 @@ dokunmaz, sadece deger hesaplar/dondurur. session_state entegrasyonu app.py'de
 build_bridge_subgroup_entry() ciktisini subgroups listesine ekleyerek yapilir.
 """
 
+import math
+
 
 def gravimetric_moisture(
     dish_tare_g: float, wet_with_dish_g: float, dry_with_dish_g: float
@@ -32,3 +34,16 @@ def gravimetric_moisture(
         "moisture_pct": moisture_pct,
         "dry_matter_pct": dry_matter_pct,
     }
+
+
+def build_bridge_subgroup_entry(value: float, shift_label: str) -> dict:
+    """QC donusturucu sonucunu, mevcut subgroups sema formatina cevirir.
+
+    app.py:96-97'deki st.session_state.subgroups listesi
+    {"shift": str, "values": list[float]} sekli bekler; koprubu format
+    degistirmez, sadece dogru sekli uretir - spc_core.py'ye HICBIR
+    degisiklik gerekmez.
+    """
+    if not math.isfinite(value):
+        raise ValueError("kopru degeri sonlu bir sayi olmalidir (NaN/inf kabul edilmez)")
+    return {"shift": shift_label, "values": [value]}

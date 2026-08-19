@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from qc_converters import gravimetric_moisture
+from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry
 
 
 def test_gravimetric_moisture_basic_worked_example():
@@ -32,3 +32,13 @@ def test_gravimetric_moisture_dry_heavier_than_wet_raises():
     # Kuru kalinti net agirligi, yas numune net agirligindan buyuk olamaz
     with pytest.raises(ValueError, match="kuru kalinti"):
         gravimetric_moisture(dish_tare_g=25.000, wet_with_dish_g=30.000, dry_with_dish_g=30.500)
+
+
+def test_build_bridge_subgroup_entry_shape():
+    entry = build_bridge_subgroup_entry(value=12.34, shift_label="QC Donusturucu - Test")
+    assert entry == {"shift": "QC Donusturucu - Test", "values": [12.34]}
+
+
+def test_build_bridge_subgroup_entry_rejects_non_finite_value():
+    with pytest.raises(ValueError, match="sonlu"):
+        build_bridge_subgroup_entry(value=float("nan"), shift_label="QC Donusturucu - Test")
