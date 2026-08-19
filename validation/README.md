@@ -50,6 +50,7 @@ satirlarinin AYNI kategorisi (bkz. asagidaki tablo, kaynak sutunu).
 | `chemistry/cpk_reference.csv` | Protein, Kül — I-MR + Cpk/Cpu (v1.4 Faz 1) | Dahili matematiksel tutarlılık kontrolü (5 elle seçilmiş ölçüm, formül elle uygulanmış) |
 | `physical/cpk_reference.csv` | Kuru Madde — I-MR + Cpk (v1.4 Faz 1) | Dahili matematiksel tutarlılık kontrolü |
 | `physical/yogunluk_refraktif_cpk_reference.csv` | Yoğunluk, Refraktif İndeks — I-MR + Cpk (v1.5 Faz 2) | Dahili matematiksel tutarlılık kontrolü |
+| `optics/cpk_reference.csv` | L*, Bulanıklık — I-MR + Cpk/Cpu (v1.6 Faz 3) | Dahili matematiksel tutarlılık kontrolü — **framework mekanizma testi, ürün spesifikasyonu DEĞİL** (bu 5 optik parametre için doğrulanmış bir TGK/Codex ürün limiti bulunamadı, bkz. METHODOLOGY.md v1.6) |
 
 ### Nelson kuralları (v1.2) — CSV formatında DEĞİL, neden
 

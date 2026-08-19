@@ -119,6 +119,14 @@ def test_physical_yogunluk_refraktif_cpk_reference_csv_matches_formula():
     )
 
 
+def test_optics_cpk_reference_csv_matches_formula():
+    # v1.6 Faz 3: L*, Bulanıklık (I-MR + Cpk/Cpu) - urun spesifikasyonu
+    # DEGIL, framework mekanizma testi (bkz. validation/optics/cpk_reference.csv
+    # ve constants.py'deki L_STAR/BULANIKLIK_PRODUCT_RANGES notlari - bu 5
+    # parametre icin dogrulanmis bir TGK/Codex urun limiti bulunamadi).
+    _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="optics"))
+
+
 def test_ppk_reference_csv_matches_formula():
     df = _load("ppk_reference.csv")
     assert len(df) >= 1, "ppk_reference.csv bos olmamali"
@@ -142,5 +150,6 @@ if __name__ == "__main__":
     test_chemistry_cpk_reference_csv_matches_formula()
     test_physical_cpk_reference_csv_matches_formula()
     test_physical_yogunluk_refraktif_cpk_reference_csv_matches_formula()
+    test_optics_cpk_reference_csv_matches_formula()
     test_ppk_reference_csv_matches_formula()
     print("VALIDATION SUITE (CSV-guduml) TESTLERI GECTI")

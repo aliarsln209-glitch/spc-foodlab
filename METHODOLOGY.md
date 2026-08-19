@@ -595,16 +595,31 @@ araştırması + worked example — ayrı bir mimari çalışması yok.
   bir uyarı gösterilir.
 - `validation/physical/` genişletilir.
 
-**v1.6 — Faz 3: Optik Parametreler**
+**v1.6 — Faz 3: Optik Parametreler ✅ Tamamlandı**
 - L*, a*, b* — fiziksel sınır: **L* 0–100**, **a*/b* yaklaşık -128/+127**
   (CIELAB standardı — a*/b*, L* ile AYNI 0-100 aralığında DEĞİLDİR;
   framework'te üçü için ayrı `physical_bounds` tanımlanır, aynı bound
   üçüne birden uygulanmaz)
-- Bulanıklık (NTU) — `physical_bounds`: ≥ 0
+- Bulanıklık (NTU) — `physical_bounds`: ≥ 0, HER ZAMAN tek taraflı (USL)
 - İletkenlik (µS/cm) — `physical_bounds`: ≥ 0
-- `validation/optics/` ilk kez doldurulur
+- `validation/optics/` ilk kez dolduruldu — **dahili matematiksel
+  tutarlılık kontrolü, ürün spesifikasyonu DEĞİL** (aşağıdaki kaynak
+  notuna bakınız)
 - **ΔE bu fazda eklenmez** (L*/a*/b*'den türetilir, kapsam dışı — bkz.
   "Kalıcı Hariç Tutulanlar")
+
+> **Kaynak araştırması sonucu — dürüst not:** bu 5 parametrenin hiçbiri
+> için ürüne özgü, doğrulanmış bir TGK/Codex/JECFA sayısal limiti
+> bulunamadı. Renk (L*/a*/b*) çoğu gıda ürününde mevzuat değil,
+> işletme-içi/müşteri-spesifik bir kalite hedefidir; Bulanıklık/İletkenlik
+> için de ürüne özgü resmi bir tebliğ limiti yok. Araştırılan ama
+> **kullanılmayan** bir kaynak: İnsani Tüketim Amaçlı Sular Hakkında
+> Yönetmelik'in Ek-1 tablosu bulanıklık/iletkenlik için sayısal limitler
+> içeriyor — ama bu içme suyu potabilite standardıdır, gıda ürünü
+> spesifikasyonu DEĞİLDİR (Bal/pekmez HMF limitinin konsantre meyve
+> suyuna uygulanmaması ile AYNI ilke). Bu yüzden Hammadde Kütüphanesi'ndeki
+> AYNI disiplinle (57/61 manuel giriş) tüm 5 parametrenin "Ürün" listesi
+> SADECE "Özel/Manuel gir" içerir — kullanıcı kendi spesifikasyonunu girer.
 
 > **Kalıcı hariç tutulanlar (Food Quality Parameters kapsamında, hiçbir
 > fazda yok):** ΔE, ağır metal, pestisit, mikotoksin, alerjen, patojen.

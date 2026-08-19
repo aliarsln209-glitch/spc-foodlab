@@ -115,6 +115,29 @@ def test_yogunluk_and_refraktif_indeks_are_two_sided():
         assert FOOD_QUALITY_PARAMETER_CONFIG[param_name]["one_sided"] is False
 
 
+def test_faz3_optics_parameters_present_with_correct_physical_bounds():
+    # v1.6 Faz 3: L*, a*, b*, Bulaniklik, Iletkenlik - urune ozgu dogrulanmis
+    # bir kaynak BULUNAMADI (bkz. constants.py notlari), bu yuzden TUMU
+    # sadece "Ozel/Manuel gir" icerir - Hammadde Kutuphanesi'ndeki AYNI
+    # disiplin (kaynagi dogrulanamayan kombinasyon icin sayi uydurulmaz).
+    for param_name in ("L*", "a*", "b*", "Bulaniklik", "Iletkenlik"):
+        assert param_name in FOOD_QUALITY_PARAMETER_CONFIG
+        config = FOOD_QUALITY_PARAMETER_CONFIG[param_name]
+        assert config["category"] == "Optik"
+        assert list(config["products"].keys()) == ["Ozel/Manuel gir"]
+
+    # L* 0-100, a*/b* -128/+127 (CIELAB) - L*'nin AYNISI DEGIL (METHODOLOGY.md
+    # v1.6 notu: "ayni bound'u ucune birden uygulama").
+    assert FOOD_QUALITY_PARAMETER_CONFIG["L*"]["physical_bounds"] == (0.0, 100.0)
+    for param_name in ("a*", "b*"):
+        assert FOOD_QUALITY_PARAMETER_CONFIG[param_name]["physical_bounds"] == (-128.0, 127.0)
+
+
+def test_bulaniklik_is_one_sided_upper_limit_only():
+    # Bulaniklik HER ZAMAN bir ust limit spesifikasyonudur (berraklik hedefi)
+    assert FOOD_QUALITY_PARAMETER_CONFIG["Bulaniklik"]["one_sided"] is True
+
+
 def test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs():
     # spc_core.py sadece USL-only (Cpu) tek tarafli hesaplamayi destekler,
     # LSL-only (Cpl) YOKTUR - bu yuzden gercekte sadece minimum tanimli olan
@@ -146,6 +169,8 @@ if __name__ == "__main__":
     test_faz2_parameters_present_and_verified()
     test_refraktif_indeks_physical_lower_bound_is_water()
     test_yogunluk_and_refraktif_indeks_are_two_sided()
+    test_faz3_optics_parameters_present_with_correct_physical_bounds()
+    test_bulaniklik_is_one_sided_upper_limit_only()
     test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs()
     test_food_quality_parameters_have_sidebar_descriptions()
     print("FOOD QUALITY FRAMEWORK TESTLERI GECTI")

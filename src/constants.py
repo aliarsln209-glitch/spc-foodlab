@@ -1016,9 +1016,6 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
     },
 }
 
-# Faz 2 (v1.5): Yogunluk, Refraktif Indeks eklenecek.
-# Faz 3 (v1.6): L*, a*, b*, Bulaniklik, Iletkenlik eklenecek.
-
 # --- Faz 2 (v1.5): Yogunluk, Refraktif Indeks -------------------------------
 # Kaynak: TGK Yemeklik Zeytinyagi ve Yemeklik Prina Yagi Tebligi (Tebligg No:
 # 98/7, 25.04.1998 R.G. 23323), EK-1 "Saflik Kriterleri" 2.1 (Yogunluk) ve 2.2
@@ -1086,6 +1083,148 @@ FOOD_QUALITY_PARAMETER_CONFIG.update({
     },
 })
 
+# --- Faz 3 (v1.6): L*, a*, b*, Bulaniklik, Iletkenlik -----------------------
+# KAYNAK ARASTIRMASI SONUCU: bu 5 parametre icin TGK/Codex/JECFA kaynakli,
+# GIDA URUNUNE OZGU (icme suyu potabilite yonetmeligi DEGIL - farkli baglam,
+# bkz. asagidaki not) dogrulanmis bir sayisal limit BULUNAMADI - rengin
+# (L*/a*/b*) cogu gida urununde mevzuat DEGIL, isletme-ici/musteri-spesifik
+# bir kalite hedefi olmasi beklenen bir durumdur; Bulaniklik/Iletkenlik icin
+# de benzer sekilde urune ozgu resmi bir tebliğ limiti bulunamadi. Bu yuzden
+# TUMU icin "products" sozlugu SADECE "Ozel/Manuel gir" icerir - Hammadde
+# Kutuphanesi'ndeki (57/61 manuel) AYNI disiplin: kaynagi dogrulanamayan
+# kombinasyon icin sayi UYDURULMAZ.
+#
+# ARASTIRILDI AMA KULLANILMADI: İnsani Tuketim Amacli Sular Hakkinda
+# Yonetmelik (iceme suyu potabilite yonetmeligi) bulaniklik/iletkenlik icin
+# sayisal limitler icerir (Ek-1 tablosu) - ama bu GIDA URUNU spesifikasyonu
+# DEGIL, icme suyu potabilite standardidir; farkli bir urun kategorisi/
+# baglamdir (aynen METHODOLOGY.md'deki "Bal/pekmez HMF limitleri konsantre
+# meyve suyuna UYGULANMAZ" ilkesiyle ayni mantik) - bu yuzden BURAYA
+# TASINMADI.
+L_STAR_PRODUCT_RANGES = {"Ozel/Manuel gir": None}
+A_STAR_PRODUCT_RANGES = {"Ozel/Manuel gir": None}
+B_STAR_PRODUCT_RANGES = {"Ozel/Manuel gir": None}
+BULANIKLIK_PRODUCT_RANGES = {"Ozel/Manuel gir": None}
+ILETKENLIK_PRODUCT_RANGES = {"Ozel/Manuel gir": None}
+
+FOOD_QUALITY_PARAMETER_CONFIG.update({
+    "L*": {
+        "unit": "L*",
+        "min_value": 0.0,
+        "max_value": 100.0,  # CIELAB standardi - 0=siyah, 100=beyaz
+        "decimal_places": 2,
+        "products": L_STAR_PRODUCT_RANGES,
+        "default_lsl": 40.0,
+        "default_usl": 90.0,
+        "default_measurement": 65.0,
+        "demo_target_mean": 65.0,
+        "demo_target_sigma": 2.0,
+        "one_sided": False,
+        "is_individual": True,  # kolorimetre ile tekil olcum
+        "physical_bounds": (0.0, 100.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (kolorimetre/spektrofotometre ile tekil olcum), "
+            "ancak alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "Kaynak bulunamadi - CIELAB standardi (uluslararasi olcek tanimi, urune ozgu bir TGK/Codex limiti DEGIL). Kullanici kendi hedef degerini girer.",
+        "category": "Optik",
+        "placeholder": False,  # framework/olcek anlamnda DOGRULANMIS (CIELAB) - urun limiti DEGIL, bkz. method_source
+    },
+    "a*": {
+        "unit": "a*",
+        "min_value": -128.0,
+        "max_value": 127.0,  # CIELAB standardi - L*'den FARKLI aralik (-yesil, +kirmizi)
+        "decimal_places": 2,
+        "products": A_STAR_PRODUCT_RANGES,
+        "default_lsl": -10.0,
+        "default_usl": 30.0,
+        "default_measurement": 10.0,
+        "demo_target_mean": 10.0,
+        "demo_target_sigma": 1.0,
+        "one_sided": False,
+        "is_individual": True,
+        "physical_bounds": (-128.0, 127.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (kolorimetre/spektrofotometre ile tekil olcum), "
+            "ancak alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "Kaynak bulunamadi - CIELAB standardi (uluslararasi olcek tanimi, urune ozgu bir TGK/Codex limiti DEGIL). Kullanici kendi hedef degerini girer.",
+        "category": "Optik",
+        "placeholder": False,
+    },
+    "b*": {
+        "unit": "b*",
+        "min_value": -128.0,
+        "max_value": 127.0,  # CIELAB standardi - a*'den ayni arlikta ama BAGIMSIZ eksen (-mavi, +sari)
+        "decimal_places": 2,
+        "products": B_STAR_PRODUCT_RANGES,
+        "default_lsl": 0.0,
+        "default_usl": 40.0,
+        "default_measurement": 20.0,
+        "demo_target_mean": 20.0,
+        "demo_target_sigma": 1.5,
+        "one_sided": False,
+        "is_individual": True,
+        "physical_bounds": (-128.0, 127.0),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (kolorimetre/spektrofotometre ile tekil olcum), "
+            "ancak alt grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "Kaynak bulunamadi - CIELAB standardi (uluslararasi olcek tanimi, urune ozgu bir TGK/Codex limiti DEGIL). Kullanici kendi hedef degerini girer.",
+        "category": "Optik",
+        "placeholder": False,
+    },
+    "Bulaniklik": {
+        "unit": "NTU",
+        "min_value": 0.0,
+        "max_value": 10000.0,  # genis sinir - meyve suyu/surup bulaniklik degerleri urune gore cok degisir
+        "decimal_places": 1,
+        "products": BULANIKLIK_PRODUCT_RANGES,
+        "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
+        "default_usl": 100.0,
+        "default_measurement": 50.0,
+        "demo_target_mean": 50.0,
+        "demo_target_sigma": 5.0,
+        "one_sided": True,  # bulaniklik HER ZAMAN bir ust limit spesifikasyonudur (berraklik hedefi)
+        "is_individual": True,  # nefelometre ile tekil olcum
+        "physical_bounds": (0.0, None),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (nefelometre ile tekil olcum), ancak alt grup "
+            "alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "Kaynak bulunamadi - urune ozgu dogrulanmis bir TGK/Codex limiti YOK (icme suyu potabilite yonetmeliginin bulaniklik limiti FARKLI bir urun kategorisidir, buraya UYGULANMAZ). Kullanici kendi spesifikasyonunu girer.",
+        "category": "Optik",
+        "placeholder": False,
+    },
+    "Iletkenlik": {
+        "unit": "µS/cm",
+        "min_value": 0.0,
+        "max_value": 100000.0,  # genis sinir - urun tipine gore (seker surubu vb.) cok degisebilir
+        "decimal_places": 0,
+        "products": ILETKENLIK_PRODUCT_RANGES,
+        "default_lsl": 0.0,
+        "default_usl": 2000.0,
+        "default_measurement": 500.0,
+        "demo_target_mean": 500.0,
+        "demo_target_sigma": 50.0,
+        "one_sided": False,
+        "is_individual": True,  # iletkenlik metre ile tekil olcum
+        "physical_bounds": (0.0, None),
+        "recommended_chart": "auto",
+        "subgroup_guidance": (
+            "Genellikle I-MR (iletkenlik metre ile tekil olcum), ancak alt "
+            "grup alinabiliyorsa X-bar/R da uygundur."
+        ),
+        "method_source": "Kaynak bulunamadi - urune ozgu dogrulanmis bir TGK/Codex limiti YOK (icme suyu potabilite yonetmeliginin iletkenlik limiti FARKLI bir urun kategorisidir, buraya UYGULANMAZ). Kullanici kendi spesifikasyonunu girer.",
+        "category": "Optik",
+        "placeholder": False,
+    },
+})
+
 # Kisa sidebar aciklamalari (PARAMETER_DESCRIPTIONS ile ayni role, Food
 # Quality Parameters icin AYRI tutuldu).
 FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
@@ -1095,6 +1234,11 @@ FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
     "Kuru Madde": "Nem disi kalan katı madde yuzdesi (%).",
     "Yogunluk": "Kutle/hacim orani (g/cm3) - piknometre/hidrometre ile olculur.",
     "Refraktif Indeks": "Kirilma indisi (nD) - Abbe refraktometre ile olculur, safligin gostergesi.",
+    "L*": "CIELAB parlaklik ekseni (0=siyah, 100=beyaz) - kolorimetre ile olculur.",
+    "a*": "CIELAB yesil-kirmizi ekseni (-yesil, +kirmizi) - kolorimetre ile olculur.",
+    "b*": "CIELAB mavi-sari ekseni (-mavi, +sari) - kolorimetre ile olculur.",
+    "Bulaniklik": "Berraklik derecesinin tersi (NTU) - nefelometre ile olculur, sadece ust limit anlamlidir.",
+    "Iletkenlik": "Elektriksel iletkenlik (uS/cm) - cozunmus iyon miktarinin dolayli gostergesi.",
 }
 
 # Sidebar'da Food Quality Parameters icin AYRI bir kategori grubu - legacy
@@ -1107,7 +1251,10 @@ FOOD_QUALITY_PARAMETER_CATEGORIES = [
     (
         "gida_kalite_v14",
         "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri",
-        ["Protein", "Yag", "Kul", "Kuru Madde", "Yogunluk", "Refraktif Indeks"],
+        [
+            "Protein", "Yag", "Kul", "Kuru Madde", "Yogunluk", "Refraktif Indeks",
+            "L*", "a*", "b*", "Bulaniklik", "Iletkenlik",
+        ],
     ),
 ]
 
