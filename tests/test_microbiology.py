@@ -121,7 +121,7 @@ def test_build_subgroup_entry_raises_when_below_lod_missing_lod():
 # --- validation/microbiology_reference.csv entegrasyon testi ---
 
 def _load(filename: str) -> pd.DataFrame:
-    return pd.read_csv(os.path.join(VALIDATION_DIR, filename))
+    return pd.read_csv(os.path.join(VALIDATION_DIR, "microbiology", filename))
 
 
 def test_microbiology_reference_csv_matches_pipeline():

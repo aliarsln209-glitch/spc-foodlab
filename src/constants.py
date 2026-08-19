@@ -853,27 +853,86 @@ PARAMETER_CONFIG = {
 #                                    Parameters'a OZGU bir gruplamadir
 FOOD_QUALITY_CATEGORIES = ["Kimyasal", "Fiziksel", "Optik"]
 
-# Baslangic sirasi adim 2 (bkz. METHODOLOGY.md): mimariyi erken test etmek
-# icin Faz 1'in 4 parametresi PLACEHOLDER limitlerle burada tanimlanir -
-# "placeholder": True bayragi VE default_lsl/default_usl'in acikca
-# rastgele/gecici oldugu, HENUZ dogrulanmis bir kaynaga dayanmadigi anlamina
-# gelir. Bu degerler kalite kontrol karari icin KULLANILAMAZ - sadece
-# sidebar/bilgi karti/CSV sablonu/grafik akisinin yeni framework semasiyla
-# gercekten calistigini kanitlamak icindir. Adim 3'te (LSL/USL kaynak
-# arastirmasi) "placeholder"/"method_source" alanlari gercek degerlerle
-# degistirilecek, sema (anahtar isimleri) DEGISMEYECEK.
+# Baslangic sirasi adim 3 (bkz. METHODOLOGY.md v1.4 Faz 1): LSL/USL kaynak
+# arastirmasi tamamlandi. Asagidaki urun tablolari SADECE dogrulanmis TGK
+# tebligi kaynagina dayanir (tam metin okunarak, snippet'ten DEGIL - bkz. her
+# tablonun ustundeki not) - dogrulanamayan urun/parametre kombinasyonlari
+# icin (Hammadde Kutuphanesi ile AYNI disiplin) sayi UYDURULMADI, "Ozel/
+# Manuel gir"e birakildi. default_lsl/default_usl (urun secilmeden onceki
+# baslangic degeri) HERHANGI BIR tek kaynaga dayanmaz, genis/genel bir
+# baslangic araligidir - bu, mevcut pH/Brix parametrelerinin default_lsl/usl
+# alanlarindaki desenle AYNIDIR.
+
+# Protein (%) - kuru maddede minimum protein orani. Kaynak: TGK Bugday Unu
+# Tebligi (Tebligg No: 99/1, 17.02.1999 R.G. 23614) Madde 5/d - TAM METIN
+# okunarak dogrulandi (bu tebligin sonraki surumu 2013/9 muhtemelen ayni
+# degerleri korur, ama 2013/9'un TAM METNI dogrudan dogrulanamadi - bu
+# yuzden kaynak olarak 99/1 belirtilir, bkz. RAW_MATERIAL_QC_REFERENCE'daki
+# "Bugday unu" notuyla AYNI durum). Protein icin sadece ALT limit (minimum)
+# tanimlidir - TGK ust limit vermez; mevcut spc_core.py mimarisi SADECE
+# "one_sided=USL-only" (Cpu) durumunu destekler, "LSL-only" (Cpl) YOKTUR -
+# bu yuzden USL=100.0 MATEMATIKSEL TAVAN olarak eklenir (RAW_MATERIAL_
+# QC_REFERENCE'daki "Tuz" girisiyle AYNI desen - mevzuattan degil, yuzdenin
+# fiziksel ust siniridir).
+PROTEIN_PRODUCT_RANGES = {
+    "Bugday unu (ekmeklik)": (10.5, 100.0),
+    "Bugday unu (ozel amacli)": (7.0, 100.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Yag (%) - sut yagi esasli surulebilir urunler. Kaynak: TGK Tereyagi, Diger
+# Sut Yagi Esasli Surulebilir Urunler ve Sadeyag Tebligi (Tebligg No:
+# 2005/19, 12.04.2005 R.G. 25784), Ek tablosu - TAM METIN okunarak
+# dogrulandi (agirlikca % sut yagi). Sadeyag icin tebligde sadece ALT limit
+# (%99'dan az olmayan) tanimlidir - Protein'deki AYNI mantikla USL=100.0
+# matematiksel tavan olarak eklendi.
+YAG_PRODUCT_RANGES = {
+    "Tereyagi": (80.0, 90.0),
+    "Yarim yagli tereyagi": (39.0, 41.0),
+    "Sadeyag": (99.0, 100.0),
+    "Ozel/Manuel gir": None,
+}
+
+# Kul (%) - buğday ununda kuru maddede maksimum kul orani. Kaynak: TGK
+# Bugday Unu Tebligi (99/1) Madde 5/c - TAM METIN okunarak dogrulandi. Kul
+# HER ZAMAN bir UST limit spesifikasyonudur (dusuk kul = daha az kepek
+# karisimi/daha rafine un) - Peroksit Degeri/HMF ile AYNI mimari (mevcut
+# one_sided=True/USL-only sema DOGRUDAN uyuyor, matematiksel tavan hilesine
+# GEREK YOK).
+KUL_PRODUCT_RANGES = {
+    "Bugday unu (Tip 550)": (None, 0.55),
+    "Bugday unu (Tip 650)": (None, 0.65),
+    "Bugday unu (Tip 850)": (None, 0.85),
+    "Ozel/Manuel gir": None,
+}
+
+# Kuru Madde (%) - reçel/marmelat urunlerinde refraktometre ile olculen
+# COZUNEBILIR kuru madde (Brix'e yakin bir olcum, ama Kuru Madde parametresi
+# GENEL bir % olarak burada tutulur - Brix parametresinden AYRIDIR, cunku
+# Kuru Madde parametresi gelecekte reçel disi urunlerde de (orn. sut tozu,
+# unlu mamuller) kullanilabilecek genel bir alan). Kaynak: TGK Recel, Jole,
+# Marmelat ve Tatlandirilmis Kestane Puresi Tebligi (Tebligg No: 2006/55)
+# Madde 5 - TAM METIN okunarak dogrulandi. Sadece ALT limit (minimum
+# cozunebilir kuru madde) tanimlidir - Protein/Yag'daki AYNI matematiksel
+# tavan (USL=100.0) hilesi burada da uygulanir.
+KURU_MADDE_PRODUCT_RANGES = {
+    "Recel (geleneksel)": (68.0, 100.0),
+    "Marmelat (geleneksel)": (55.0, 100.0),
+    "Ozel/Manuel gir": None,
+}
+
 FOOD_QUALITY_PARAMETER_CONFIG: dict = {
     "Protein": {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 100.0,
         "decimal_places": 2,
-        "products": {"Ozel/Manuel gir": None},
-        "default_lsl": 0.0,
-        "default_usl": 100.0,
-        "default_measurement": 50.0,
-        "demo_target_mean": 50.0,
-        "demo_target_sigma": 5.0,
+        "products": PROTEIN_PRODUCT_RANGES,
+        "default_lsl": 10.0,
+        "default_usl": 30.0,
+        "default_measurement": 20.0,
+        "demo_target_mean": 20.0,
+        "demo_target_sigma": 2.0,
         "one_sided": False,
         "is_individual": True,  # tahribatli/tekil analiz (Kjeldahl/Dumas tipi yontemler) - bkz. subgroup_guidance
         "physical_bounds": (0.0, 100.0),
@@ -882,18 +941,18 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
             "Genellikle I-MR (tahribatli/tekil analiz), ancak alt grup "
             "alinabiliyorsa X-bar/R da uygundur."
         ),
-        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "method_source": "TGK Bugday Unu Tebligi (No: 99/1) Madde 5/d - kuru maddede minimum protein (bkz. constants.py PROTEIN_PRODUCT_RANGES notu).",
         "category": "Kimyasal",
-        "placeholder": True,
+        "placeholder": False,
     },
     "Yag": {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 100.0,
         "decimal_places": 2,
-        "products": {"Ozel/Manuel gir": None},
-        "default_lsl": 0.0,
-        "default_usl": 100.0,
+        "products": YAG_PRODUCT_RANGES,
+        "default_lsl": 0.5,
+        "default_usl": 40.0,
         "default_measurement": 20.0,
         "demo_target_mean": 20.0,
         "demo_target_sigma": 2.0,
@@ -905,22 +964,22 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
             "Genellikle I-MR (Soxhlet/Gerber tipi tahribatli tekil analiz), "
             "ancak alt grup alinabiliyorsa X-bar/R da uygundur."
         ),
-        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "method_source": "TGK Tereyagi, Diger Sut Yagi Esasli Surulebilir Urunler ve Sadeyag Tebligi (No: 2005/19), Ek tablosu (bkz. constants.py YAG_PRODUCT_RANGES notu).",
         "category": "Kimyasal",
-        "placeholder": True,
+        "placeholder": False,
     },
     "Kul": {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 100.0,
         "decimal_places": 2,
-        "products": {"Ozel/Manuel gir": None},
-        "default_lsl": 0.0,
-        "default_usl": 100.0,
+        "products": KUL_PRODUCT_RANGES,
+        "default_lsl": 0.0,  # kullanilmiyor (one_sided=True) - sadece placeholder
+        "default_usl": 5.0,
         "default_measurement": 2.0,
         "demo_target_mean": 2.0,
         "demo_target_sigma": 0.3,
-        "one_sided": False,
+        "one_sided": True,  # kul HER ZAMAN bir ust limit spesifikasyonudur
         "is_individual": True,
         "physical_bounds": (0.0, 100.0),
         "recommended_chart": "auto",
@@ -928,18 +987,18 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
             "Genellikle I-MR (firinlama/kul firinini gerektiren tahribatli "
             "tekil analiz), ancak alt grup alinabiliyorsa X-bar/R da uygundur."
         ),
-        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "method_source": "TGK Bugday Unu Tebligi (No: 99/1) Madde 5/c - kuru maddede maksimum kul (bkz. constants.py KUL_PRODUCT_RANGES notu).",
         "category": "Kimyasal",
-        "placeholder": True,
+        "placeholder": False,
     },
     "Kuru Madde": {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 100.0,
         "decimal_places": 2,
-        "products": {"Ozel/Manuel gir": None},
-        "default_lsl": 0.0,
-        "default_usl": 100.0,
+        "products": KURU_MADDE_PRODUCT_RANGES,
+        "default_lsl": 10.0,
+        "default_usl": 95.0,
         "default_measurement": 90.0,
         "demo_target_mean": 90.0,
         "demo_target_sigma": 1.5,
@@ -951,9 +1010,9 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
             "Genellikle I-MR (nem tayininden turetilen tahribatli tekil "
             "analiz), ancak alt grup alinabiliyorsa X-bar/R da uygundur."
         ),
-        "method_source": "PLACEHOLDER - AOAC/ISO metodolojisi ve LSL/USL kaynagi henuz arastirilmadi (bkz. METHODOLOGY.md v1.4 Faz 1).",
+        "method_source": "TGK Recel, Jole, Marmelat ve Tatlandirilmis Kestane Puresi Tebligi (No: 2006/55) Madde 5 - refraktometre ile cozunebilir kuru madde (bkz. constants.py KURU_MADDE_PRODUCT_RANGES notu).",
         "category": "Fiziksel",
-        "placeholder": True,
+        "placeholder": False,
     },
 }
 
@@ -961,24 +1020,24 @@ FOOD_QUALITY_PARAMETER_CONFIG: dict = {
 # Faz 3 (v1.6): L*, a*, b*, Bulaniklik, Iletkenlik eklenecek.
 
 # Kisa sidebar aciklamalari (PARAMETER_DESCRIPTIONS ile ayni role, Food
-# Quality Parameters icin AYRI tutuldu - taslak/placeholder oldugunu acikca
-# belirtir).
+# Quality Parameters icin AYRI tutuldu).
 FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
-    "Protein": "Toplam protein yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
-    "Yag": "Toplam yag yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
-    "Kul": "Mineral kalinti yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
-    "Kuru Madde": "Nem disi kalan katı madde yuzdesi (%). [TASLAK - LSL/USL henuz dogrulanmadi]",
+    "Protein": "Toplam protein yuzdesi (%). Kjeldahl/Dumas tipi tahribatli analiz.",
+    "Yag": "Toplam yag yuzdesi (%). Soxhlet/Gerber tipi tahribatli analiz.",
+    "Kul": "Mineral kalinti yuzdesi (%) - urun rafinasyon derecesinin gostergesi.",
+    "Kuru Madde": "Nem disi kalan katı madde yuzdesi (%).",
 }
 
 # Sidebar'da Food Quality Parameters icin AYRI bir kategori grubu - legacy
 # PARAMETER_CATEGORIES'e KARISTIRILMADAN eklenir (app.py her iki listeyi de
-# gezip radio grubu olusturur). id "gida_kalite_v14_taslak" - "taslak" sozcugu
-# BILEREK id'de degil sadece etikette var (id sabit kalmali, etiket Faz 1
-# tamamlaninca "(taslak)" ibaresinden arindirilacak).
+# gezip radio grubu olusturur). id "gida_kalite_v14" - Faz 1 (v1.4)
+# tamamlandigi icin "taslak" ibaresi kaldirildi (bkz. yukaridaki kaynak
+# dogrulama notlari); Faz 2 (v1.5) Yogunluk/Refraktif Indeks eklendiginde
+# bu listeye enjekte edilecek, id SABIT kalacak.
 FOOD_QUALITY_PARAMETER_CATEGORIES = [
     (
-        "gida_kalite_v14_taslak",
-        "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri (v1.4 - TASLAK, LSL/USL dogrulanmadi)",
+        "gida_kalite_v14",
+        "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri (Protein/Yag/Kul/Kuru Madde)",
         ["Protein", "Yag", "Kul", "Kuru Madde"],
     ),
 ]

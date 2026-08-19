@@ -45,10 +45,22 @@ def test_all_food_quality_entries_use_a_valid_category():
         )
 
 
-def test_faz1_parameters_are_marked_as_placeholder():
-    # Adim 2'de bilerek TASLAK - Adim 3'te gercek kaynakla degistirilecek
+def test_faz1_parameters_are_no_longer_placeholder_after_source_research():
+    # Adim 3 (LSL/USL kaynak arastirmasi) tamamlandi - artik dogrulanmis
+    # TGK tebligi kaynagina dayanirlar (bkz. constants.py PROTEIN/YAG/KUL/
+    # KURU_MADDE_PRODUCT_RANGES notlari), placeholder=False olmalidir.
     for param_name in ("Protein", "Yag", "Kul", "Kuru Madde"):
-        assert FOOD_QUALITY_PARAMETER_CONFIG[param_name]["placeholder"] is True
+        assert FOOD_QUALITY_PARAMETER_CONFIG[param_name]["placeholder"] is False
+
+
+def test_faz1_parameters_have_at_least_one_verified_product():
+    # Her parametrenin "Ozel/Manuel gir" DISINDA en az bir gercek urun
+    # girisi olmali - aksi halde kaynak arastirmasi hicbir seye baglanmamis
+    # olur.
+    for param_name in ("Protein", "Yag", "Kul", "Kuru Madde"):
+        products = FOOD_QUALITY_PARAMETER_CONFIG[param_name]["products"]
+        real_products = [p for p in products if p != "Ozel/Manuel gir"]
+        assert real_products, f"{param_name}: dogrulanmis urun girisi yok"
 
 
 def test_food_quality_entries_merged_into_main_parameter_config():
@@ -63,7 +75,34 @@ def test_food_quality_entries_merged_into_main_parameter_config():
 
 def test_food_quality_category_group_present_in_sidebar_categories():
     category_ids = [cat_id for cat_id, _label, _params in PARAMETER_CATEGORIES]
-    assert "gida_kalite_v14_taslak" in category_ids
+    assert "gida_kalite_v14" in category_ids
+
+
+def test_ash_is_one_sided_upper_limit_only():
+    # Kul HER ZAMAN bir ust limit spesifikasyonudur (dusuk kul = daha
+    # rafine urun) - Peroksit Degeri/HMF ile ayni mimari, matematiksel
+    # tavan hilesine GEREK yoktur (bkz. constants.py KUL_PRODUCT_RANGES notu).
+    assert FOOD_QUALITY_PARAMETER_CONFIG["Kul"]["one_sided"] is True
+    for product, rng in FOOD_QUALITY_PARAMETER_CONFIG["Kul"]["products"].items():
+        if product == "Ozel/Manuel gir":
+            continue
+        lsl, usl = rng
+        assert lsl is None
+        assert usl is not None
+
+
+def test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs():
+    # spc_core.py sadece USL-only (Cpu) tek tarafli hesaplamayi destekler,
+    # LSL-only (Cpl) YOKTUR - bu yuzden gercekte sadece minimum tanimli olan
+    # Protein/Kuru Madde urunlerinde USL=100.0 matematiksel tavan olarak
+    # eklenir (RAW_MATERIAL_QC_REFERENCE'daki "Tuz" girisiyle AYNI desen).
+    for param_name in ("Protein", "Kuru Madde"):
+        for product, rng in FOOD_QUALITY_PARAMETER_CONFIG[param_name]["products"].items():
+            if product == "Ozel/Manuel gir":
+                continue
+            lsl, usl = rng
+            assert lsl is not None
+            assert usl == 100.0
 
 
 def test_food_quality_parameters_have_sidebar_descriptions():
@@ -75,8 +114,11 @@ def test_food_quality_parameters_have_sidebar_descriptions():
 if __name__ == "__main__":
     test_all_food_quality_entries_have_required_framework_keys()
     test_all_food_quality_entries_use_a_valid_category()
-    test_faz1_parameters_are_marked_as_placeholder()
+    test_faz1_parameters_are_no_longer_placeholder_after_source_research()
+    test_faz1_parameters_have_at_least_one_verified_product()
     test_food_quality_entries_merged_into_main_parameter_config()
     test_food_quality_category_group_present_in_sidebar_categories()
+    test_ash_is_one_sided_upper_limit_only()
+    test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs()
     test_food_quality_parameters_have_sidebar_descriptions()
     print("FOOD QUALITY FRAMEWORK TESTLERI GECTI")

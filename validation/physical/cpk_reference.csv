@@ -1,0 +1,2 @@
+source,x_double_bar,r_bar,n,lsl,usl,one_sided,expected_cpk,tolerance,notes
+"Dahili matematiksel tutarlilik kontrolu (dis kaynak gerektirmez, v1.4 Faz 1) - Kuru Madde (I-MR, iki tarafli, USL matematiksel tavan) - Recel (geleneksel), 5 elle secilmis olcum: 70.0,70.4,69.6,70.2,69.8",70.0,0.55,2,68.0,100.0,False,1.3673,0.001,"MR=0.4;0.8;0.6;0.4 -> MR_bar=0.55, sigma_hat=0.4876, Cpl=(70.0-68.0)/(3*0.4876)=1.3673, Cpu cok buyuk (matematiksel tavan) -> Cpk=min=Cpl=1.3673"

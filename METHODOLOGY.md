@@ -241,6 +241,12 @@ istisnalar (Bal'ın nem/HMF üst limitleri) ayrıca belirtilmiştir.
 | Peroksit Değeri | Codex Alimentarius / IOC (International Olive Council) | Natürel sızma zeytinyağı için ≤20 meq O2/kg; sadece USL anlamlıdır |
 | HMF | TGK Bal Tebliği (≤40 mg/kg), TGK Üzüm Pekmezi Tebliği (sıvı ≤75, katı ≤100 mg/kg), sektör pratiği (meyve suyu konsantresi ≤20 mg/kg) | Sadece USL anlamlıdır |
 | TPC/TMAB, Küf-Maya, Koliform, Enterobacteriaceae, Kantitatif S. aureus | ICMSF genel gıda kategorisi pratiğinden esinlenen GÖSTERGE değerleri (Kantitatif S. aureus için ayrıca ISO 6888-1 yöntem notu) | Sadece USL anlamlıdır, resmi/zorunlu bir TGK limiti DEĞİLDİR. LSL/USL ham KOB/g olarak girilir/gösterilir, Cpk'den önce log10'a çevrilir (bkz. "Mikrobiyoloji (log10-CFU, v1.3)" doğrulama bölümü) |
+| Protein (v1.4 Faz 1) | TGK Buğday Unu Tebliği (No: 99/1) Madde 5/d — tam metin doğrulandı | Sadece LSL (minimum) tanımlıdır; USL=100.0 mevzuattan değil, yüzdenin matematiksel üst sınırıdır (Tuz/NaCl'deki aynı desen) |
+| Yağ (v1.4 Faz 1) | TGK Tereyağı, Diğer Süt Yağı Esaslı Sürülebilir Ürünler ve Sadeyağ Tebliği (No: 2005/19), Ek tablosu — tam metin doğrulandı | Tereyağı/Yarım yağlı tereyağı iki taraflıdır (mevzuattan); Sadeyağ'da sadece LSL (%99) tanımlı, USL=100.0 matematiksel tavan |
+| Kül (v1.4 Faz 1) | TGK Buğday Unu Tebliği (No: 99/1) Madde 5/c — tam metin doğrulandı | Sadece USL anlamlıdır (kül her zaman bir üst limit spesifikasyonudur) |
+| Kuru Madde (v1.4 Faz 1) | TGK Reçel, Jöle, Marmelat ve Tatlandırılmış Kestane Püresi Tebliği (No: 2006/55) Madde 5 — tam metin doğrulandı | Sadece LSL (minimum çözünebilir kuru madde) tanımlıdır; USL=100.0 matematiksel tavan |
+
+> **Not:** Yukarıdaki 99/1 (Buğday Unu Tebliği), sonraki 2013/9 sürümüyle güncellenmiş olabilir — 2013/9'un TAM METNİ doğrulanamadığı için kaynak olarak 99/1 belirtilir (bu, `RAW_MATERIAL_QC_REFERENCE`'daki "Buğday unu" notuyla AYNI durumdur, bkz. aşağıdaki "Hammadde Kütüphanesi Genişletmesi"). Detaylı worked example ve doğrulama: `validation/chemistry/` ve `validation/physical/` (bkz. `validation/README.md`).
 
 ## Hammadde Kütüphanesi Genişletmesi (v1.1.1)
 

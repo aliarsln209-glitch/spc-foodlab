@@ -22,8 +22,8 @@ from spc_core import compute_cpk, compute_imr_limits, compute_pp, compute_ppk, c
 VALIDATION_DIR = os.path.join(os.path.dirname(__file__), "..", "validation")
 
 
-def _load(filename: str) -> pd.DataFrame:
-    return pd.read_csv(os.path.join(VALIDATION_DIR, filename))
+def _load(filename: str, subdir: str = "shared") -> pd.DataFrame:
+    return pd.read_csv(os.path.join(VALIDATION_DIR, subdir, filename))
 
 
 def test_xbar_r_reference_csv_matches_formula():
@@ -82,6 +82,36 @@ def test_cpk_reference_csv_matches_formula():
             )
 
 
+def _assert_cpk_csv_matches_formula(df: pd.DataFrame):
+    """cpk_reference.csv semasini (source,x_double_bar,r_bar,n,lsl,usl,
+    one_sided,expected_cpk,tolerance,notes) okuyup compute_cpk()'ye karsi
+    calistirir - validation/shared/cpk_reference.csv icin kullanilan
+    test_cpk_reference_csv_matches_formula() ile AYNI mantik, chemistry/
+    physical altindaki v1.4 Faz 1 referanslariyla da paylasilir."""
+    assert len(df) >= 1
+    for _, row in df.iterrows():
+        cpk = compute_cpk(
+            x_double_bar=row["x_double_bar"], r_bar=row["r_bar"], n=int(row["n"]),
+            lsl=row["lsl"], usl=row["usl"], one_sided=bool(row["one_sided"]),
+        )
+        expected = float(row["expected_cpk"])
+        assert abs(cpk - expected) <= row["tolerance"], (
+            f"[{row['source']}] Cpk uyusmuyor: hesaplanan={cpk}, beklenen={expected}"
+        )
+
+
+def test_chemistry_cpk_reference_csv_matches_formula():
+    # v1.4 Faz 1: Protein/Kul (I-MR + Cpk/Cpu) - bkz. validation/chemistry/README
+    # yerine bu dosyanin ustundeki notlar sutunu (ayri bir README henuz yok,
+    # tek dosya oldugu icin gereksiz duplikasyon olurdu).
+    _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="chemistry"))
+
+
+def test_physical_cpk_reference_csv_matches_formula():
+    # v1.4 Faz 1: Kuru Madde (I-MR + Cpk)
+    _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="physical"))
+
+
 def test_ppk_reference_csv_matches_formula():
     df = _load("ppk_reference.csv")
     assert len(df) >= 1, "ppk_reference.csv bos olmamali"
@@ -102,5 +132,7 @@ if __name__ == "__main__":
     test_xbar_r_reference_csv_matches_formula()
     test_imr_reference_csv_matches_formula()
     test_cpk_reference_csv_matches_formula()
+    test_chemistry_cpk_reference_csv_matches_formula()
+    test_physical_cpk_reference_csv_matches_formula()
     test_ppk_reference_csv_matches_formula()
     print("VALIDATION SUITE (CSV-guduml) TESTLERI GECTI")

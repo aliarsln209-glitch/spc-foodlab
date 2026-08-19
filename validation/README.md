@@ -18,14 +18,37 @@ tarafından programatik olarak da çalıştırılır.
   eklendikçe, her biri kendi referans dosyasını buraya ekler
   (`nelson_reference.csv`, `microbiology_reference.csv` vb.).
 
+## Klasör yapısı (v1.4 itibariyle)
+
+```
+validation/
+  shared/        - parametre-bagimsiz formul dogrulamasi (X-bar/R, I-MR, Cpk/Ppk)
+  microbiology/  - v1.3 log10-CFU referanslari
+  chemistry/     - v1.4 Faz 1: Protein, Kul
+  physical/      - v1.4 Faz 1: Kuru Madde
+  optics/        - bos, v1.6 Faz 3'te (L*/a*/b*/Bulaniklik/Iletkenlik) dolacak
+```
+
+`chemistry/` ve `physical/` altındaki referanslar **YENI bir formul
+DEGIL** - Protein/Kul/Kuru Madde, mevcut I-MR + Cpk/Cpu formulunu (zaten
+`shared/imr_reference.csv` ve `shared/cpk_reference.csv` ile dogrulanmis)
+YENIDEN KULLANIR. Buradaki dosyalar, o formulun bu YENI parametrelere de
+dogru uygulandigini kanitlar - dis kaynakli bir worked example DEGIL
+(Protein/Kul icin literatur worked example bulunamadi), `shared/
+cpk_reference.csv`'deki "dahili matematiksel tutarlilik kontrolu"
+satirlarinin AYNI kategorisi (bkz. asagidaki tablo, kaynak sutunu).
+
 ## Dosyalar
 
 | Dosya | Kapsam | Kaynak |
 |---|---|---|
-| `xbar_r_reference.csv` | X-bar/R kontrol limitleri (UCL) | LibreTexts Engineering, *Chemical Process Dynamics and Controls* (Woolf), 13.2 |
-| `imr_reference.csv` | I-MR kontrol limitleri (UCL/LCL) | 6Sigma Toolkit, I-MR Chart örneği |
-| `cpk_reference.csv` | Cpk/Cpu (normal durum + sıfır-varyans uç durumları) | LibreTexts pH örneğinin devamı (normal durum) + dahili matematiksel tutarlılık kontrolü (uç durumlar) |
-| `ppk_reference.csv` | Ppk/Pp (genel/uzun vadeli süreç yeterliliği) | NIST/SEMATECH e-Handbook Ch. 2 — Cpk'nin genel s-tabanlı formülünün worked example'i (USL=20, LSL=8, x̄=16, s=2), elle inşa edilmiş bir değer listesiyle üretildi |
+| `shared/xbar_r_reference.csv` | X-bar/R kontrol limitleri (UCL) | LibreTexts Engineering, *Chemical Process Dynamics and Controls* (Woolf), 13.2 |
+| `shared/imr_reference.csv` | I-MR kontrol limitleri (UCL/LCL) | 6Sigma Toolkit, I-MR Chart örneği |
+| `shared/cpk_reference.csv` | Cpk/Cpu (normal durum + sıfır-varyans uç durumları) | LibreTexts pH örneğinin devamı (normal durum) + dahili matematiksel tutarlılık kontrolü (uç durumlar) |
+| `shared/ppk_reference.csv` | Ppk/Pp (genel/uzun vadeli süreç yeterliliği) | NIST/SEMATECH e-Handbook Ch. 2 — Cpk'nin genel s-tabanlı formülünün worked example'i (USL=20, LSL=8, x̄=16, s=2), elle inşa edilmiş bir değer listesiyle üretildi |
+| `microbiology/microbiology_reference.csv` | log10-CFU + I-MR + Cpu (v1.3) | Bilinen log10 sabitleri (log₁₀2, log₁₀3, log₁₀5) ile elle hesaplanmış LOD-ikameli örnekler |
+| `chemistry/cpk_reference.csv` | Protein, Kül — I-MR + Cpk/Cpu (v1.4 Faz 1) | Dahili matematiksel tutarlılık kontrolü (5 elle seçilmiş ölçüm, formül elle uygulanmış) |
+| `physical/cpk_reference.csv` | Kuru Madde — I-MR + Cpk (v1.4 Faz 1) | Dahili matematiksel tutarlılık kontrolü |
 
 ### Nelson kuralları (v1.2) — CSV formatında DEĞİL, neden
 
