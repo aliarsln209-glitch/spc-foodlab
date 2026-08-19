@@ -127,6 +127,11 @@ def test_optics_cpk_reference_csv_matches_formula():
     _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="optics"))
 
 
+def test_process_cpk_reference_csv_matches_formula():
+    # v1.7 Faz 1: QC Donusturucu formulleri icin Method Validation
+    _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="process"))
+
+
 def test_ppk_reference_csv_matches_formula():
     df = _load("ppk_reference.csv")
     assert len(df) >= 1, "ppk_reference.csv bos olmamali"
@@ -151,5 +156,6 @@ if __name__ == "__main__":
     test_physical_cpk_reference_csv_matches_formula()
     test_physical_yogunluk_refraktif_cpk_reference_csv_matches_formula()
     test_optics_cpk_reference_csv_matches_formula()
+    test_process_cpk_reference_csv_matches_formula()
     test_ppk_reference_csv_matches_formula()
     print("VALIDATION SUITE (CSV-guduml) TESTLERI GECTI")

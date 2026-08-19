@@ -1,0 +1,2 @@
+source,x_double_bar,r_bar,n,lsl,usl,one_sided,expected_cpk,tolerance,notes
+"AOAC 925.10 gravimetrik nem - qc_converters.gravimetric_moisture worked example (12.0 nem, iki tekrarli olcum 11.8/12.2, MR=0.4)",12.0,0.4,2,10.0,14.0,False,1.88,0.001,"Dahili matematiksel tutarlilik kontrolu - urun spesifikasyonu DEGIL, olcum standardizasyon formulu dogrulamasi. sigma_hat=MR_bar/d2=0.4/1.128=0.35461, Cpk=(14-12)/(3*0.35461)=1.88 (iki tarafli, simetrik spec)"
