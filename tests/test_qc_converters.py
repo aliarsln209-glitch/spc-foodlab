@@ -7,6 +7,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry
+from constants import TOTOX_BRIDGE_PARAMETER_CONFIG
 
 
 def test_gravimetric_moisture_basic_worked_example():
@@ -42,3 +43,13 @@ def test_build_bridge_subgroup_entry_shape():
 def test_build_bridge_subgroup_entry_rejects_non_finite_value():
     with pytest.raises(ValueError, match="sonlu"):
         build_bridge_subgroup_entry(value=float("nan"), shift_label="QC Donusturucu - Test")
+
+
+def test_totox_bridge_parameter_config_shape():
+    cfg = TOTOX_BRIDGE_PARAMETER_CONFIG
+    assert cfg["unit"] == "meq O2/kg"
+    assert cfg["one_sided"] is True
+    assert cfg["is_individual"] is True
+    assert cfg["default_usl"] == 26.0
+    assert cfg["category"] == "Proses"
+    assert "products" not in cfg  # Altin Kural: tam parametre-registry uyeligi YOK

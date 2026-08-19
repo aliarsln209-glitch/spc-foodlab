@@ -1270,3 +1270,18 @@ FOOD_QUALITY_PARAMETER_CATEGORIES = [
 PARAMETER_CONFIG.update(FOOD_QUALITY_PARAMETER_CONFIG)
 PARAMETER_CATEGORIES.extend(FOOD_QUALITY_PARAMETER_CATEGORIES)
 PARAMETER_DESCRIPTIONS.update(FOOD_QUALITY_PARAMETER_DESCRIPTIONS)
+
+# --- Totox Köprüsü: Minimal I-MR Parametresi (v1.7 - QC Veri Dönüştürücüler) ---
+# Totox köprüsü: tam bir FOOD_QUALITY parametresi DEĞIL - ürün bazlı LSL/USL
+# araştırması gerekmez, çünkü Totox = 2*PV + AnV zaten Codex/IOC'ten gelen
+# TEK, evrensel bir USL'e (TOTOX_LIMIT = 26.0, app.py) sahiptir. Köprünün
+# amacı sadece ham değeri I-MR zaman serisine kaydetmektir.
+TOTOX_BRIDGE_PARAMETER_CONFIG = {
+    "unit": "meq O2/kg",
+    "decimal_places": 2,
+    "one_sided": True,
+    "is_individual": True,
+    "default_usl": 26.0,
+    "category": "Proses",
+    "method_source": "Codex Alimentarius / IOC (International Olive Council) - Totox = 2xPV + AnV birlesik indeks",
+}
