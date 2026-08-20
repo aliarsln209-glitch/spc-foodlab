@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pandas as pd
 
+from qc_converters import salt_content_mohr, titratable_acidity
 from spc_core import compute_cpk, compute_imr_limits, compute_pp, compute_ppk, compute_xbar_r_limits
 
 VALIDATION_DIR = os.path.join(os.path.dirname(__file__), "..", "validation")
@@ -148,6 +149,33 @@ def test_ppk_reference_csv_matches_formula():
         )
 
 
+def test_process_titration_reference_csv_matches_formulas():
+    df = _load("titration_reference.csv", subdir="process")
+    for _, row in df.iterrows():
+        if row["formula"] == "titratable_acidity":
+            result = titratable_acidity(
+                titrant_volume_ml=row["titrant_volume_ml"],
+                titrant_normality=row["titrant_normality"],
+                acid_meq_factor=row["factor"],
+                sample_size_ml=row["sample_size"],
+            )
+            actual = result["acidity_pct"]
+        elif row["formula"] == "salt_content_mohr":
+            result = salt_content_mohr(
+                titrant_volume_ml=row["titrant_volume_ml"],
+                titrant_normality=row["titrant_normality"],
+                sample_size_g=row["sample_size"],
+            )
+            actual = result["salt_pct"]
+        else:
+            raise AssertionError(f"Bilinmeyen formul: {row['formula']}")
+
+        assert abs(actual - row["expected_pct"]) <= row["tolerance"], (
+            f"{row['formula']} uyusmuyor: hesaplanan={actual}, "
+            f"beklenen={row['expected_pct']} (kaynak: {row['source']})"
+        )
+
+
 if __name__ == "__main__":
     test_xbar_r_reference_csv_matches_formula()
     test_imr_reference_csv_matches_formula()
@@ -158,4 +186,5 @@ if __name__ == "__main__":
     test_optics_cpk_reference_csv_matches_formula()
     test_process_cpk_reference_csv_matches_formula()
     test_ppk_reference_csv_matches_formula()
+    test_process_titration_reference_csv_matches_formulas()
     print("VALIDATION SUITE (CSV-guduml) TESTLERI GECTI")

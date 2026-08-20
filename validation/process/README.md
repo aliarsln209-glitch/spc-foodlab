@@ -18,3 +18,17 @@ kendisi elle hesaplanmış bir örnekle `tests/test_qc_converters.py`'deki
 `test_gravimetric_moisture_basic_worked_example` testinde doğrulanır.
 
 Detay: [METHODOLOGY.md](../../METHODOLOGY.md) → "v1.7 — QC Veri Dönüştürücüler".
+
+## titration_reference.csv (v1.7 Faz 2)
+
+`cpk_reference.csv`'den FARKLI olarak (bkz. yukarıdaki not — o sadece
+`compute_cpk()`'ı doğrular), bu dosya `titratable_acidity()` ve
+`salt_content_mohr()` formüllerinin KENDİSİNİ doğrudan doğrular. Her satır,
+`formula` sütununa göre ilgili fonksiyonu çağırır ve sonucu `expected_pct`
+ile karşılaştırır.
+
+Katsayılar (`factor` sütunu) dış bir regülasyon kaynağından DEĞİL, birinci-
+ilke stokiyometriden (Eş değer ağırlık = Molekül Ağırlığı / bazisite,
+IUPAC standart atomik ağırlıkları) türetilmiştir — `source` sütununda tam
+türetme gösterilir. Bu, ICUMSA Brix tablosu gibi erişilemez bir kaynak
+DEĞİLDİR; her zaman yeniden hesaplanabilir bir gerçektir.
