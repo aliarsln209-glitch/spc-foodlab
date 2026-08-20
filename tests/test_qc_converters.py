@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity
+from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity, salt_content_mohr, NACL_MEQ_FACTOR
 from constants import TOTOX_BRIDGE_PARAMETER_CONFIG
 
 
@@ -103,3 +103,22 @@ def test_titratable_acidity_negative_factor_raises():
         titratable_acidity(
             titrant_volume_ml=9.2, titrant_normality=0.1, acid_meq_factor=-0.064, sample_size_ml=10.0,
         )
+
+
+def test_salt_content_mohr_worked_example():
+    # Turetilmis meq faktoru: NaCl (MW=58.44 g/mol, tek degerlikli) ->
+    # meq faktoru = 58.44 / 1000 = 0.05844 g/meq
+    # V=12.0 mL AgNO3, N=0.1, numune=10.0 g
+    # %NaCl = (12.0 * 0.1 * 0.05844 * 100) / 10.0 = 7.0128 / 10.0 = 0.70128
+    result = salt_content_mohr(titrant_volume_ml=12.0, titrant_normality=0.1, sample_size_g=10.0)
+    assert result["salt_pct"] == pytest.approx(0.70128, abs=0.0001)
+
+
+def test_salt_content_mohr_zero_sample_raises():
+    with pytest.raises(ValueError, match="numune agirligi"):
+        salt_content_mohr(titrant_volume_ml=12.0, titrant_normality=0.1, sample_size_g=0.0)
+
+
+def test_nacl_meq_factor_matches_derivation():
+    # Dogrulama: MW(NaCl)=22.990(Na)+35.453(Cl)=58.443 (IUPAC atomik agirliklar)
+    assert NACL_MEQ_FACTOR == pytest.approx(58.44 / 1000, abs=0.0001)

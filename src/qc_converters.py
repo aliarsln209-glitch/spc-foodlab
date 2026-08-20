@@ -83,3 +83,27 @@ def titratable_acidity(
         raise ValueError("asit faktoru sifir veya negatif olamaz")
     acidity_pct = (titrant_volume_ml * titrant_normality * acid_meq_factor * 100.0) / sample_size_ml
     return {"acidity_pct": acidity_pct}
+
+
+# NaCl meq faktoru: MW(NaCl) = 22.990(Na) + 35.453(Cl) = 58.443 g/mol
+# (IUPAC standart atomik agirliklari), tek degerlikli (bazisite=1) ->
+# meq faktoru = MW/1000 = 0.058443 -> 0.05844 (Mohr yontemi, AgNO3
+# titrasyonu ile klorur tayini, %NaCl olarak raporlanir).
+NACL_MEQ_FACTOR = 0.05844
+
+
+def salt_content_mohr(
+    titrant_volume_ml: float, titrant_normality: float, sample_size_g: float,
+) -> dict:
+    """Mohr yontemi (AgNO3 titrasyonu ile klorur tayini): %NaCl = (V x N x 0.05844 x 100) / numune(g).
+
+    titrant_volume_ml: harcanan AgNO3 hacmi (mL)
+    titrant_normality: AgNO3 normalitesi (N, eq/L)
+    sample_size_g: numune agirligi (g)
+    """
+    if sample_size_g <= 0:
+        raise ValueError("numune agirligi sifir veya negatif olamaz")
+    if titrant_volume_ml < 0 or titrant_normality < 0:
+        raise ValueError("titre hacmi/normalite negatif olamaz")
+    salt_pct = (titrant_volume_ml * titrant_normality * NACL_MEQ_FACTOR * 100.0) / sample_size_g
+    return {"salt_pct": salt_pct}
