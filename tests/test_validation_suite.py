@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pandas as pd
 
-from qc_converters import salt_content_mohr, titratable_acidity
+from qc_converters import salt_content_mohr, thermal_lethality_f0, titratable_acidity
 from spc_core import compute_cpk, compute_imr_limits, compute_pp, compute_ppk, compute_xbar_r_limits
 
 VALIDATION_DIR = os.path.join(os.path.dirname(__file__), "..", "validation")
@@ -176,6 +176,20 @@ def test_process_titration_reference_csv_matches_formulas():
         )
 
 
+def test_process_thermal_lethality_reference_csv_matches_formula():
+    df = _load("thermal_lethality_reference.csv", subdir="process")
+    for _, row in df.iterrows():
+        temps = [float(t) for t in str(row["temperatures_c"]).split(";")]
+        result = thermal_lethality_f0(
+            temperatures_c=temps, delta_t_minutes=row["delta_t_minutes"],
+        )
+        actual = result["f0_minutes"]
+        assert abs(actual - row["expected_f0_minutes"]) <= row["tolerance"], (
+            f"thermal_lethality_f0 uyusmuyor: hesaplanan={actual}, "
+            f"beklenen={row['expected_f0_minutes']} (kaynak: {row['source']})"
+        )
+
+
 if __name__ == "__main__":
     test_xbar_r_reference_csv_matches_formula()
     test_imr_reference_csv_matches_formula()
@@ -187,4 +201,5 @@ if __name__ == "__main__":
     test_process_cpk_reference_csv_matches_formula()
     test_ppk_reference_csv_matches_formula()
     test_process_titration_reference_csv_matches_formulas()
+    test_process_thermal_lethality_reference_csv_matches_formula()
     print("VALIDATION SUITE (CSV-guduml) TESTLERI GECTI")

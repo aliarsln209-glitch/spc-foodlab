@@ -32,3 +32,11 @@ ilke stokiyometriden (Eş değer ağırlık = Molekül Ağırlığı / bazisite,
 IUPAC standart atomik ağırlıkları) türetilmiştir — `source` sütununda tam
 türetme gösterilir. Bu, ICUMSA Brix tablosu gibi erişilemez bir kaynak
 DEĞİLDİR; her zaman yeniden hesaplanabilir bir gerçektir.
+
+## thermal_lethality_reference.csv (v1.7 Faz 3)
+
+`thermal_lethality_f0()`'ı doğrudan doğrular (Bigelow/Ball formülü). Formülün
+kendisi ders kitabı matematiğidir (z=10°C, T_ref=121.1°C standart sabitler) —
+`titration_reference.csv`'deki meq faktörleri gibi türetilmiş bir katsayı
+DEĞİL, doğrudan uygulanan bir formül. `temperatures_c` sütunu `;` ile
+ayrılmış bir sıcaklık listesi taşır.
