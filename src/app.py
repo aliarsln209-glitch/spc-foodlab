@@ -1876,7 +1876,8 @@ with tab_data:
 # ---------------------------------------------------------------------------
 # SEKME 2: X-bar/R Chart & Cpk
 # ---------------------------------------------------------------------------
-with tab_chart:
+def render_generic_chart_tab() -> None:
+    """SEKME 2: X-bar/R Chart & Cpk - L*/a*/b* HARIC tum parametreler icin. v1.7.1 oncesi dogrudan `with tab_chart:` icindeydi, Renk Paneli dali icin fonksiyona sarmalandi, ic mantik degismedi."""
     if len(st.session_state.subgroups) < 2:
         render_empty_state("\U0001F4C8", "Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
@@ -2820,6 +2821,9 @@ with tab_chart:
 # butonlari (bkz. asagida) - bilincli, gated bir istisnadir.
 TOTOX_ANV_LIMIT = 20.0
 TOTOX_LIMIT = 26.0
+
+with tab_chart:
+    render_generic_chart_tab()
 
 
 def render_totox_gauge(totox_value: float, totox_limit: float, dark: bool):
