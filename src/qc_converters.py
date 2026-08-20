@@ -64,6 +64,29 @@ def build_bridge_subgroup_entry(value: float | list[float], shift_label: str) ->
     return {"shift": shift_label, "values": [value]}
 
 
+def bridge_value_count_matches(values: float | list[float], required_n: int) -> bool:
+    """X-bar/R koprusu icin, verilen degerlerin TAM OLARAK required_n adet olup
+    olmadigini kontrol eder - render_bridge_widget()'in (app.py) X-bar/R gating
+    mantiginin saf/test edilebilir cekirdegi. UI tarafi (st.warning/buton
+    gosterme kararlari) app.py'de kalir, burasi sadece dogru/yanlis dondurur.
+    """
+    if not isinstance(values, list):
+        values = [values]
+    return len(values) == required_n
+
+
+def bridge_value_is_single(value: float | list[float]) -> bool:
+    """I-MR koprusu icin, verilen degerin TEK bir olcum olup olmadigini kontrol
+    eder (duz bir float, veya tam 1 elemanli bir liste). Bu, X-bar/R kopru
+    yolunun aksine bir hedefe yanlislikla coklu deger koprulenmesini engeller -
+    bridge_value_count_matches()'in I-MR karsiligi (bkz. o fonksiyonun
+    docstring'i).
+    """
+    if isinstance(value, list):
+        return len(value) == 1
+    return True
+
+
 def titratable_acidity(
     titrant_volume_ml: float, titrant_normality: float, acid_meq_factor: float, sample_size_ml: float,
 ) -> dict:

@@ -31,7 +31,7 @@ from constants import (
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
-from qc_converters import build_bridge_subgroup_entry, gravimetric_moisture, salt_content_mohr, titratable_acidity
+from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, titratable_acidity
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -2864,7 +2864,7 @@ def render_bridge_widget(
         if not isinstance(target_values, list):
             target_values = [target_values]
         required_n = st.session_state.subgroup_size
-        if len(target_values) != required_n:
+        if not bridge_value_count_matches(target_values, required_n):
             st.warning(
                 f"'{target}' bir X-bar/R parametresidir, mevcut alt grup büyüklüğü "
                 f"n={required_n}. Bu köprü tam olarak {required_n} ölçüm gerektirir "
@@ -2887,10 +2887,20 @@ def render_bridge_widget(
             st.success(message)
         return
 
+    imr_value = values_by_target[target]
+    if not bridge_value_is_single(imr_value):
+        st.warning(
+            f"'{target}' bir I-MR parametresidir - bu köprü tek bir ölçüm bekler, "
+            f"birden fazla değer köprülenemez ({len(imr_value)} değer verildi)."
+        )
+        return
+    if isinstance(imr_value, list):
+        imr_value = imr_value[0]
+
     st.caption(f"Aktif parametre: {target} (I-MR)")
     if st.button(f"📌 SPC Veri Setine Aktar ({source_label})", key=f"{widget_key_prefix}_bridge_button"):
         entry = build_bridge_subgroup_entry(
-            value=values_by_target[target], shift_label=f"QC Dönüştürücü - {source_label}",
+            value=imr_value, shift_label=f"QC Dönüştürücü - {source_label}",
         )
         st.session_state.subgroups.append(entry)
         message = f"{source_label} değeri SPC veri setine eklendi ({target}, I-MR)."

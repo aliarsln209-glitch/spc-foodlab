@@ -6,8 +6,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity, salt_content_mohr, NACL_MEQ_FACTOR
-from constants import TOTOX_BRIDGE_PARAMETER_CONFIG
+from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity, salt_content_mohr, NACL_MEQ_FACTOR, bridge_value_count_matches, bridge_value_is_single
+from constants import TOTOX_BRIDGE_PARAMETER_CONFIG, TITRATABLE_ACID_MEQ_FACTORS
 
 
 def test_gravimetric_moisture_basic_worked_example():
@@ -120,5 +120,65 @@ def test_salt_content_mohr_zero_sample_raises():
 
 
 def test_nacl_meq_factor_matches_derivation():
-    # Dogrulama: MW(NaCl)=22.990(Na)+35.453(Cl)=58.443 (IUPAC atomik agirliklar)
-    assert NACL_MEQ_FACTOR == pytest.approx(58.44 / 1000, abs=0.0001)
+    # IUPAC standart atomik agirliklar: Na=22.990, Cl=35.453
+    nacl_mw = 22.990 + 35.453
+    assert NACL_MEQ_FACTOR == pytest.approx(nacl_mw / 1000, abs=1e-5)
+
+
+def test_titratable_acid_meq_factors_match_derivation():
+    # IUPAC standart atomik agirliklar (constants.py'deki yorumla ayni)
+    C, H, O = 12.011, 1.008, 15.999
+
+    # Sitrik asit (anhidrus, C6H8O7), triprotik
+    citric_mw = 6 * C + 8 * H + 7 * O
+    assert TITRATABLE_ACID_MEQ_FACTORS["Sitrik Asit (anhidrus)"] == pytest.approx(
+        citric_mw / 3 / 1000, abs=0.0001
+    )
+
+    # Malik asit (C4H6O5), diprotik
+    malic_mw = 4 * C + 6 * H + 5 * O
+    assert TITRATABLE_ACID_MEQ_FACTORS["Malik Asit"] == pytest.approx(
+        malic_mw / 2 / 1000, abs=0.0001
+    )
+
+    # Laktik asit (C3H6O3), monoprotik
+    lactic_mw = 3 * C + 6 * H + 3 * O
+    assert TITRATABLE_ACID_MEQ_FACTORS["Laktik Asit"] == pytest.approx(
+        lactic_mw / 1000, abs=0.0001
+    )
+
+    # Asetik asit (C2H4O2), monoprotik
+    acetic_mw = 2 * C + 4 * H + 2 * O
+    assert TITRATABLE_ACID_MEQ_FACTORS["Asetik Asit"] == pytest.approx(
+        acetic_mw / 1000, abs=0.0001
+    )
+
+
+def test_bridge_value_count_matches_exact_n():
+    assert bridge_value_count_matches([1.0, 2.0, 3.0, 4.0], required_n=4) is True
+
+
+def test_bridge_value_count_matches_too_few():
+    assert bridge_value_count_matches([1.0, 2.0], required_n=4) is False
+
+
+def test_bridge_value_count_matches_too_many():
+    assert bridge_value_count_matches([1.0, 2.0, 3.0, 4.0, 5.0], required_n=4) is False
+
+
+def test_bridge_value_count_matches_coerces_non_list():
+    # required_n=1 ile tek bir float, 1 elemanli listeye esdeger sayilir
+    assert bridge_value_count_matches(12.34, required_n=1) is True
+    assert bridge_value_count_matches(12.34, required_n=4) is False
+
+
+def test_bridge_value_is_single_plain_float():
+    assert bridge_value_is_single(12.34) is True
+
+
+def test_bridge_value_is_single_one_element_list():
+    assert bridge_value_is_single([12.34]) is True
+
+
+def test_bridge_value_is_single_rejects_multi_element_list():
+    assert bridge_value_is_single([1.0, 2.0]) is False
