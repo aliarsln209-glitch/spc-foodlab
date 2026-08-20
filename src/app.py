@@ -25,12 +25,13 @@ from constants import (
     RAW_MATERIAL_PREFIX,
     RAW_MATERIAL_QC_REFERENCE,
     SHIFT_OPTIONS,
+    TITRATABLE_ACID_MEQ_FACTORS,
     TOTOX_BRIDGE_PARAMETER_CONFIG,
 )
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
-from qc_converters import build_bridge_subgroup_entry, gravimetric_moisture
+from qc_converters import build_bridge_subgroup_entry, gravimetric_moisture, titratable_acidity
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -2926,6 +2927,71 @@ with tab_calc:
         )
     except ValueError as exc:
         st.error(f"Girdi hatası: {exc}")
+
+    st.divider()
+
+    st.markdown("### 🧪 Titre Edilebilir Asitlik")
+    st.caption(
+        "AOAC yöntemi: titre hacmi + normalite + asit faktörü + numune "
+        "miktarından % asitlik hesaplar. Titrasyon Asitliği X-bar/R "
+        "parametresi olduğu için, aktif alt grup büyüklüğü (n) kadar "
+        "tekrar ölçüm gerekir - aynı numunenin n kez titre edilmesi gibi."
+    )
+
+    col_ta1, col_ta2, col_ta3 = st.columns(3)
+    with col_ta1:
+        ta_acid_choice = st.selectbox(
+            "Baskın asit", list(TITRATABLE_ACID_MEQ_FACTORS.keys()), key="qc_ta_acid_choice",
+        )
+    ta_acid_factor = TITRATABLE_ACID_MEQ_FACTORS[ta_acid_choice]
+    with col_ta2:
+        if ta_acid_factor is None:
+            ta_acid_factor = st.number_input(
+                "Özel asit faktörü (g/meq)", min_value=0.0001, value=0.0640,
+                step=0.0001, format="%.4f", key="qc_ta_custom_factor",
+            )
+        else:
+            st.metric("Asit faktörü (g/meq)", f"{ta_acid_factor:.4f}")
+    with col_ta3:
+        ta_normality = st.number_input(
+            "Titrant normalitesi (N)", min_value=0.0001, value=0.1,
+            step=0.01, format="%.3f", key="qc_ta_normality",
+        )
+
+    ta_sample_size = st.number_input(
+        "Numune miktarı (mL)", min_value=0.0001, value=10.0, step=0.1, key="qc_ta_sample_size",
+    )
+
+    ta_n = st.session_state.subgroup_size
+    st.caption(f"Alt grup büyüklüğü n={ta_n} (sidebar'dan değiştirilebilir) - {ta_n} adet titrasyon tekrarı girin.")
+
+    ta_values = []
+    ta_error = None
+    ta_cols = st.columns(ta_n)
+    for _ta_i, _ta_col in enumerate(ta_cols):
+        with _ta_col:
+            _ta_vol = st.number_input(
+                f"Titre hacmi #{_ta_i + 1} (mL)", min_value=0.0, value=9.2,
+                step=0.1, key=f"qc_ta_volume_{_ta_i}",
+            )
+            try:
+                _ta_result = titratable_acidity(_ta_vol, ta_normality, ta_acid_factor, ta_sample_size)
+                ta_values.append(_ta_result["acidity_pct"])
+            except ValueError as exc:
+                ta_error = str(exc)
+
+    if ta_error:
+        st.error(f"Girdi hatası: {ta_error}")
+    else:
+        st.write(
+            "Hesaplanan % asitlik değerleri: "
+            + ", ".join(f"{v:.3f}" for v in ta_values)
+        )
+        render_bridge_widget(
+            values_by_target={"Titrasyon Asitligi": ta_values},
+            source_label="Titre Edilebilir Asitlik",
+            widget_key_prefix="qc_ta",
+        )
 
     st.divider()
 
