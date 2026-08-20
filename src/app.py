@@ -31,7 +31,7 @@ from constants import (
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
-from qc_converters import build_bridge_subgroup_entry, gravimetric_moisture, titratable_acidity
+from qc_converters import build_bridge_subgroup_entry, gravimetric_moisture, salt_content_mohr, titratable_acidity
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -2991,6 +2991,57 @@ with tab_calc:
             values_by_target={"Titrasyon Asitligi": ta_values},
             source_label="Titre Edilebilir Asitlik",
             widget_key_prefix="qc_ta",
+        )
+
+    st.divider()
+
+    st.markdown("### 🧂 Tuz (Mohr Metodu)")
+    st.caption(
+        "AgNO₃ titrasyonu ile klorür tayini, %NaCl olarak raporlanır. "
+        "Tuz/NaCl X-bar/R parametresi olduğu için aktif alt grup büyüklüğü "
+        "(n) kadar tekrar ölçüm gerekir."
+    )
+
+    col_salt1, col_salt2 = st.columns(2)
+    with col_salt1:
+        salt_normality = st.number_input(
+            "AgNO₃ normalitesi (N)", min_value=0.0001, value=0.1,
+            step=0.01, format="%.3f", key="qc_salt_normality",
+        )
+    with col_salt2:
+        salt_sample_size = st.number_input(
+            "Numune miktarı (g)", min_value=0.0001, value=10.0, step=0.1, key="qc_salt_sample_size",
+        )
+
+    salt_n = st.session_state.subgroup_size
+    st.caption(f"Alt grup büyüklüğü n={salt_n} (sidebar'dan değiştirilebilir) - {salt_n} adet titrasyon tekrarı girin.")
+
+    salt_values = []
+    salt_error = None
+    salt_cols = st.columns(salt_n)
+    for _salt_i, _salt_col in enumerate(salt_cols):
+        with _salt_col:
+            _salt_vol = st.number_input(
+                f"AgNO₃ hacmi #{_salt_i + 1} (mL)", min_value=0.0, value=12.0,
+                step=0.1, key=f"qc_salt_volume_{_salt_i}",
+            )
+            try:
+                _salt_result = salt_content_mohr(_salt_vol, salt_normality, salt_sample_size)
+                salt_values.append(_salt_result["salt_pct"])
+            except ValueError as exc:
+                salt_error = str(exc)
+
+    if salt_error:
+        st.error(f"Girdi hatası: {salt_error}")
+    else:
+        st.write(
+            "Hesaplanan % NaCl değerleri: "
+            + ", ".join(f"{v:.3f}" for v in salt_values)
+        )
+        render_bridge_widget(
+            values_by_target={"Tuz/NaCl": salt_values},
+            source_label="Tuz (Mohr Metodu)",
+            widget_key_prefix="qc_salt",
         )
 
     st.divider()
