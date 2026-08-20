@@ -243,7 +243,11 @@ if st.session_state.pop("_reset_subgroup_n_input", False):
     st.session_state.subgroup_size_input = st.session_state.subgroup_size
 
 with st.sidebar:
-    st.subheader("Ayarlar")
+    # "Ayarlar" basligi eskiden burada, parametre secicisinin USTUNDE
+    # duruyordu - hicbir etkilesimi olmayan, tiklanabilir gibi gorunen bir
+    # baslikti ve altindaki parametre secicisiyle degil, DIVIDER'dan sonraki
+    # gercek ayarlarla (tema/renk) ilgiliydi (canli denetimde bulundu).
+    # Asagida, gercek ayarlarin hemen ustune tasindi.
 
     # Durum noktasi: SADECE aktif parametre icin guncel Cpk'ye gore yesil/kirmizi,
     # digerleri notr gri ('bu parametre icin henuz veri yok/gosterilmiyor' -
@@ -253,8 +257,15 @@ with st.sidebar:
     _status_dot = {"green": "\U0001F7E2", "red": "\U0001F534", "gray": "\U000026AA"}[_status]
 
     def _param_radio_label(p: str) -> str:
-        dot = _status_dot if p == st.session_state.active_parameter else "\U000026AA"
-        return f"{dot} {p}"
+        # Sadece AKTIF parametre icin durum noktasi gosterilir (Cpk'ye gore
+        # yesil/kirmizi/gri anlam tasir); digerlerinde hicbir zaman anlamli
+        # bir renk olmadigi icin (hep notr beyaz) - bu, secim isaretinin
+        # yaninda anlamsiz/isik gibi yanan bir ikinci nokta gorunumu
+        # yaratiyordu (canli denetimde bulundu) - onlarda nokta hic
+        # gosterilmez, sadece isim yazilir.
+        if p == st.session_state.active_parameter:
+            return f"{_status_dot} {p}"
+        return p
 
     st.caption("Parametre")
     # 9 parametre 3 kategoriye (Fiziksel/Duyusal, Kimyasal Kompozisyon,
@@ -315,6 +326,7 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
+    st.subheader("Gorunum Ayarlari")
     chart_theme = st.selectbox("Tema (grafik + arayuz)", ["Acik", "Koyu"], key="chart_theme")
     accent_color = st.color_picker(
         "Vurgu rengi", value=st.session_state.get("accent_color", "#4c6ef5"),
@@ -419,6 +431,15 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     hover'da kucuk buyume, karti gecisi, uyari kutularinda fade-in. Amac
     sadece arayuzu biraz daha 'canli' hissettirmek, dikkat dagitmamak."""
     sidebar_text, sidebar_caption, sidebar_swatch_border = contrasting_sidebar_text_colors(sidebar_color)
+    # "Vazgec" gibi ikincil butonlar icin ayri bir zemin/metin cifti: sidebar
+    # zemini KOYUYSA (sidebar_text acik -> "#E8EAF0") buton acik gri zeminde
+    # koyu metin alir, sidebar zemini ACIKSA bunun tersi - boylece buton her
+    # zaman sidebar zemininden ayrisan, kendi icinde okunakli bir "kart" gibi
+    # gorunur (canli denetimde bulunan beyaz-zeminde-beyaz-yazi hatasinin fix'i).
+    if sidebar_text == "#E8EAF0":
+        sidebar_button_bg, sidebar_button_text = "#2A3142", "#E8EAF0"
+    else:
+        sidebar_button_bg, sidebar_button_text = "#E4E7EC", "#1A1D29"
     # KART SECICI NOTU: Streamlit >=1.5x'te st.container(border=True) artik
     # sabit bir data-testid ("stVerticalBlockBorderWrapper") ILE ISARETLENMIYOR -
     # bordered/border'siz tum bloklar ayni data-testid="stVerticalBlock"'u
@@ -554,6 +575,23 @@ def inject_theme_css(dark: bool, accent: str, sidebar_color: str) -> None:
     [data-testid="stSidebar"] [data-testid="stColorPickerBlock"] {{
         border: 1.5px solid {sidebar_swatch_border} !important;
         border-radius: 6px !important;
+    }}
+
+    /* Fix: "Vazgec" gibi ikincil (kind="secondary") butonlar sidebar icinde
+       kendi varsayilan (acik temada beyaz) zeminini korurken, yukaridaki
+       genel "p/span/label" kurali buton METNINI de sidebar_text'e (koyu
+       sidebar zeminine gore secilen, genelde ACIK bir renk) boyuyordu -
+       sonuc beyaz zeminde beyaz yazi, buton GORUNMEZ oluyordu (canli
+       denetimde bulundu - parametre degistirme onay dialogundaki "Vazgec").
+       Butonun kendi zeminini de sidebar_swatch_border ile ayni mantikla
+       (sidebar rengine gore kontrastli) veriyoruz. */
+    [data-testid="stSidebar"] button[kind="secondary"] {{
+        background-color: {sidebar_button_bg} !important;
+        color: {sidebar_button_text} !important;
+        border-color: {sidebar_button_bg} !important;
+    }}
+    [data-testid="stSidebar"] button[kind="secondary"] p {{
+        color: {sidebar_button_text} !important;
     }}
 
     /* Fix: parametre kategori basliklarinin (st.expander "summary" elementi)
@@ -3493,4 +3531,4 @@ Detayli kaynak ve dogrulama notlari icin bkz. README.
 # disinda oldugu icin hangi sekme secili olursa olsun sayfanin en altinda kalir)
 # ---------------------------------------------------------------------------
 st.divider()
-st.caption(f"SPC FoodLab v1.6 · [GitHub]({GITHUB_URL})")
+st.caption(f"SPC FoodLab v1.7 · [GitHub]({GITHUB_URL})")

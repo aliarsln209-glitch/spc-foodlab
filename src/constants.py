@@ -1250,7 +1250,12 @@ FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
 FOOD_QUALITY_PARAMETER_CATEGORIES = [
     (
         "gida_kalite_v14",
-        "\U0001F9EA\U0001F9EA Gida Kalite Parametreleri",
+        # Tek emoji (eskiden "\U0001F9EA\U0001F9EA" iki test tuubu yan yana
+        # yanlislikla kopyalanmisti - canli denetimde bulundu) ve
+        # Fiziksel/Duyusal'in "\U0001F9EA" ikonuyla CAKISMAMASI icin farkli
+        # bir sembol secildi (grup ismi/gruplamanin kendisi - madde 6 -
+        # ayri bir tasarim turunda ele alinacak, burada sadece ikon fix'i).
+        "\U0001F37D\U0000FE0F Gida Kalite Parametreleri",
         [
             "Protein", "Yag", "Kul", "Kuru Madde", "Yogunluk", "Refraktif Indeks",
             "L*", "a*", "b*", "Bulaniklik", "Iletkenlik",
