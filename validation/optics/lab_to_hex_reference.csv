@@ -1,0 +1,3 @@
+l_star,a_star,b_star,expected_hex,note
+0.0,0.0,0.0,#000000,"Matematiksel ozdeslik - L=0 daima siyaha esitlenir (formul tanimindan)"
+100.0,0.0,0.0,#ffffff,"Matematiksel ozdeslik - L=100 D65 referans beyaz noktasinin kendisi"

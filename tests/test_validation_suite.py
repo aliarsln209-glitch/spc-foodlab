@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 import pandas as pd
 
+from color_lab import lab_to_hex
 from qc_converters import salt_content_mohr, thermal_lethality_f0, titratable_acidity
 from spc_core import compute_cpk, compute_imr_limits, compute_pp, compute_ppk, compute_xbar_r_limits
 
@@ -128,6 +129,18 @@ def test_optics_cpk_reference_csv_matches_formula():
     _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="optics"))
 
 
+def test_lab_to_hex_reference_csv():
+    import csv
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "validation", "optics", "lab_to_hex_reference.csv"
+    )
+    with open(path, newline="", encoding="utf-8") as f:
+        rows = [r for r in csv.DictReader(f, ) if not r["l_star"].startswith("#")]
+    for row in rows:
+        result = lab_to_hex(float(row["l_star"]), float(row["a_star"]), float(row["b_star"]))
+        assert result == row["expected_hex"], f"{row}: beklenen {row['expected_hex']}, alinan {result}"
+
+
 def test_process_cpk_reference_csv_matches_formula():
     # v1.7 Faz 1: QC Donusturucu formulleri icin Method Validation
     _assert_cpk_csv_matches_formula(_load("cpk_reference.csv", subdir="process"))
@@ -198,6 +211,7 @@ if __name__ == "__main__":
     test_physical_cpk_reference_csv_matches_formula()
     test_physical_yogunluk_refraktif_cpk_reference_csv_matches_formula()
     test_optics_cpk_reference_csv_matches_formula()
+    test_lab_to_hex_reference_csv()
     test_process_cpk_reference_csv_matches_formula()
     test_ppk_reference_csv_matches_formula()
     test_process_titration_reference_csv_matches_formulas()
