@@ -171,6 +171,10 @@ def compute_active_parameter_status() -> tuple[str, float | None]:
         return "gray", None
 
     active_param = st.session_state.active_parameter
+    if active_param == "L*":
+        # Renk Paneli kendi ayri veri modelini (color_lab_samples) kullanir,
+        # sidebar durum noktasi bu model icin anlamli degil - notr kalir.
+        return "gray", None
     param_cfg = PARAMETER_CONFIG[active_param]
     is_indiv = param_cfg.get("is_individual", False)
 
@@ -263,9 +267,10 @@ with st.sidebar:
         # yaninda anlamsiz/isik gibi yanan bir ikinci nokta gorunumu
         # yaratiyordu (canli denetimde bulundu) - onlarda nokta hic
         # gosterilmez, sadece isim yazilir.
+        display_name = "Renk (L*a*b*)" if p == "L*" else p
         if p == st.session_state.active_parameter:
-            return f"{_status_dot} {p}"
-        return p
+            return f"{_status_dot} {display_name}"
+        return display_name
 
     st.caption("Parametre")
     # 9 parametre 3 kategoriye (Fiziksel/Duyusal, Kimyasal Kompozisyon,
@@ -1871,7 +1876,10 @@ def render_generic_data_entry_tab() -> None:
                     )
 
 with tab_data:
-    render_generic_data_entry_tab()
+    if st.session_state.active_parameter == "L*":
+        render_color_lab_data_entry_tab()  # Task 6'da tanimlanacak
+    else:
+        render_generic_data_entry_tab()
 
 # ---------------------------------------------------------------------------
 # SEKME 2: X-bar/R Chart & Cpk
@@ -2823,7 +2831,10 @@ TOTOX_ANV_LIMIT = 20.0
 TOTOX_LIMIT = 26.0
 
 with tab_chart:
-    render_generic_chart_tab()
+    if st.session_state.active_parameter == "L*":
+        render_color_lab_chart_tab()  # Task 6'da tanimlanacak
+    else:
+        render_generic_chart_tab()
 
 
 def render_totox_gauge(totox_value: float, totox_limit: float, dark: bool):

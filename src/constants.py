@@ -148,7 +148,13 @@ PARAMETER_CATEGORIES = [
     ),
     (
         "optik", "\U0001F3A8 Optik/Gorunum",
-        ["Refraktif Indeks", "L*", "a*", "b*", "Bulaniklik"],
+        # a*/b* artik ayri secilemez - "L*" secimi, v1.7.1'den itibaren
+        # Renk (L*a*b*) Panelini (ucunu BIRLIKTE gosteren ozel sayfa) temsil
+        # eder (bkz. app.py sidebar format_func ve tab_data/tab_chart
+        # dallanmasi). a*/b*'nin PARAMETER_CONFIG kayitlari SILINMEDI -
+        # Renk Paneli varsayilan LSL/USL/physical_bounds degerlerini
+        # oradan okumaya devam eder.
+        ["Refraktif Indeks", "L*", "Bulaniklik"],
     ),
     ("oksidasyon", "\U0001F6E2\U0000FE0F Oksidasyon/Bozulma", ["Peroksit Degeri", "HMF"]),
     (

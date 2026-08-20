@@ -81,7 +81,15 @@ def test_food_quality_parameters_distributed_into_measurement_type_categories():
     all_categorized_params = {
         p for _cat_id, _label, params in PARAMETER_CATEGORIES for p in params
     }
+    # v1.7.1: a*/b* artik sidebar'da AYRI secilemez - "L*" secimi Renk
+    # (L*a*b*) Panelini (ucunu birlikte gosteren ozel sayfa) temsil eder.
+    # a*/b* PARAMETER_CONFIG/FOOD_QUALITY_PARAMETER_CONFIG kayitlari SILINMEDI
+    # (Renk Paneli hala okur), sadece kategori listesinden bilerek disarida
+    # birakildilar - bkz. constants.py PARAMETER_CATEGORIES "optik" yorumu.
+    color_lab_trio_members_not_separately_listed = {"a*", "b*"}
     for param_name in FOOD_QUALITY_PARAMETER_CONFIG:
+        if param_name in color_lab_trio_members_not_separately_listed:
+            continue
         assert param_name in all_categorized_params, (
             f"{param_name}: hicbir sidebar kategorisinde yok"
         )
@@ -167,6 +175,16 @@ def test_food_quality_parameters_have_sidebar_descriptions():
         assert PARAMETER_DESCRIPTIONS[param_name]  # bos olmamali
 
 
+def test_optik_category_no_longer_lists_a_star_or_b_star_separately():
+    optik = next(params for cat_id, _label, params in PARAMETER_CATEGORIES if cat_id == "optik")
+    assert "L*" in optik
+    assert "a*" not in optik
+    assert "b*" not in optik
+    # a*/b* PARAMETER_CONFIG kayitlari SILINMEDI (Renk Paneli hala okur):
+    assert "a*" in PARAMETER_CONFIG
+    assert "b*" in PARAMETER_CONFIG
+
+
 if __name__ == "__main__":
     test_all_food_quality_entries_have_required_framework_keys()
     test_all_food_quality_entries_use_a_valid_category()
@@ -182,4 +200,5 @@ if __name__ == "__main__":
     test_bulaniklik_is_one_sided_upper_limit_only()
     test_protein_and_kuru_madde_use_mathematical_ceiling_for_lsl_only_specs()
     test_food_quality_parameters_have_sidebar_descriptions()
+    test_optik_category_no_longer_lists_a_star_or_b_star_separately()
     print("FOOD QUALITY FRAMEWORK TESTLERI GECTI")
