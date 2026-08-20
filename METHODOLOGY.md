@@ -718,7 +718,7 @@ Faz 1'deki I-MR-only kısıtlaması (final review bulgusu) hâlâ geçerlidir
 — sadece tam sayıda değer verildiğinde X-bar/R köprüsü açılır, n=1 alt
 grup asla eklenmez.
 
-**Faz 3 — Karmaşık Validasyon Gerektirenler (sadece F₀)**
+**Faz 3 — Karmaşık Validasyon Gerektirenler (sadece F₀) ✅ Tamamlandı**
 
 En son bu çünkü: en yüksek validation riski — hem formül (Bigelow/Ball)
 hem de LSL kaynağı araştırması gerekiyor (v1.4→v1.6'daki aynı
@@ -733,6 +733,21 @@ disiplinle: kaynak doğrulanamazsa "Özel/Manuel gir").
   UI'da açıkça gösterilir, tek bir "doğru" hedef değer gibi sunulmaz).
   Tek taraflı (sadece LSL anlamlıdır, F₀ ne kadar yüksekse o kadar
   güvenli). Worked example zorunlu, `validation/process/` altına.
+
+Implementasyon: `src/qc_converters.py` (`thermal_lethality_f0()` — Bigelow/
+Ball formülü), `src/constants.py` (`F0_BRIDGE_PARAMETER_CONFIG` — Totox
+köprüsüyle birebir aynı mimari desen, `PARAMETER_CONFIG`'e katılmaz),
+`src/app.py` "Hızlı Hesaplayıcılar" sekmesi (yeni panel, herhangi bir
+I-MR parametresine köprülenebilir — mevcut Viskozite parametresine özel
+DEĞİL), `validation/process/thermal_lethality_reference.csv`.
+
+**v1.7 QC Veri Dönüştürücüler roadmap'i bu fazla TAMAMLANMIŞTIR** (Faz
+1: Köprü Altyapısı + Gravimetrik Nem + Totox köprüsü; Faz 2: Titrimetrik
+Dönüştürücüler + köprünün X-bar/R'a genişletilmesi; Faz 3: Termal
+Letalite). Brix Sıcaklık Düzeltmesi (Faz 1'de kaynak erişimi
+bekleniyor olarak bırakılmıştı) ve Bostwick/Viskozite Sıcaklık
+Normalizasyonu (Faz 3 planlamasında kalıcı olarak kapsam dışı
+bırakıldı) hâlâ askıda/hariç — bkz. ilgili notlar yukarıda.
 
 **Bostwick/Viskozite Sıcaklık Normalizasyonu — v1.7'den KESİN olarak
 ÇIKARILDI, kalıcı hariç tutulanlara taşındı** (bkz. aşağıda). Gerekçe:
