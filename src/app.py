@@ -1315,7 +1315,12 @@ tab_data, tab_chart, tab_calc, tab_about = st.tabs([
 # ---------------------------------------------------------------------------
 # SEKME 1: Veri Girisi / Goruntuleme
 # ---------------------------------------------------------------------------
-with tab_data:
+def render_generic_data_entry_tab() -> None:
+    """SEKME 1: Veri Girisi - tek-aktif-parametre (L*/a*/b* HARIC tum
+    parametreler) icin veri girisi formu, demo veri, CSV import, Excel
+    yapistir. v1.7.1 (Renk Paneli) oncesi bu kod dogrudan `with tab_data:`
+    icindeydi - Renk Paneli icin ayri bir dal eklenebilmesi icin (Task 5)
+    fonksiyona sarmalandi, ic mantik degismedi."""
     with st.container(border=True, key="card-02"):
         if is_individual:
             st.subheader("Yeni olcum ekle")
@@ -1864,6 +1869,9 @@ with tab_data:
                         "CSV olarak indir", csv,
                         f"{st.session_state.active_parameter.lower()}_olcumleri.csv", "text/csv",
                     )
+
+with tab_data:
+    render_generic_data_entry_tab()
 
 # ---------------------------------------------------------------------------
 # SEKME 2: X-bar/R Chart & Cpk
