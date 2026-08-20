@@ -137,16 +137,18 @@ PARAMETER_INFO = {
 # ayri grupta durmalari yanlis izlenim veriyordu ("bu grup gida kalitesiyle
 # ilgili, digerleri degil mi?" sorusu - canli denetimde bulundu). Optik/
 # Gorunum grubu bu regroup ile ilk kez olusuyor (Refraktif Indeks/L*/a*/b*/
-# Bulaniklik/Iletkenlik - hepsi optik/gorsel/elektriksel algi olcumleri).
+# Bulaniklik - optik/gorsel algi olcumleri). Iletkenlik BILEREK bu grupta
+# DEGIL - elektriksel/iyonik bir olcumdur, isikla/gorsel algiyla hicbir
+# ilgisi yok (kullanici geri bildirimiyle Fiziksel/Duyusal'a tasindi).
 PARAMETER_CATEGORIES = [
-    ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite", "Yogunluk"]),
+    ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite", "Yogunluk", "Iletkenlik"]),
     (
         "kimyasal", "\U00002697\U0000FE0F Kimyasal Kompozisyon",
         ["Nem/Rutubet", "Tuz/NaCl", "Titrasyon Asitligi", "Protein", "Yag", "Kul", "Kuru Madde"],
     ),
     (
         "optik", "\U0001F3A8 Optik/Gorunum",
-        ["Refraktif Indeks", "L*", "a*", "b*", "Bulaniklik", "Iletkenlik"],
+        ["Refraktif Indeks", "L*", "a*", "b*", "Bulaniklik"],
     ),
     ("oksidasyon", "\U0001F6E2\U0000FE0F Oksidasyon/Bozulma", ["Peroksit Degeri", "HMF"]),
     (
