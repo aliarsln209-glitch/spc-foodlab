@@ -38,3 +38,21 @@ def lab_to_hex(l_star: float, a_star: float, b_star: float) -> str:
 
     r, g, b = _gamma(r_lin), _gamma(g_lin), _gamma(b_lin)
     return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def append_color_sample(samples: list[dict], l: float, a: float, b: float) -> list[dict]:
+    """Yeni bir L*/a*/b* uclusunu (ayni olcume ait) listeye ekler - orijinal
+    listeyi DEGISTIRMEZ, yeni bir liste doner (Streamlit session_state
+    mutasyon hatalarindan kacinmak icin - bkz. build_bridge_subgroup_entry
+    ile ayni desen, kopru sisteminden odunc alindi)."""
+    return samples + [{"L": l, "a": a, "b": b}]
+
+
+def color_samples_to_series(samples: list[dict]) -> tuple[list[float], list[float], list[float]]:
+    """Birlesik ornek listesini, spc_core'un beklediği 3 bagimsiz I-MR
+    serisine ayirir - L*, a*, b* istatistiksel olarak DAIMA bagimsizdir
+    (bkz. METHODOLOGY.md 'v1.7.1' - ΔE YOK)."""
+    l_vals = [s["L"] for s in samples]
+    a_vals = [s["a"] for s in samples]
+    b_vals = [s["b"] for s in samples]
+    return l_vals, a_vals, b_vals
