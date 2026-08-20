@@ -3646,4 +3646,4 @@ Detayli kaynak ve dogrulama notlari icin bkz. README.
 # disinda oldugu icin hangi sekme secili olursa olsun sayfanin en altinda kalir)
 # ---------------------------------------------------------------------------
 st.divider()
-st.caption(f"SPC FoodLab v1.7 · [GitHub]({GITHUB_URL})")
+st.caption(f"SPC FoodLab v1.7.1 · [GitHub]({GITHUB_URL})")

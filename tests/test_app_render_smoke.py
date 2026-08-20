@@ -26,7 +26,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from constants import FOOD_QUALITY_PARAMETER_CONFIG
+from constants import FOOD_QUALITY_PARAMETER_CONFIG, PARAMETER_CATEGORIES
 
 APP_PATH = os.path.join(os.path.dirname(__file__), "..", "src", "app.py")
 
@@ -74,3 +74,14 @@ def test_microbio_else_branch_uses_default_lod_only_for_actual_microbio():
     import pytest
     with pytest.raises(ValueError):
         f"{'-':g}"
+
+
+def test_a_star_and_b_star_config_still_valid_but_not_in_sidebar_categories():
+    # Task 5'in sonucu: a*/b* PARAMETER_CONFIG'de KALDI (Renk Paneli
+    # okuyor) ama hicbir PARAMETER_CATEGORIES grubunda AYRI listelenmiyor.
+    all_categorized = {p for _cat_id, _label, params in PARAMETER_CATEGORIES for p in params}
+    assert "a*" not in all_categorized
+    assert "b*" not in all_categorized
+    assert "L*" in all_categorized
+    assert "a*" in FOOD_QUALITY_PARAMETER_CONFIG
+    assert "b*" in FOOD_QUALITY_PARAMETER_CONFIG
