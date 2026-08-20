@@ -2049,6 +2049,24 @@ with tab_chart:
                     "HMF, isil islem/depolama sirasinda sekerlerin bozunmasinin "
                     "gostergesidir; alt limit kavrami yoktur."
                 )
+            elif active_param in FOOD_QUALITY_PARAMETER_CONFIG:
+                # v1.4->v1.6 Food Quality Parameters (Protein, Yag, Kul, Kuru
+                # Madde, Yogunluk, Refraktif Indeks, L*, a*, b*, Bulaniklik,
+                # Iletkenlik): bu parametreler mikrobiyoloji DEGIL, asagidaki
+                # 'is_microbio' else dalina hicbir zaman ait olmamaliydi -
+                # oraya dusunce 'Default LOD' kartinin ':g' format spesi
+                # None/'-' uzerinde ValueError ile COKUYORDU (canli denetimde
+                # bulundu). Bilgi metni zaten framework'ten otomatik uretilir
+                # (bkz. get_parameter_info_text/build_parameter_info_card,
+                # ust taraftaki "SEKME 2" basligindaki karta da ayni metin
+                # basiliyor) - burada ayrica kopyalanmaz, sadece kaynak atfi
+                # gosterilir.
+                st.caption(
+                    f"Bu deger {PARAMETER_SOURCES.get(active_param, '-')} "
+                    "kaynagina dayanan gosterge degeridir - resmi/zorunlu bir "
+                    "TGK limiti degildir. LSL/USL degerlerini kendi urun/"
+                    "spesifikasyonuna gore elle degistirebilirsin."
+                )
             else:  # is_microbio (TPC/TMAB, Kuf-Maya, Koliform, Enterobacteriaceae, Kantitatif S. aureus)
                 # v1.3 Madde 3 (kalan mikrobiyoloji parametreleri) ONCESI bu else
                 # dali sadece HMF'i kapsiyordu - 5 yeni mikrobiyoloji parametresi

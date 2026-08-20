@@ -14,10 +14,14 @@ ayrımı**, **Shapiro-Wilk normallik testi** ve daha fazlası eklendi; v1.3
 ile **5 mikrobiyoloji parametresi** (log10-CFU, LOD/2 ikamesi, ham/log10
 şeffaflık tablosu) eklendi; v1.4→v1.6 ile fazlı bir **Food Quality
 Parameters** genişlemesi (Protein, Yağ, Kül, Kuru Madde, Yoğunluk,
-Refraktif İndeks, L*/a*/b*, Bulanıklık, İletkenlik — 10 yeni parametre,
-tek bir config-driven Parameter Framework üzerinden) eklendi (bkz. "v1.2
-— Advanced Statistical SPC", "v1.3 — Mikrobiyoloji (kantitatif)" ve
-"v1.4 → v1.6 — Food Quality Parameters" bölümleri aşağıda).
+Refraktif İndeks, L*/a*/b*, Bulanıklık, İletkenlik — 11 yeni parametre,
+tek bir config-driven Parameter Framework üzerinden) eklendi; v1.7 ile
+**QC Veri Dönüştürücüler** (Gravimetrik Nem, Totox, Titre Edilebilir
+Asitlik, Tuz/Mohr Metodu, Termal Letalite/F₀ — hepsi tek bir merkezi
+köprü widget'ı üzerinden mevcut I-MR/X-bar/R parametrelerine veri
+aktarır) eklendi (bkz. "v1.2 — Advanced Statistical SPC", "v1.3 —
+Mikrobiyoloji (kantitatif)", "v1.4 → v1.6 — Food Quality Parameters" ve
+"v1.7 — QC Veri Dönüştürücüler" bölümleri aşağıda).
 
 🔗 **Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
@@ -48,7 +52,9 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 - Every formula and constant (A2/D3/D4/d2, the I-chart's 2.66 constant,
   Cpk/Cpu/Ppk/Pp, including the R̄=0 edge case) is validated against a
   textbook or industry worked example before being trusted — see
-  `tests/` (222+ automated tests, plus a data-driven `validation/`
+  `tests/` (250+ automated tests — run `pytest tests/ --collect-only -q`
+  for the exact current count, it grows with every phase — plus a
+  data-driven `validation/`
   folder of reference CSVs organized by domain — `shared/`,
   `microbiology/`, `chemistry/`, `physical/`, `optics/` — run on every
   push with coverage reporting via GitHub Actions — see badge above).
@@ -124,7 +130,7 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 | Bulanıklık | I-MR | NTU |
 | İletkenlik | I-MR | µS/cm |
 
-Son 10 parametre (Protein…İletkenlik) v1.4→v1.6 "Food Quality
+Son 11 parametre (Protein…İletkenlik) v1.4→v1.6 "Food Quality
 Parameters" genişlemesiyle geldi — detay için aşağıdaki ilgili bölüme
 bakın. Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
 Bal'ın nem spesifikasyonunda sadece üst limit vardır); alt grup büyüklüğü

@@ -153,8 +153,12 @@ başına Cpk/Cpu ve kontrol limitlerine bakılmalıdır.
 ## Doğrulama
 
 Her formül, kodlamadan önce elle çözülmüş literatür örnekleriyle test
-edildi (`pytest tests/` — 56 test, 7 dosya; her push'ta GitHub Actions
-ile otomatik çalışır, `pytest-cov` ile kapsam raporu üretir). İlk 3 dosya
+edildi (`pytest tests/`; her push'ta GitHub Actions ile otomatik çalışır,
+`pytest-cov` ile kapsam raporu üretir). Güncel test sayısı sabit
+yazılmıyor — v1.1'den bu yana her fazda büyüdü (bir denetimde `pytest`
+gerçekten çalıştırılmadan aktarılan 56/222/229 gibi farklı rakamlar
+birbiriyle çelişip dokümantasyon güvenilirliğini zedeledi); doğru sayı
+için `pytest tests/ --collect-only -q` çalıştırılmalı. İlk 3 dosya
 (17 test) aşağıda anlatılan formül doğrulamalarını kapsar;
 `test_result_helpers.py` (10 test) `src/result_helpers.py`'daki
 hesaplama-DIŞI sunum yardımcılarını (Cpk rozet eşikleri, trend
@@ -559,14 +563,19 @@ validation/
   shared/       (parametre-bağımsız: Cp/Cpk/Ppk, Nelson kuralları, Totox)
 ```
 
-*Ters Cpk hesaplayıcısı:* gereken sigma hesabı + Δσ% (mevcut sigma →
-hedef sigma azaltma oranı) + k-faktörü analizi (sadece merkez kaydırarak
-hedefe ulaşılabilir mi).
+*Ters Cpk hesaplayıcısı — ❌ PLANLANDI, İMPLEMENT EDİLMEDİ:* gereken sigma
+hesabı + Δσ% (mevcut sigma → hedef sigma azaltma oranı) + k-faktörü
+analizi (sadece merkez kaydırarak hedefe ulaşılabilir mi) planlanmıştı,
+ama koda hiç yazılmadı (`src/app.py`'de "Ters Cpk"/"k-faktör"/"Δσ" için
+sıfır eşleşme — 2026-08-20 canlı denetiminde bulundu). Bu satır Faz 1'in
+"✅ Tamamlandı" başlığı altında kalmaya devam ediyor çünkü Faz 1'in geri
+kalanı (framework + 4 parametre + validation) gerçekten tamamlandı; bu
+tek alt madde istisna. Yapılacaksa ayrı bir görev olarak ele alınmalı.
 
-*Dinamik CSV şablon üretici:* Faz 1'in 4 parametresi için birim/format
-uyumlu `st.download_button` şablonu; şablon içine "Template Version:
-v1.4" damgası eklenir (ileride CSV formatı değişirse hangi şablonun
-kullanıldığı takip edilebilir).
+*Dinamik CSV şablon üretici — ❌ PLANLANDI, İMPLEMENT EDİLMEDİ:* Faz 1'in
+4 parametresi için birim/format uyumlu `st.download_button` şablonu +
+"Template Version" damgası planlanmıştı, koda yazılmadı (`src/app.py`'de
+"Template Version" için sıfır eşleşme — aynı denetimde bulundu).
 
 *Totox alt öğeleri* (buraya taşındı):
 - Yağ tipi preset seçimi (Balık Yağı/Omega-3, Rafine Bitkisel, Sızma
