@@ -130,3 +130,33 @@ def salt_content_mohr(
         raise ValueError("titre hacmi/normalite negatif olamaz")
     salt_pct = (titrant_volume_ml * titrant_normality * NACL_MEQ_FACTOR * 100.0) / sample_size_g
     return {"salt_pct": salt_pct}
+
+
+def thermal_lethality_f0(
+    temperatures_c: list[float],
+    delta_t_minutes: float,
+    reference_temp_c: float = 121.1,
+    z_value: float = 10.0,
+) -> dict:
+    """Bigelow/Ball formulu ile termal letalite (F0) hesabi.
+
+    F0 = delta_t * sum(10 ** ((T_i - reference_temp_c) / z_value))
+
+    temperatures_c: retort/proses sirasinda esit araliklarla okunan
+        sicaklik degerleri listesi (C), zaman sirasina gore.
+    delta_t_minutes: ardisik okumalar arasindaki sabit zaman araligi (dk).
+    reference_temp_c: referans sicaklik (varsayilan 121.1C = 250F, standart).
+    z_value: z-degeri (varsayilan 10C, standart - Clostridium botulinum
+        icin termal direnc egrisinin egimi).
+
+    Kaynak (formul): Bigelow (1921) / Ball (1923) genel letalite formulu -
+    gida muhendisligi ders kitabi matematigi, ICUMSA Brix tablosu gibi
+    erisilemez bir kaynak DEGIL.
+    """
+    if not temperatures_c:
+        raise ValueError("en az bir sicaklik okumasi gereklidir")
+    if delta_t_minutes <= 0:
+        raise ValueError("delta_t_minutes sifir veya negatif olamaz")
+
+    lethality_sum = sum(10 ** ((t - reference_temp_c) / z_value) for t in temperatures_c)
+    return {"f0_minutes": delta_t_minutes * lethality_sum}

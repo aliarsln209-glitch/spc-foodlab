@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity, salt_content_mohr, NACL_MEQ_FACTOR, bridge_value_count_matches, bridge_value_is_single
+from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity, salt_content_mohr, thermal_lethality_f0, NACL_MEQ_FACTOR, bridge_value_count_matches, bridge_value_is_single
 from constants import TOTOX_BRIDGE_PARAMETER_CONFIG, TITRATABLE_ACID_MEQ_FACTORS
 
 
@@ -182,3 +182,39 @@ def test_bridge_value_is_single_one_element_list():
 
 def test_bridge_value_is_single_rejects_multi_element_list():
     assert bridge_value_is_single([1.0, 2.0]) is False
+
+
+def test_thermal_lethality_f0_worked_example():
+    # Bigelow/Ball formulu: F0 = dt * sum(10^((T_i - Tref)/z))
+    # Tref=121.1, z=10.0 (sabit), dt=1.0 dk, 7 okumali bir come-up/hold/
+    # come-down profili: 100.0, 115.0, 121.1, 121.1, 121.1, 115.0, 100.0
+    # Elle hesaplama:
+    #   100.0 -> 10^((100.0-121.1)/10) = 10^-2.11 = 0.0077624711...
+    #   115.0 -> 10^((115.0-121.1)/10) = 10^-0.61  = 0.2454708915...
+    #   121.1 -> 10^0 = 1.0 (x3)
+    #   Toplam = 0.0077624711 + 0.2454708915 + 1 + 1 + 1 + 0.2454708915 + 0.0077624711
+    #          = 3.5064667254...
+    #   F0 = 1.0 * 3.5064667254... = 3.5064667254...
+    result = thermal_lethality_f0(
+        temperatures_c=[100.0, 115.0, 121.1, 121.1, 121.1, 115.0, 100.0],
+        delta_t_minutes=1.0,
+    )
+    assert result["f0_minutes"] == pytest.approx(3.5065, abs=0.001)
+
+
+def test_thermal_lethality_f0_at_exact_reference_temp():
+    # Tum okumalar tam Tref'te ise her terim 10^0=1, toplam=n, F0=dt*n
+    result = thermal_lethality_f0(
+        temperatures_c=[121.1, 121.1, 121.1, 121.1], delta_t_minutes=0.5,
+    )
+    assert result["f0_minutes"] == pytest.approx(2.0, abs=0.0001)  # 0.5 * 4
+
+
+def test_thermal_lethality_f0_empty_temperatures_raises():
+    with pytest.raises(ValueError, match="sicaklik okumasi"):
+        thermal_lethality_f0(temperatures_c=[], delta_t_minutes=1.0)
+
+
+def test_thermal_lethality_f0_non_positive_delta_t_raises():
+    with pytest.raises(ValueError, match="delta_t"):
+        thermal_lethality_f0(temperatures_c=[121.1, 121.1], delta_t_minutes=0.0)
