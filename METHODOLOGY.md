@@ -844,6 +844,25 @@ bağımsız doğrulanmamış durumda — Brix sıcaklık düzeltmesi için yukar
 "kaynak bekliyor" notuyla aynı desende, bilinçli ve açıkça belgelenmiş bir
 boşluktur, sessiz bir eksiklik değildir.
 
+**v1.8 veya sonrası — Tüm parametrelere lot_no/timestamp/notes**
+
+Canlı denetimde gelen geri bildirim: hiçbir parametrede (Renk Paneli
+dahil, sadece orada değil) parti/lot numarası, ölçüm zaman damgası veya
+serbest metin not alanı YOK — tek "izlenebilirlik" alanı `Vardiya`
+(Sabah/Öğle/Gece) seçici, o da sadece X-bar/R (alt gruplu)
+parametrelerde var; I-MR (tekil ölçüm) parametrelerinde vardiya bile
+`"-"` olarak sabitlenir, seçilemez. Bu, kalite kontrol izlenebilirliği
+acısından ciddi bir boşluktur ve **bilinçli olarak ertelenmiştir** -
+unutulmuş bir şey değildir. Kapsamı: `subgroups`/`color_lab_samples`
+veri modelinin `lot_no: str`, `timestamp: datetime`, `notes: str`
+alanlarıyla genişletilmesi - TÜM parametreleri (sadece Renk Panelini
+değil) kapsayan tek bir değişiklik olarak ele alınmalı, çünkü aynı veri
+modeli deseni (`{"shift": ..., "values": [...]}`) tüm I-MR/X-bar/R
+kodunda ortak. Batch/Lot History (v2.0, aşağıda) ile örtüşür ama ondan
+BAĞIMSIZ ele alınabilir - kalıcı depolama (SQLite) olmadan da
+session-state içinde lot_no/notes tutulabilir, geçmişe dönük
+karşılaştırma v2.0'ın konusu.
+
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
   anlamda kapatılması.
