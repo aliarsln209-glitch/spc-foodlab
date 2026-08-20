@@ -1979,6 +1979,16 @@ with tab_data:
 # ---------------------------------------------------------------------------
 def render_generic_chart_tab() -> None:
     """SEKME 2: X-bar/R Chart & Cpk - L*/a*/b* HARIC tum parametreler icin. v1.7.1 oncesi dogrudan `with tab_chart:` icindeydi, Renk Paneli dali icin fonksiyona sarmalandi, ic mantik degismedi."""
+    # NOT: asagida (is_microbio bloğunda) "unit"/"decimal_places" YENIDEN
+    # atanıyor (log eksenine gecis icin) - bu, fonksiyon govdesinde HERHANGI
+    # bir yerde atama oldugu icin Python'un bu isimleri TUM fonksiyon
+    # boyunca yerel kabul etmesine yol acar (modul seviyesindeki global'e
+    # düşmez). Fonksiyon `with tab_chart:` icinden ayri bir def'e
+    # sarmalanmadan once bu sorun yoktu (module-level global her zaman
+    # erisilebilirdi). Burada eksplisit baslangic atamasi yaparak asagidaki
+    # ilk kullanimdan (satir ~2045) ONCE yerel degiskeni tanimliyoruz -
+    # UnboundLocalError'u onler, davranis oncekiyle ayni kalir.
+    unit = param_config["unit"]
     if len(st.session_state.subgroups) < 2:
         render_empty_state("\U0001F4C8", "Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
