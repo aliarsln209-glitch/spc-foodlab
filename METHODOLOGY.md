@@ -718,21 +718,40 @@ Faz 1'deki I-MR-only kısıtlaması (final review bulgusu) hâlâ geçerlidir
 — sadece tam sayıda değer verildiğinde X-bar/R köprüsü açılır, n=1 alt
 grup asla eklenmez.
 
-**Faz 3 — Karmaşık Validasyon Gerektirenler**
+**Faz 3 — Karmaşık Validasyon Gerektirenler (sadece F₀)**
 
-En son bunlar çünkü: en yüksek validation riski — F₀ için hem formül
-(Ball formula) hem de olası yeni bir LSL kaynağı araştırması gerekiyor
-(v1.4→v1.6'daki aynı disiplinle: kaynak doğrulanamazsa "Özel/Manuel gir").
+En son bu çünkü: en yüksek validation riski — hem formül (Bigelow/Ball)
+hem de LSL kaynağı araştırması gerekiyor (v1.4→v1.6'daki aynı
+disiplinle: kaynak doğrulanamazsa "Özel/Manuel gir").
 
-- **Bostwick/Viskozite Sıcaklık Normalizasyonu:** normalizasyon
-  formülünün kaynağı (ASTM veya sektör pratiği) doğrulanır, mevcut
-  "Viskozite" parametresine bağlanır. Worked example +
-  `validation/process/`.
 - **Termal Letalite (F₀, Bigelow/Ball formülü):** hesaplama formülü
-  standarttır (z=10°C, T_ref=121.1°C) ama F₀'ın kendisi SPC parametresi
-  olarak izlenecekse LSL kaynağı araştırılmalı (12D/low-acid canned food
-  literatürü) — kaynak doğrulanamazsa sayı uydurulmaz, manuel giriş.
-  Worked example zorunlu, `validation/process/` altına.
+  standarttır (z=10°C, T_ref=121.1°C). LSL kaynağı doğrulandı: **FDA 21
+  CFR 113** (Thermally Processed Low-Acid Foods) — ABD federal
+  regülasyonu, düşük asitli konserve gıdalar için minimum F₀ = **3.0
+  dakika** (12D konsepti, D₁₂₁.₁≈0.21 dk *C. botulinum* için; sektör
+  pratiğinde ek güvenlik payı için genellikle 6-8 dk hedeflenir — bu not
+  UI'da açıkça gösterilir, tek bir "doğru" hedef değer gibi sunulmaz).
+  Tek taraflı (sadece LSL anlamlıdır, F₀ ne kadar yüksekse o kadar
+  güvenli). Worked example zorunlu, `validation/process/` altına.
+
+**Bostwick/Viskozite Sıcaklık Normalizasyonu — v1.7'den KESİN olarak
+ÇIKARILDI, kalıcı hariç tutulanlara taşındı** (bkz. aşağıda). Gerekçe:
+araştırma sonucu Bostwick'e özgü standart bir düzeltme formülü/katsayı
+tablosu BULUNAMADI (literatür sıcaklığın ölçümü etkilediğini doğruluyor
+ama kaynaklanabilir bir denklem sunmuyor). Genel viskozite-sıcaklık
+ilişkisi için Arrhenius denklemi matematiksel olarak geçerlidir ama bu,
+Hammadde Kütüphanesi'ndeki veya asit faktörlerindeki "kaynak
+bulunamadı → manuel gir" durumuyla AYNI KATEGORİDE DEĞİLDİR: o
+senaryolarda formül/yöntem sabittir, sadece TEK bir ürün-parametre
+eşiği kaynaklanamaz. Bostwick'te ise formülün kendisi (Arrhenius'un
+aktivasyon enerjisi Ea) hiçbir zaman evrensel bir sabit sunmaz — her
+ürün için deneysel olarak ayrıca ölçülmesi gerekir, hiçbir kaynak
+taraması bunu değiştirmez. Kullanıcı her seferinde kendi Ea/A değerini
+girmek zorunda kalsaydı, bu artık standarda-referanslı bir "QC Veri
+Dönüştürücü" (ICUMSA, Mohr gibi) değil, jenerik bir Arrhenius hesap
+makinesi olurdu — tam olarak C₁V₁=C₂V₂ ve pH Buffer'ın reddedilme
+gerekçesiyle aynı kategori (genel matematik, standarda özgü değil,
+Altın Kural'ı geçemiyor).
 
 **Kapsam dışı (bu roadmap'in parçası değil):**
 - **ΔE — KESİN, dışarıda.** v1.6'daki "Kalıcı Hariç Tutulanlar" kararı
@@ -743,6 +762,12 @@ En son bunlar çünkü: en yüksek validation riski — F₀ için hem formül
   paterni (her parametre şu an bağımsız limit karşılaştırması yapıyor,
   hedefe-göre-fark izleme yapmıyor). Küçük bir formül değil, yeni bir
   kavramsal eksen açmak demek. Tartışma KAPANMIŞTIR.
+- **Bostwick/Viskozite Sıcaklık Normalizasyonu — KESİN, dışarıda.**
+  Yukarıdaki gerekçeyle (standart düzeltme katsayısı yok, her kullanımda
+  ürüne özgü deneysel Ea gerektiriyor — SPC pre-processor kimliğine
+  uymuyor, "kaynak bulunamadı → manuel gir" fallback'inin kapsamına
+  GİRMİYOR çünkü mesele kaynak eksikliği değil, yapısal olarak
+  standartlaşamamak). Tartışma KAPANMIŞTIR.
 - **C₁V₁=C₂V₂, pH Buffer Preparation, genel Unit Converter** — kalıcı
   reddedildi (Altın Kural'ı geçemiyorlar: SPC akışının parçası değiller,
   gıda-lab'a özgü de değiller — "Food Engineering Toolbox"a kayma riski).
@@ -751,9 +776,9 @@ En son bunlar çünkü: en yüksek validation riski — F₀ için hem formül
   oturduktan sonra ayrıca değerlendirilir (v1.7.1 veya sonrası).
 
 **Validation zorunluluğu (tüm fazlarda geçerli):** her yeni formül
-(ICUMSA, Mohr, asit faktörleri, Bostwick normalizasyonu, Ball formula)
-için literatür worked example + `validation/` altına pytest — v1.2'den
-beri zorunlu Method Validation kuralı burada da aynen işler.
+(ICUMSA, Mohr, asit faktörleri, Ball formula) için literatür worked
+example + `validation/` altına pytest — v1.2'den beri zorunlu Method
+Validation kuralı burada da aynen işler.
 
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
