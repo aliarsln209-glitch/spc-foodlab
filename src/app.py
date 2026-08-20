@@ -33,6 +33,7 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, thermal_lethality_f0, titratable_acidity
+from color_lab import append_color_sample, color_samples_to_series, lab_to_hex
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -99,6 +100,8 @@ st.set_page_config(page_title="SPC FoodLab", page_icon="\U0001F4CA", layout="wid
 
 if "subgroups" not in st.session_state:
     st.session_state.subgroups = []  # list of dict: {"shift": str, "values": list[float]}
+if "color_lab_samples" not in st.session_state:
+    st.session_state.color_lab_samples = []  # list of dict: {"L", "a", "b"}
 if "baseline" not in st.session_state:
     st.session_state.baseline = None  # dict: {"x_double_bar", "r_bar", "n_baseline"}
 if "active_parameter" not in st.session_state:
@@ -1316,6 +1319,95 @@ tab_data, tab_chart, tab_calc, tab_about = st.tabs([
 # ara run'larda (orn. onay akislarindaki rerun'lar) render edilmeyip Streamlit
 # tarafindan temizlenmesi ihtimaline karsi asagida setdefault() kullaniliyor -
 # bu, sirlamaya bagli olmadan 0.0'a dusmeyi onluyor.
+
+def render_color_lab_data_entry_tab() -> None:
+    """Renk (L*a*b*) Paneli - SEKME 1: birlesik veri girisi. v1.7.1 v1
+    kapsami: sadece manuel giris (CSV import/demo veri YOK - bkz.
+    METHODOLOGY.md 'v1.7.1' v1 kapsam notu)."""
+    st.subheader("\U0001F3A8 Renk (L*a*b*) - Birlesik Olcum Girisi")
+    st.caption(
+        "L*, a*, b* ayni spektrofotometre/kolorimetre okumasindan cikar - "
+        "ucu birlikte, tek formda girilir. Istatistiksel olarak DAIMA "
+        "bagimsiz 3 I-MR serisi olarak izlenir (ΔE hesaplanmaz)."
+    )
+    with st.form("color_lab_entry_form"):
+        c1, c2, c3 = st.columns(3)
+        l_val = c1.number_input("L* (0-100)", min_value=0.0, max_value=100.0, value=65.0, step=0.1)
+        a_val = c2.number_input("a* (-128/+127)", min_value=-128.0, max_value=127.0, value=10.0, step=0.1)
+        b_val = c3.number_input("b* (-128/+127)", min_value=-128.0, max_value=127.0, value=20.0, step=0.1)
+        submitted = st.form_submit_button("Olcumu Ekle")
+        if submitted:
+            st.session_state.color_lab_samples = append_color_sample(
+                st.session_state.color_lab_samples, l_val, a_val, b_val
+            )
+            st.success(f"Eklendi: L*={l_val:g}, a*={a_val:g}, b*={b_val:g}")
+
+    n_samples = len(st.session_state.color_lab_samples)
+    st.caption(f"Toplam {n_samples} olcum.")
+    if n_samples > 0:
+        if st.button("Tum olcumleri temizle", key="color_lab_clear"):
+            st.session_state.color_lab_samples = []
+            st.rerun()
+        st.dataframe(st.session_state.color_lab_samples, width="stretch")
+
+
+def render_color_lab_chart_tab() -> None:
+    """Renk (L*a*b*) Paneli - SEKME 2: 3 bagimsiz I-MR karti + swatch.
+    v1.7.1 v1 kapsami: baseline dondurma/Nelson kurallari YOK - her
+    render'da TUM veriyle canli I-MR limitleri hesaplanir (bkz.
+    METHODOLOGY.md 'v1.7.1' v1 kapsam notu)."""
+    samples = st.session_state.color_lab_samples
+    if len(samples) < 2:
+        render_empty_state("\U0001F3A8", "Grafik icin en az 2 olcum gerekli. Once Veri Girisi sekmesinden ekleyin.")
+        return
+
+    l_vals, a_vals, b_vals = color_samples_to_series(samples)
+    last = samples[-1]
+    swatch_hex = lab_to_hex(last["L"], last["a"], last["b"])
+    sc1, sc2 = st.columns([1, 4])
+    with sc1:
+        st.markdown(
+            f'<div style="width:60px;height:60px;border-radius:8px;'
+            f'background-color:{swatch_hex};border:1px solid #888;"></div>',
+            unsafe_allow_html=True,
+        )
+    with sc2:
+        st.caption(
+            f"Son olcum onizlemesi: {swatch_hex} (L*={last['L']:g}, a*={last['a']:g}, b*={last['b']:g}). "
+            "⚠️ Yaklasik onizleme, D65 aydinlatici varsayimiyla hesaplanir - "
+            "cihazinizin aydinlatici/gozlemci ayari farkliysa gercek rengi yansitmayabilir. "
+            "Karar verici DEGILDIR."
+        )
+
+    axis_configs = [
+        ("L*", l_vals, FOOD_QUALITY_PARAMETER_CONFIG["L*"]),
+        ("a*", a_vals, FOOD_QUALITY_PARAMETER_CONFIG["a*"]),
+        ("b*", b_vals, FOOD_QUALITY_PARAMETER_CONFIG["b*"]),
+    ]
+    cols = st.columns(3)
+    for col, (axis_name, values, axis_cfg) in zip(cols, axis_configs):
+        with col:
+            st.markdown(f"**{axis_name}**")
+            x_bar = sum(values) / len(values)
+            mr_list = compute_moving_ranges(values)
+            mr_bar = sum(mr_list) / len(mr_list)
+            lsl, usl = axis_cfg["default_lsl"], axis_cfg["default_usl"]
+            if is_spec_valid(False, lsl, usl):
+                cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=False)
+                badge_label, badge_color, _ = cpk_capability_badge(cpk, True)
+                st.metric(f"{axis_name} Cpk", f"{cpk:.2f}" if cpk not in (float("inf"), float("-inf")) else str(cpk), badge_label)
+            else:
+                st.caption("Gecersiz spesifikasyon (LSL >= USL)")
+            fig, ax = plt.subplots(figsize=(3.2, 2.4))
+            imr = compute_imr_limits(x_bar, mr_bar)
+            ax.plot(range(1, len(values) + 1), values, marker="o", markersize=3)
+            ax.axhline(imr.ucl_i, color="red", linestyle="--", linewidth=0.8)
+            ax.axhline(imr.lcl_i, color="red", linestyle="--", linewidth=0.8)
+            ax.axhline(x_bar, color="gray", linestyle=":", linewidth=0.8)
+            style_chart(fig, ax, dark=(st.session_state.get("chart_theme") == "Koyu"))
+            st.pyplot(fig)
+            plt.close(fig)
+
 
 # ---------------------------------------------------------------------------
 # SEKME 1: Veri Girisi / Goruntuleme
