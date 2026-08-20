@@ -701,22 +701,22 @@ madde, kaynağa erişildiğinde ayrı bir mini-implementasyonla
 tamamlanacak şekilde bekletiliyor — bkz. implementasyon planı Task 8-9
 (`docs/superpowers/plans/2026-08-19-v1.7-faz1-qc-donusturucu-koprusu.md`).
 
-**Faz 2 — Titrimetrik Dönüştürücüler**
+**Faz 2 — Titrimetrik Dönüştürücüler ✅ Tamamlandı**
 
-Sonra bunlar çünkü: faktör katsayı tabloları (asit faktörleri, AgNO₃
-faktörü) kendi başına küçük bir kaynak araştırması gerektiriyor — Faz
-1'deki köprü hazır olduktan sonra bu araştırmaya odaklanılır.
+Implementasyon: `src/qc_converters.py` (`titratable_acidity()`,
+`salt_content_mohr()` — katsayılar IUPAC atomik ağırlıklarından
+türetilmiş, kaynağı doğrulanamayan bir tablo DEĞİL), `src/app.py`
+"Hızlı Hesaplayıcılar" sekmesi (iki yeni panel, n-tekrarlı X-bar/R
+köprüsü), `validation/process/titration_reference.csv`.
 
-- **Titre Edilebilir Asitlik:** sitrik/laktik/malik/asetik faktör
-  katsayıları AOAC yöntemine göre kaynaklanır, mevcut "Titrasyon
-  Asitliği" parametresine bağlanır. Bir ürün-asit kombinasyonu için
-  faktör kaynaklanamazsa (Hammadde Kütüphanesi'ndeki AYNI disiplin) sayı
-  uydurulmaz — kullanıcı "Özel/Manuel gir" ile kendi faktörünü girer, tam
-  Hammadde Kütüphanesi'ndeki "kaynaksız, kullanıcı girişi" etiketleme
-  deseni tekrar kullanılır (yeni bir mekanizma icat edilmez).
-- **Tuz (Mohr Metodu):** AgNO₃ faktörü kaynaklanır, mevcut "Tuz/NaCl"
-  parametresine bağlanır. Aynı fallback kuralı geçerli.
-- Her ikisi için worked example + `validation/process/` altına pytest.
+**Mimari not:** bu faz, Faz 1'in köprü altyapısını (`build_bridge_
+subgroup_entry()`, `render_bridge_widget()`) X-bar/R hedefleri
+destekleyecek şekilde genişletti — artık bir köprü, hedefin güncel alt
+grup büyüklüğü (n) kadar gerçek tekrar ölçümü (aynı numunenin n kez
+titre edilmesi) topluyorsa X-bar/R parametrelerine de bağlanabilir.
+Faz 1'deki I-MR-only kısıtlaması (final review bulgusu) hâlâ geçerlidir
+— sadece tam sayıda değer verildiğinde X-bar/R köprüsü açılır, n=1 alt
+grup asla eklenmez.
 
 **Faz 3 — Karmaşık Validasyon Gerektirenler**
 
