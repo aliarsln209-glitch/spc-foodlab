@@ -36,14 +36,29 @@ def gravimetric_moisture(
     }
 
 
-def build_bridge_subgroup_entry(value: float, shift_label: str) -> dict:
+def build_bridge_subgroup_entry(value: float | list[float], shift_label: str) -> dict:
     """QC donusturucu sonucunu, mevcut subgroups sema formatina cevirir.
 
     app.py:96-97'deki st.session_state.subgroups listesi
     {"shift": str, "values": list[float]} sekli bekler; koprubu format
     degistirmez, sadece dogru sekli uretir - spc_core.py'ye HICBIR
     degisiklik gerekmez.
+
+    value bir float ise (I-MR koprusu - tek olcum): {"values": [value]}.
+    value bir list[float] ise (X-bar/R koprusu - n adet tekrar olcumu,
+    ayni numunenin n kez titre edilmesi gibi gercek bir alt grup): tum
+    liste dogrudan {"values": ...} olarak kullanilir. Hedefin X-bar/R
+    olup olmadigina ve n'in dogru sayida olup olmadigina bu fonksiyon
+    KARAR VERMEZ - o kontrol render_bridge_widget()'ta (app.py) yapilir,
+    burasi sadece sekil/gecerlilik kontrolu yapan saf bir donusum katmanidir.
     """
+    if isinstance(value, list):
+        if not value:
+            raise ValueError("kopru degerleri listesi bos olamaz")
+        for v in value:
+            if not math.isfinite(v):
+                raise ValueError("kopru degeri sonlu bir sayi olmalidir (NaN/inf kabul edilmez)")
+        return {"shift": shift_label, "values": list(value)}
     if not math.isfinite(value):
         raise ValueError("kopru degeri sonlu bir sayi olmalidir (NaN/inf kabul edilmez)")
     return {"shift": shift_label, "values": [value]}

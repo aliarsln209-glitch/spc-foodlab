@@ -45,6 +45,31 @@ def test_build_bridge_subgroup_entry_rejects_non_finite_value():
         build_bridge_subgroup_entry(value=float("nan"), shift_label="QC Donusturucu - Test")
 
 
+def test_build_bridge_subgroup_entry_accepts_list_for_xbar_r():
+    entry = build_bridge_subgroup_entry(
+        value=[1.1, 1.2, 1.0, 1.3], shift_label="QC Donusturucu - Test XR",
+    )
+    assert entry == {"shift": "QC Donusturucu - Test XR", "values": [1.1, 1.2, 1.0, 1.3]}
+
+
+def test_build_bridge_subgroup_entry_rejects_empty_list():
+    with pytest.raises(ValueError, match="bos olamaz"):
+        build_bridge_subgroup_entry(value=[], shift_label="QC Donusturucu - Test XR")
+
+
+def test_build_bridge_subgroup_entry_rejects_non_finite_value_in_list():
+    with pytest.raises(ValueError, match="sonlu"):
+        build_bridge_subgroup_entry(
+            value=[1.0, float("nan"), 1.2], shift_label="QC Donusturucu - Test XR",
+        )
+
+
+def test_build_bridge_subgroup_entry_single_float_still_works():
+    # Faz 1 davranisi degismemeli - regresyon kontrolu
+    entry = build_bridge_subgroup_entry(value=12.34, shift_label="QC Donusturucu - Test")
+    assert entry == {"shift": "QC Donusturucu - Test", "values": [12.34]}
+
+
 def test_totox_bridge_parameter_config_shape():
     cfg = TOTOX_BRIDGE_PARAMETER_CONFIG
     assert cfg["unit"] == "meq O2/kg"
