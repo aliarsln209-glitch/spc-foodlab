@@ -223,10 +223,12 @@ def test_thermal_lethality_f0_non_positive_delta_t_raises():
 def test_f0_bridge_parameter_config_shape():
     cfg = F0_BRIDGE_PARAMETER_CONFIG
     assert cfg["unit"] == "dakika"
+    assert cfg["decimal_places"] == 2
     assert cfg["one_sided"] is True
     assert cfg["is_individual"] is True
     assert cfg["default_lsl"] == 3.0
     assert cfg["category"] == "Proses"
+    assert "FDA 21 CFR 113" in cfg["method_source"]
     assert "products" not in cfg  # Altin Kural: tam parametre-registry uyeligi YOK
 
 
