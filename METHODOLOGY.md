@@ -804,6 +804,35 @@ Altın Kural'ı geçemiyor).
 example + `validation/` altına pytest — v1.2'den beri zorunlu Method
 Validation kuralı burada da aynen işler.
 
+**v1.7.1 — Renk (L*a*b*) Paneli (UI birleştirme, ΔE DEĞİL)**
+
+Canlı denetimde gelen kullanıcı geri bildirimi: L*, a*, b* aynı
+spektrofotometre okumasından çıkan üç eksen olduğu halde sidebar'da 3
+ayrı parametre gibi (ayrı seçim, ayrı giriş, ayrı ekran) davranıyordu.
+Bu, **ΔE kararını yeniden AÇMIYOR** (bkz. yukarıdaki "Kapsam dışı — ΔE
+KESİN, dışarıda") — L*, a*, b* istatistiksel olarak hâlâ 3 BAĞIMSIZ I-MR
+serisi, hiçbir birleşik/türetilmiş metrik hesaplanmıyor. Değişen sadece
+UI katmanı: sidebar'da tek bir "Renk (L*a*b*)" girişi, tek bir birleşik
+veri giriş formu (üçü aynı satırda girilir — aynı ölçüme ait oldukları
+için), ve üç bağımsız I-MR kartının yan yana gösterildiği tek bir sayfa.
+
+*v1 kapsamı (bilinçli olarak dar tutuldu — Faz 1'in 4 parametreyle
+başlayıp sonra genişlemesiyle aynı desen):* birleşik giriş formu + 3
+I-MR grafiği + Cpk rozeti + `lab_to_hex()` (D65 varsayımlı, SADECE
+görsel önizleme swatch'i — LSL/USL/Cpk kararına hiç girmez, yanında
+"yaklaşık önizleme, cihaz aydınlatıcı/gözlemci ayarı farklıysa gerçek
+rengi yansıtmayabilir" notu bulunur). **v1'de YOK:** CSV import/export,
+PDF export, demo veri üretici, baseline dondurma, Nelson kuralları —
+bunlar mevcut tab_data/tab_chart'ın ~1500 satırlık, tek-aktif-parametre
+varsayımına sıkı bağlı prosedürel koduna derin bağımlı; bu bağımlılığı
+çözüp yeniden kullanılabilir hale getirmek ayrı, daha büyük bir refactor
+projesi — v1'e dahil değil, ayrıca değerlendirilecek.
+
+**Validation:** `lab_to_hex()` karar verici olmadığı için (sadece görsel
+önizleme) LSL/USL kaynak araştırması gerekmez, ama dönüşüm formülünün
+matematiksel doğruluğu bilinen bir CIE Lab→sRGB test vektörüyle
+`validation/optics/` altına worked example olarak doğrulanır.
+
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
   anlamda kapatılması.
