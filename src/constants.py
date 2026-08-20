@@ -1285,3 +1285,26 @@ TOTOX_BRIDGE_PARAMETER_CONFIG = {
     "category": "Proses",
     "method_source": "Codex Alimentarius / IOC (International Olive Council) - Totox = 2xPV + AnV birlesik indeks",
 }
+
+# --- Titre Edilebilir Asitlik: Miliekivalan (meq) Faktorleri (v1.7 Faz 2) ---
+# Turetme (birinci-ilke stokiyometri, KAYNAK DEGIL - her zaman yeniden
+# hesaplanabilir bir gercek, ICUMSA Brix tablosu gibi erisilemez bir
+# regulasyon kaynagi DEGIL): Es deger agirlik (g/eq) = Molekul Agirligi (MW)
+# / bazisite (H+ sayisi); meq faktoru (g/meq) = Es deger agirlik / 1000.
+# Atomik agirliklar: IUPAC standart degerleri (C=12.011, H=1.008, O=15.999).
+# - Sitrik Asit (anhidrus, C6H8O7, MW=192.124, triprotik):
+#   192.124 / 3 / 1000 = 0.064041 -> 0.0640
+# - Malik Asit (C4H6O5, MW=134.087, diprotik):
+#   134.087 / 2 / 1000 = 0.067044 -> 0.0670
+# - Laktik Asit (C3H6O3, MW=90.078, monoprotik):
+#   90.078 / 1000 = 0.090078 -> 0.0900
+# - Asetik Asit (C2H4O2, MW=60.052, monoprotik):
+#   60.052 / 1000 = 0.060052 -> 0.0600
+# Formul: %Asitlik = (titrant_hacmi_mL x titrant_normalitesi x meq_faktoru x 100) / numune_mL
+TITRATABLE_ACID_MEQ_FACTORS = {
+    "Sitrik Asit (anhidrus)": 0.0640,
+    "Malik Asit": 0.0670,
+    "Laktik Asit": 0.0900,
+    "Asetik Asit": 0.0600,
+    "Ozel/Manuel gir": None,
+}

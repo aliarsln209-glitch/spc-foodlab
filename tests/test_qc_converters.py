@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry
+from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity
 from constants import TOTOX_BRIDGE_PARAMETER_CONFIG
 
 
@@ -78,3 +78,28 @@ def test_totox_bridge_parameter_config_shape():
     assert cfg["default_usl"] == 26.0
     assert cfg["category"] == "Proses"
     assert "products" not in cfg  # Altin Kural: tam parametre-registry uyeligi YOK
+
+
+def test_titratable_acidity_worked_example_citric_acid():
+    # Turetilmis meq faktoru (bkz. constants.TITRATABLE_ACID_MEQ_FACTORS
+    # yorum satiri): sitrik asit = 0.0640 g/meq
+    # V=9.2 mL, N=0.1, faktor=0.064, numune=10.0 mL
+    # %TA = (9.2 * 0.1 * 0.064 * 100) / 10.0 = 5.888 / 10.0 = 0.5888
+    result = titratable_acidity(
+        titrant_volume_ml=9.2, titrant_normality=0.1, acid_meq_factor=0.064, sample_size_ml=10.0,
+    )
+    assert result["acidity_pct"] == pytest.approx(0.5888, abs=0.0001)
+
+
+def test_titratable_acidity_zero_sample_size_raises():
+    with pytest.raises(ValueError, match="numune miktari"):
+        titratable_acidity(
+            titrant_volume_ml=9.2, titrant_normality=0.1, acid_meq_factor=0.064, sample_size_ml=0.0,
+        )
+
+
+def test_titratable_acidity_negative_factor_raises():
+    with pytest.raises(ValueError, match="asit faktoru"):
+        titratable_acidity(
+            titrant_volume_ml=9.2, titrant_normality=0.1, acid_meq_factor=-0.064, sample_size_ml=10.0,
+        )
