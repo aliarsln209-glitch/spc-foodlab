@@ -1286,6 +1286,24 @@ TOTOX_BRIDGE_PARAMETER_CONFIG = {
     "method_source": "Codex Alimentarius / IOC (International Olive Council) - Totox = 2xPV + AnV birlesik indeks",
 }
 
+# --- F0 Koprusu: Minimal I-MR Parametresi (v1.7 Faz 3 - QC Veri Donusturuculer) ---
+# Totox koprusu ile BIREBIR AYNI mimari desen: F0 tam bir FOOD_QUALITY
+# parametresi DEGIL - urun bazli LSL/USL arastirmasi gerekmez, cunku F0
+# zaten FDA 21 CFR 113'ten gelen TEK, evrensel bir LSL'e (3.0 dakika,
+# 12D konsepti, D121.1~=0.21 dk C. botulinum icin) sahiptir. Koprunun
+# amaci sadece ham F0 degerini, kullanicinin sectigi herhangi bir I-MR
+# parametresinin zaman serisine kaydetmektir - mevcut Viskozite
+# parametresine OZEL olarak baglanmaz (Faz 3 kapsam karari).
+F0_BRIDGE_PARAMETER_CONFIG = {
+    "unit": "dakika",
+    "decimal_places": 2,
+    "one_sided": True,
+    "is_individual": True,
+    "default_lsl": 3.0,
+    "category": "Proses",
+    "method_source": "FDA 21 CFR 113 (Thermally Processed Low-Acid Foods) - minimum F0=3.0 dk (12D konsepti)",
+}
+
 # --- Titre Edilebilir Asitlik: Miliekivalan (meq) Faktorleri (v1.7 Faz 2) ---
 # Turetme (birinci-ilke stokiyometri, KAYNAK DEGIL - her zaman yeniden
 # hesaplanabilir bir gercek, ICUMSA Brix tablosu gibi erisilemez bir

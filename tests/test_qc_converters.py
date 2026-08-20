@@ -7,7 +7,7 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from qc_converters import gravimetric_moisture, build_bridge_subgroup_entry, titratable_acidity, salt_content_mohr, thermal_lethality_f0, NACL_MEQ_FACTOR, bridge_value_count_matches, bridge_value_is_single
-from constants import TOTOX_BRIDGE_PARAMETER_CONFIG, TITRATABLE_ACID_MEQ_FACTORS
+from constants import TOTOX_BRIDGE_PARAMETER_CONFIG, F0_BRIDGE_PARAMETER_CONFIG, TITRATABLE_ACID_MEQ_FACTORS
 
 
 def test_gravimetric_moisture_basic_worked_example():
@@ -218,3 +218,18 @@ def test_thermal_lethality_f0_empty_temperatures_raises():
 def test_thermal_lethality_f0_non_positive_delta_t_raises():
     with pytest.raises(ValueError, match="delta_t"):
         thermal_lethality_f0(temperatures_c=[121.1, 121.1], delta_t_minutes=0.0)
+
+
+def test_f0_bridge_parameter_config_shape():
+    cfg = F0_BRIDGE_PARAMETER_CONFIG
+    assert cfg["unit"] == "dakika"
+    assert cfg["one_sided"] is True
+    assert cfg["is_individual"] is True
+    assert cfg["default_lsl"] == 3.0
+    assert cfg["category"] == "Proses"
+    assert "products" not in cfg  # Altin Kural: tam parametre-registry uyeligi YOK
+
+
+def test_f0_bridge_parameter_config_not_merged_into_registry():
+    from constants import PARAMETER_CONFIG
+    assert "F0 (Termal Letalite)" not in PARAMETER_CONFIG
