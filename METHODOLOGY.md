@@ -831,7 +831,18 @@ projesi — v1'e dahil değil, ayrıca değerlendirilecek.
 **Validation:** `lab_to_hex()` karar verici olmadığı için (sadece görsel
 önizleme) LSL/USL kaynak araştırması gerekmez, ama dönüşüm formülünün
 matematiksel doğruluğu bilinen bir CIE Lab→sRGB test vektörüyle
-`validation/optics/` altına worked example olarak doğrulanır.
+`validation/optics/` altına worked example olarak doğrulanır. **Bilinen
+kapsam boşluğu:** `validation/optics/lab_to_hex_reference.csv`'deki iki
+satır SADECE akromatik uç durumları (saf siyah, saf beyaz) kapsar — bunlar
+matematiksel özdeşliklerdir (L*=0→#000000, L*=100→#FFFFFF), gerçek
+XYZ→sRGB matris çarpımı ve gamma dallanma mantığını (a*/b* sıfırdan
+farklıyken devreye giren yol) EGZERSİZ ETMEZ. Kromatik bir test vektörü
+(örn. a*/b*≠0), bu projede kurulu olmayan bir renk bilimi kütüphanesi
+(colour-science/skimage) veya alıntılanabilir bir literatür kaynağı
+olmadan **fabrike edilmeden** eklenemez; bu nedenle kromatik yol şu an
+bağımsız doğrulanmamış durumda — Brix sıcaklık düzeltmesi için yukarıda
+"kaynak bekliyor" notuyla aynı desende, bilinçli ve açıkça belgelenmiş bir
+boşluktur, sessiz bir eksiklik değildir.
 
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek

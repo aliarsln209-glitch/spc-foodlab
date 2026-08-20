@@ -1392,10 +1392,11 @@ def render_color_lab_chart_tab() -> None:
             mr_list = compute_moving_ranges(values)
             mr_bar = sum(mr_list) / len(mr_list)
             lsl, usl = axis_cfg["default_lsl"], axis_cfg["default_usl"]
-            if is_spec_valid(False, lsl, usl):
-                cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=False)
-                badge_label, badge_color, _ = cpk_capability_badge(cpk, True)
-                st.metric(f"{axis_name} Cpk", f"{cpk:.2f}" if cpk not in (float("inf"), float("-inf")) else str(cpk), badge_label)
+            if is_spec_valid(axis_cfg["one_sided"], lsl, usl):
+                cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=axis_cfg["one_sided"])
+                _emoji, badge_label, _color = cpk_capability_badge(cpk, True)
+                st.metric(f"{axis_name} Cpk", format_cpk(cpk))
+                st.caption(f"{_emoji} {badge_label}")
             else:
                 st.caption("Gecersiz spesifikasyon (LSL >= USL)")
             fig, ax = plt.subplots(figsize=(3.2, 2.4))
@@ -1969,7 +1970,7 @@ def render_generic_data_entry_tab() -> None:
 
 with tab_data:
     if st.session_state.active_parameter == "L*":
-        render_color_lab_data_entry_tab()  # Task 6'da tanimlanacak
+        render_color_lab_data_entry_tab()
     else:
         render_generic_data_entry_tab()
 
@@ -2924,7 +2925,7 @@ TOTOX_LIMIT = 26.0
 
 with tab_chart:
     if st.session_state.active_parameter == "L*":
-        render_color_lab_chart_tab()  # Task 6'da tanimlanacak
+        render_color_lab_chart_tab()
     else:
         render_generic_chart_tab()
 
