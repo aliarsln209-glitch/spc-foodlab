@@ -1989,6 +1989,7 @@ def render_generic_chart_tab() -> None:
     # ilk kullanimdan (satir ~2045) ONCE yerel degiskeni tanimliyoruz -
     # UnboundLocalError'u onler, davranis oncekiyle ayni kalir.
     unit = param_config["unit"]
+    decimal_places = param_config["decimal_places"]
     if len(st.session_state.subgroups) < 2:
         render_empty_state("\U0001F4C8", "Grafik icin en az 2 alt grup gerekli. Once veri girisi sekmesinden veri ekleyin.")
     else:
