@@ -2815,6 +2815,17 @@ def render_bridge_widget(
     olsa bile), boylece "hangi parametreye gittigi" asla sessizce/kazara
     belirlenmez - selectbox + eslesme kontrolu KOMBINASYONU, sadece birinin
     tek basina saglayamayacagi guvenceyi verir.
+
+    Kullanici, aktif OLMAYAN bir hedef secerse TAM OLARAK ne olur (uc
+    ihtimalden - buton devre disi / aktif parametre otomatik degisir /
+    yine de eklenir - HANGISI): buton hic RENDER EDILMEZ, aktif parametre
+    OTOMATIK DEGISTIRILMEZ, ve subgroups'a HICBIR SEY EKLENMEZ - sadece
+    st.info() ile "once Veri Girisi/Chart sekmesinden aktif parametreyi
+    '{target}' yapin" mesaji gosterilip fonksiyon return ile SESSIZCE
+    CIKAR (append() cagrisindan once, kod yolu oraya hic ulasmaz). Kullanici
+    aktif parametreyi elle degistirmeden bu ekrandan hicbir yazma islemi
+    GERCEKLESEMEZ - Faz 1 final review'in yakaladigi "sessizce yanlis
+    parametreye yazma" bug'i bu nedenle yapisal olarak tekrar edemez.
     """
     target_options = list(values_by_target.keys())
     default_index = (

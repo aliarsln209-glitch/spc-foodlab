@@ -658,7 +658,19 @@ parametreye doğrudan bağlanıyor).
 - **SPC Entegrasyon Köprüsü:** `append_to_spc_session(param, value, lot)`
   — hesaplayıcı sonucu, mevcut parametrenin session-state veri setine tek
   tıkla eklenir ("SPC Veri Setine Aktar" butonu). Ayrı bir teknik iş
-  kalemi, her modülün "ayrıca ekle"si değil.
+  kalemi, her modülün "ayrıca ekle"si değil. (Gerçekleşen implementasyon:
+  `qc_converters.build_bridge_subgroup_entry()` + `app.py`'deki paylaşılan
+  `render_bridge_widget()` — isim planlanandan farklı ama işlev aynı.)
+
+  **Davranış kontratı (kullanıcı aktif OLMAYAN bir hedef seçerse):** buton
+  hiç render edilmez, aktif parametre otomatik değiştirilmez, ve
+  `subgroups`'a hiçbir şey eklenmez — sadece "önce aktif parametreyi X
+  yapın" bilgi mesajı gösterilip fonksiyon `append()` çağrısına
+  ulaşmadan sessizce çıkar. Kullanıcı aktif parametreyi elle
+  değiştirmeden bu ekrandan hiçbir yazma işlemi gerçekleşemez — Faz 1
+  final review'ın yakaladığı "sessizce yanlış parametreye yazma" bug'ı
+  bu nedenle yapısal olarak tekrar edemez (bkz. `render_bridge_widget()`
+  docstring'i, `app.py`).
 - **Brix Düzeltmesi** (ICUMSA SPS-4): mevcut Brix parametresine bağlanır.
   Worked example + `validation/process/` altına pytest.
 - **Gravimetrik Nem/Kuru Madde:** dara + yaş + kuru ağırlıktan %Nem/%Kuru
