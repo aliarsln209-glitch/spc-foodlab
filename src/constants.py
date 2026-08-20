@@ -130,9 +130,24 @@ PARAMETER_INFO = {
 # session_state key'i kirilmasin diye ayri tutuldu. Vardiya secimi (X-bar/R
 # alt grup akisi) bu gruplamanin DISINDA, mevcut yerinde kalir - kategoriler
 # sadece 9 parametreyi (pH..HMF) gruplar.
+# Gruplama SURUM TARIHINE gore degil (v1.0'in 9 parametresi vs v1.4-1.6'nin
+# 11'i) OLCUM TURUNE gore yapilir - eskiden Protein/Yag/Kul/Kuru Madde ayri
+# bir "Gida Kalite Parametreleri" grubundaydi, ama bunlar tam olarak
+# Nem/Tuz/Titrasyon Asitligi ile AYNI tur (kimyasal kompozisyon) olcumler -
+# ayri grupta durmalari yanlis izlenim veriyordu ("bu grup gida kalitesiyle
+# ilgili, digerleri degil mi?" sorusu - canli denetimde bulundu). Optik/
+# Gorunum grubu bu regroup ile ilk kez olusuyor (Refraktif Indeks/L*/a*/b*/
+# Bulaniklik/Iletkenlik - hepsi optik/gorsel/elektriksel algi olcumleri).
 PARAMETER_CATEGORIES = [
-    ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite"]),
-    ("kimyasal", "\U00002697\U0000FE0F Kimyasal Kompozisyon", ["Nem/Rutubet", "Tuz/NaCl", "Titrasyon Asitligi"]),
+    ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite", "Yogunluk"]),
+    (
+        "kimyasal", "\U00002697\U0000FE0F Kimyasal Kompozisyon",
+        ["Nem/Rutubet", "Tuz/NaCl", "Titrasyon Asitligi", "Protein", "Yag", "Kul", "Kuru Madde"],
+    ),
+    (
+        "optik", "\U0001F3A8 Optik/Gorunum",
+        ["Refraktif Indeks", "L*", "a*", "b*", "Bulaniklik", "Iletkenlik"],
+    ),
     ("oksidasyon", "\U0001F6E2\U0000FE0F Oksidasyon/Bozulma", ["Peroksit Degeri", "HMF"]),
     (
         "mikrobiyoloji", "\U0001F9A0 Mikrobiyoloji (kantitatif)",
@@ -1241,39 +1256,20 @@ FOOD_QUALITY_PARAMETER_DESCRIPTIONS = {
     "Iletkenlik": "Elektriksel iletkenlik (uS/cm) - cozunmus iyon miktarinin dolayli gostergesi.",
 }
 
-# Sidebar'da Food Quality Parameters icin AYRI bir kategori grubu - legacy
-# PARAMETER_CATEGORIES'e KARISTIRILMADAN eklenir (app.py her iki listeyi de
-# gezip radio grubu olusturur). id "gida_kalite_v14" SABIT kalir (Faz 1'de
-# baslatildigi ismi tasir, faz numarasi degil) - Faz 2 (v1.5) parametreleri
-# (Yogunluk, Refraktif Indeks) AYNI gruba eklendi, Faz 3'te de (v1.6) ayni
-# sekilde devam edecek.
-FOOD_QUALITY_PARAMETER_CATEGORIES = [
-    (
-        "gida_kalite_v14",
-        # Tek emoji (eskiden "\U0001F9EA\U0001F9EA" iki test tuubu yan yana
-        # yanlislikla kopyalanmisti - canli denetimde bulundu) ve
-        # Fiziksel/Duyusal'in "\U0001F9EA" ikonuyla CAKISMAMASI icin farkli
-        # bir sembol secildi (grup ismi/gruplamanin kendisi - madde 6 -
-        # ayri bir tasarim turunda ele alinacak, burada sadece ikon fix'i).
-        "\U0001F37D\U0000FE0F Gida Kalite Parametreleri",
-        [
-            "Protein", "Yag", "Kul", "Kuru Madde", "Yogunluk", "Refraktif Indeks",
-            "L*", "a*", "b*", "Bulaniklik", "Iletkenlik",
-        ],
-    ),
-]
-
-# Yeni Food Quality Parameters kayitlarini ana yapilara enjekte eder - app.py
+# Food Quality Parameters kayitlarini ana registry'ye enjekte eder - app.py
 # TEK bir PARAMETER_CONFIG/PARAMETER_CATEGORIES/PARAMETER_DESCRIPTIONS okur,
 # iki ayri sozluk/liste arasinda dallanma yazmak zorunda kalmaz. Bu, planin
 # "sidebar, CSV sablonu, PDF, validation, bilgi karti ve export hepsi ayni
-# registry'den okur" gereksinimini karsilar - FOOD_QUALITY_PARAMETER_CONFIG
+# registry'den okur" gereksinimini karsilar. FOOD_QUALITY_PARAMETER_CONFIG
 # yine de AYRI/isimlendirilmis kalir (yeni framework alanlarinin - physical_
 # bounds, recommended_chart, subgroup_guidance, method_source, category,
 # placeholder - kaynagi burasidir; result_helpers.build_parameter_info_card()
 # bu alanlari PARAMETER_CONFIG uzerinden degil, gerektiginde bu sozlukten okur).
+# NOT: eskiden bu 11 parametre icin AYRI bir "gida_kalite_v14" kategori
+# grubu vardi (surum tarihine gore gruplama) - artik yukaridaki
+# PARAMETER_CATEGORIES'e OLCUM TURUNE gore dagitildilar (kimyasal/optik/
+# fiziksel), bu yuzden burada ayrica bir kategori listesi eklenmiyor.
 PARAMETER_CONFIG.update(FOOD_QUALITY_PARAMETER_CONFIG)
-PARAMETER_CATEGORIES.extend(FOOD_QUALITY_PARAMETER_CATEGORIES)
 PARAMETER_DESCRIPTIONS.update(FOOD_QUALITY_PARAMETER_DESCRIPTIONS)
 
 # --- Totox Köprüsü: Minimal I-MR Parametresi (v1.7 - QC Veri Dönüştürücüler) ---

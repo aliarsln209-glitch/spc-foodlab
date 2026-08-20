@@ -73,9 +73,18 @@ def test_food_quality_entries_merged_into_main_parameter_config():
         assert "products" in PARAMETER_CONFIG[param_name]
 
 
-def test_food_quality_category_group_present_in_sidebar_categories():
-    category_ids = [cat_id for cat_id, _label, _params in PARAMETER_CATEGORIES]
-    assert "gida_kalite_v14" in category_ids
+def test_food_quality_parameters_distributed_into_measurement_type_categories():
+    # v1.7 regroup: v1.4-1.6 parametreleri artik AYRI bir "gida_kalite_v14"
+    # kategori grubunda degil, olcum turune gore mevcut/yeni kategorilere
+    # (kimyasal/optik/fiziksel) dagitildi - bkz. constants.py PARAMETER_
+    # CATEGORIES yorumu.
+    all_categorized_params = {
+        p for _cat_id, _label, params in PARAMETER_CATEGORIES for p in params
+    }
+    for param_name in FOOD_QUALITY_PARAMETER_CONFIG:
+        assert param_name in all_categorized_params, (
+            f"{param_name}: hicbir sidebar kategorisinde yok"
+        )
 
 
 def test_ash_is_one_sided_upper_limit_only():
