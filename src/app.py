@@ -14,6 +14,7 @@ from scipy import stats
 import csv_io
 from constants import (
     DEFAULT_SUBGROUP_SIZE,
+    F0_BRIDGE_PARAMETER_CONFIG,
     FOOD_QUALITY_PARAMETER_CONFIG,
     MAX_SUBGROUP_SIZE,
     MIN_SUBGROUP_SIZE,
@@ -31,7 +32,7 @@ from constants import (
 from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
-from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, titratable_acidity
+from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, thermal_lethality_f0, titratable_acidity
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -3053,6 +3054,73 @@ with tab_calc:
             source_label="Tuz (Mohr Metodu)",
             widget_key_prefix="qc_salt",
         )
+
+    st.divider()
+
+    st.markdown("### 🌡️ Termal Letalite (F₀)")
+    st.caption(
+        "Bigelow/Ball formülü: F₀ = Δt × Σ 10^((T-121.1)/10). Retort/proses "
+        "sırasında eşit aralıklarla okunan sıcaklık değerlerinden hesaplar. "
+        f"Kaynak (LSL): {F0_BRIDGE_PARAMETER_CONFIG['method_source']} — "
+        "sektör pratiğinde genellikle ek güvenlik payı için 6-8 dk hedeflenir "
+        "(bu tek bir 'doğru' hedef değil, LSL=3.0 dk resmi minimumdur)."
+    )
+
+    col_f0_1, col_f0_2 = st.columns(2)
+    with col_f0_1:
+        f0_delta_t = st.number_input(
+            "Okumalar arası zaman aralığı Δt (dk)", min_value=0.0001, value=1.0,
+            step=0.1, key="qc_f0_delta_t",
+        )
+    with col_f0_2:
+        f0_reading_count = st.number_input(
+            "Sıcaklık okuma sayısı", min_value=2, max_value=60, value=7,
+            step=1, key="qc_f0_reading_count",
+        )
+
+    st.caption(f"{f0_reading_count} adet sıcaklık okuması girin (zaman sırasına göre):")
+    f0_temps = []
+    f0_cols = st.columns(min(f0_reading_count, 10))
+    for _f0_i in range(f0_reading_count):
+        with f0_cols[_f0_i % len(f0_cols)]:
+            _f0_t = st.number_input(
+                f"T{_f0_i + 1} (°C)", min_value=0.0, max_value=200.0, value=121.1,
+                step=0.1, key=f"qc_f0_temp_{_f0_i}",
+            )
+            f0_temps.append(_f0_t)
+
+    try:
+        f0_result = thermal_lethality_f0(temperatures_c=f0_temps, delta_t_minutes=f0_delta_t)
+        f0_value = f0_result["f0_minutes"]
+        st.metric("Hesaplanan F₀ (dk)", f"{f0_value:.2f}")
+        f0_lsl = F0_BRIDGE_PARAMETER_CONFIG["default_lsl"]
+        if f0_value < f0_lsl:
+            st.warning(f"F₀={f0_value:.2f} dk, FDA minimum LSL'in ({f0_lsl} dk) ALTINDA.")
+        else:
+            st.success(f"F₀={f0_value:.2f} dk, FDA minimum LSL'i ({f0_lsl} dk) karşılıyor.")
+
+        # Totox koprusuyle AYNI mimari desen: F0'in kendi ayri bir
+        # PARAMETER_CONFIG kaydi olmadigi icin (bkz. F0_BRIDGE_PARAMETER_CONFIG
+        # notu, constants.py) hedef, uygulamadaki TUM I-MR parametreleri
+        # arasindan acikca secilir - mevcut Viskozite parametresine OZEL
+        # olarak baglanmaz (Faz 3 kapsam karari).
+        _f0_individual_params = sorted(
+            p for p, cfg in PARAMETER_CONFIG.items() if cfg.get("is_individual", False)
+        )
+        render_bridge_widget(
+            values_by_target=dict.fromkeys(_f0_individual_params, f0_value),
+            source_label="Termal Letalite (F₀)",
+            widget_key_prefix="qc_f0",
+            extra_note=(
+                "Not: bu köprü sadece I-MR zaman serisine ham değer kaydeder; "
+                "grafik/Cpk hesaplaması seçilen parametrenin kendi LSL/USL "
+                "spesifikasyonunu kullanır, F₀'ın FDA referans alt sınırı "
+                f"({F0_BRIDGE_PARAMETER_CONFIG['default_lsl']} dk) sadece bilgi "
+                "amaçlıdır."
+            ),
+        )
+    except ValueError as exc:
+        st.error(f"Girdi hatası: {exc}")
 
     st.divider()
 
