@@ -2807,6 +2807,14 @@ def render_bridge_widget(
     kendi referans ustsiniri ile aktif parametrenin spesifikasyonu ARASINDAKI
     farki acikliga kavusturan not).
 
+    Faz 2 guncellemesi: values_by_target'taki bir deger artik list[float] de
+    olabilir - bu, hedefin X-bar/R oldugunu ve TAM OLARAK
+    st.session_state.subgroup_size kadar elemanla (gercek bir alt grup -
+    ayni numunenin n kez olculmesi) koprulenecegini belirtir. Eksik/fazla
+    sayida deger reddedilir (buton render edilmez) - bu, Faz 1 final
+    review'in yakaladigi "X-bar/R'a n=1 alt grup eklemek Range'i sifirlar"
+    bug'inin kalici cozumudur.
+
     UX karari (kullanicinin hangi I-MR parametresine aktaracagini SECMESI
     gerekir, sadece "su an aktif olan" varsayimina guvenilmez): tek paylasilan
     subgroups listesi mimarisi nedeniyle (ayri parametre-bazli depolama yok)
@@ -2851,12 +2859,31 @@ def render_bridge_widget(
         )
         return
     if not target_is_individual:
-        st.warning(
-            f"'{target}' bir X-bar/R parametresidir (alt grup büyüklüğü n>1). "
-            "Bu köprü sadece I-MR (tekli ölçüm) parametrelerine aktarım yapabilir - "
-            "tek bir değeri X-bar/R alt grubuna eklemek Range'i yapay olarak sıfırlar "
-            "ve Cpk'yı yanıltıcı şekilde şişirir."
-        )
+        target_values = values_by_target[target]
+        if not isinstance(target_values, list):
+            target_values = [target_values]
+        required_n = st.session_state.subgroup_size
+        if len(target_values) != required_n:
+            st.warning(
+                f"'{target}' bir X-bar/R parametresidir, mevcut alt grup büyüklüğü "
+                f"n={required_n}. Bu köprü tam olarak {required_n} ölçüm gerektirir "
+                f"({len(target_values)} girildi) - sidebar'dan n'i değiştirin veya "
+                "eksik/fazla ölçümü düzeltin."
+            )
+            return
+        st.caption(f"Aktif parametre: {target} (X-bar/R, n={required_n})")
+        if st.button(f"📌 SPC Veri Setine Aktar ({source_label})", key=f"{widget_key_prefix}_bridge_button"):
+            entry = build_bridge_subgroup_entry(
+                value=target_values, shift_label=f"QC Dönüştürücü - {source_label}",
+            )
+            st.session_state.subgroups.append(entry)
+            message = (
+                f"{source_label} değeri SPC veri setine eklendi "
+                f"({target}, X-bar/R, n={required_n})."
+            )
+            if extra_note:
+                message += " " + extra_note
+            st.success(message)
         return
 
     st.caption(f"Aktif parametre: {target} (I-MR)")
