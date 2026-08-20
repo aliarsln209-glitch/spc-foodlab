@@ -5,10 +5,9 @@ lab_to_hex(): CIE L*a*b* (D65 aydinlatici, 2 derece gozlemci varsayimi)
 -> sRGB hex donusumu. KARAR VERICI DEGILDIR - sadece gorsel onizleme
 (swatch) icindir, LSL/USL/Cpk hesaplamasinin hicbir yerinde kullanilmaz.
 
-Kaynak: CIE 1976 L*a*b* standart donusum formulleri (Colorimetry:
-Understanding the CIE System, Schanda ed., Wiley 2007, Ch. 3) + sRGB
-gamma companding (IEC 61966-2-1). Referans beyaz nokta D65:
-Xn=95.047, Yn=100.0, Zn=108.883.
+Kaynak: CIE 1976 L*a*b* standart donusum formulleri (yaygin colorimetry
+referanslari) + sRGB gamma companding (IEC 61966-2-1 standardi).
+Referans beyaz nokta D65: Xn=95.047, Yn=100.0, Zn=108.883.
 """
 
 _EPS = 216.0 / 24389.0
