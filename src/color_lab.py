@@ -9,6 +9,7 @@ Kaynak: CIE 1976 L*a*b* standart donusum formulleri (yaygin colorimetry
 referanslari) + sRGB gamma companding (IEC 61966-2-1 standardi).
 Referans beyaz nokta D65: Xn=95.047, Yn=100.0, Zn=108.883.
 """
+from datetime import datetime
 
 _EPS = 216.0 / 24389.0
 _KAPPA = 24389.0 / 27.0
@@ -40,12 +41,30 @@ def lab_to_hex(l_star: float, a_star: float, b_star: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def append_color_sample(samples: list[dict], l: float, a: float, b: float) -> list[dict]:
+def append_color_sample(
+    samples: list[dict], l: float, a: float, b: float,
+    lot_no: str = "", notes: str = "",
+) -> list[dict]:
     """Yeni bir L*/a*/b* uclusunu (ayni olcume ait) listeye ekler - orijinal
     listeyi DEGISTIRMEZ, yeni bir liste doner (Streamlit session_state
     mutasyon hatalarindan kacinmak icin - bkz. build_bridge_subgroup_entry
-    ile ayni desen, kopru sisteminden odunc alindi)."""
-    return samples + [{"L": l, "a": a, "b": b}]
+    ile ayni desen, kopru sisteminden odunc alindi). lot_no/notes kullanici
+    girer (opsiyonel, bos string varsayilan); timestamp OTOMATIK eklenir -
+    kullanici elle girmez, hatali tarih riski olmasin diye (bkz.
+    docs/superpowers/specs/2026-08-20-renk-paneli-v2-design.md)."""
+    entry = {
+        "L": l, "a": a, "b": b,
+        "lot_no": lot_no, "notes": notes,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
+    return samples + [entry]
+
+
+def remove_color_sample(samples: list[dict], index: int) -> list[dict]:
+    """Belirtilen index'teki ornegi listeden cikarir - orijinal listeyi
+    DEGISTIRMEZ, yeni bir liste doner (append_color_sample ile ayni
+    desen)."""
+    return samples[:index] + samples[index + 1:]
 
 
 def color_samples_to_series(samples: list[dict]) -> tuple[list[float], list[float], list[float]]:
