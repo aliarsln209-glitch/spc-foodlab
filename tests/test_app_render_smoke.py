@@ -150,3 +150,39 @@ def test_render_bridge_widget_stamps_urun_and_notes():
     body = source[start:end]
     assert 'urun=st.session_state.get("product_select", "")' in body
     assert 'notes=f"QC Dönüştürücü - {source_label}"' in body
+
+
+def test_moisture_dry_matter_panel_exists_and_is_routed():
+    # Task 1: Nem/Kuru Madde Birlesik Paneli - active_parameter bu iki
+    # degerden biriyken tab_data render_moisture_dry_matter_data_entry_tab'a
+    # yonlenmeli, fonksiyon gravimetric_moisture'i n kez cagirip dogrudan
+    # aktif parametreye yazmali (render_bridge_widget KULLANILMAMALI - hedef
+    # zaten belli, secim UI'i gereksiz).
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    assert 'active_parameter in ("Nem/Rutubet", "Kuru Madde")' in source
+    start = source.index("def render_moisture_dry_matter_data_entry_tab()")
+    end = source.index("def render_generic_data_entry_tab()")
+    body = source[start:end]
+    assert "gravimetric_moisture(" in body
+    assert "build_bridge_subgroup_entry(" in body
+    assert "render_bridge_widget(" not in body  # bu panelde KULLANILMAZ
+    assert "render_generic_data_entry_tab()" in body  # dogrudan deger girisi altta kalir
+    assert 'entry["lot_no"] = lot_no' in body
+    # widget key'leri active_parameter'i icermeli - aksi halde Nem/Rutubet
+    # (subgroup_size=1) ile Kuru Madde (daima n=1) ayni key'i paylasip
+    # parametreler arasi gecişte eski degerleri tasir (bkz. kullanici
+    # geri bildirimi / implementasyon plani onceki turu).
+    assert 'key_scope = f"{st.session_state.active_parameter}_{n}"' in body
+
+
+def test_old_gravimetric_calculator_removed_from_tab_calc():
+    # Task 1: eski tekil hesaplayici (Hizli Hesaplayicilar sekmesinde,
+    # sadece TEK hedefe koprulenebiliyordu) yeni panelle DEGISTIRILDI.
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    start = source.index("with tab_calc:")
+    end = source.index("st.markdown(\"### \U0001F9EA Titre Edilebilir Asitlik\")")
+    body = source[start:end]
+    assert "qc_moisture_tare" not in body
+    assert "### ⚖️ Gravimetrik Nem / Kuru Madde" not in body

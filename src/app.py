@@ -1547,6 +1547,103 @@ def render_color_lab_chart_tab() -> None:
 # ---------------------------------------------------------------------------
 # SEKME 1: Veri Girisi / Goruntuleme
 # ---------------------------------------------------------------------------
+def render_moisture_dry_matter_data_entry_tab() -> None:
+    """Nem/Kuru Madde Birlesik Paneli - SEKME 1. bkz. docs/superpowers/
+    specs/2026-08-21-nem-kuru-madde-birlesik-panel-design.md.
+
+    Gravimetrik (AOAC 925.10) n-uclu (dara/yas/kuru) giris formu ustte,
+    render_generic_data_entry_tab() (dogrudan deger girisi/CSV/pano
+    yapıştırma/gecmis tablo, DEGISMEDEN) altta. Hedef HER ZAMAN aktif
+    parametredir (Nem/Rutubet veya Kuru Madde) - kullanici ayrica
+    secmez, bu yuzden render_bridge_widget'in secim/gating UI'i BURADA
+    KULLANILMAZ; build_bridge_subgroup_entry DOGRUDAN cagrilir.
+
+    Kuru Madde (I-MR): n numune -> n AYRI I-MR noktasi (dongude).
+    Nem/Rutubet (X-bar/R): n numune -> TEK bir X-bar/R alt grubu (n
+    degerlik values listesi).
+
+    lot_no: build_bridge_subgroup_entry'nin parametresi DEGIL (Alt-proje
+    1'de bilerek disaridan birakildi, bkz. o spec) - donen dict'e
+    append'den ONCE elle eklenir.
+    """
+    st.markdown("#### ⚖️ Gravimetrik Nem/Kuru Madde Girişi (AOAC 925.10)")
+    st.caption(
+        "Dara + yaş numune + kuru kalıntı ağırlığından hem Nem hem Kuru "
+        "Madde hesaplar ve doğrudan aktif parametreye ("
+        f"**{st.session_state.active_parameter}**) yazar. Aşağıda ayrıca "
+        "doğrudan değer girişi/CSV/pano yapıştırma seçenekleri de mevcuttur."
+    )
+
+    is_individual = st.session_state.active_parameter == "Kuru Madde"
+    n = 1 if is_individual else st.session_state.subgroup_size
+    # Widget key'lerine active_parameter EKLENIR (sadece i/n degil) - aksi
+    # halde Nem/Rutubet icin subgroup_size=1 iken Kuru Madde ile (o da
+    # daima n=1) AYNI key'ler uretilir, parametreler arasi gecişte eski
+    # yazilmis degerler yanlislikla tasinir (canli testte bu senaryo
+    # ayrica dogrulanacak, bkz. implementasyon plani Task 2).
+    key_scope = f"{st.session_state.active_parameter}_{n}"
+
+    triples = []
+    has_error = False
+    cols = st.columns(n)
+    for i, col in enumerate(cols):
+        with col:
+            st.markdown(f"**Numune {i + 1}**")
+            tare = st.number_input(
+                "Kap darası (g)", min_value=0.0, value=25.000, step=0.001,
+                format="%.3f", key=f"moist_tare_{i}_{key_scope}",
+            )
+            wet = st.number_input(
+                "Kap + yaş (g)", min_value=0.0, value=30.000, step=0.001,
+                format="%.3f", key=f"moist_wet_{i}_{key_scope}",
+            )
+            dry = st.number_input(
+                "Kap + kuru (g)", min_value=0.0, value=29.400, step=0.001,
+                format="%.3f", key=f"moist_dry_{i}_{key_scope}",
+            )
+            try:
+                result = gravimetric_moisture(tare, wet, dry)
+                triples.append(result)
+                st.caption(
+                    f"Nem: %{result['moisture_pct']:.2f} · "
+                    f"Kuru Madde: %{result['dry_matter_pct']:.2f}"
+                )
+            except ValueError as exc:
+                has_error = True
+                st.error(str(exc))
+
+    moist_shift = "-"
+    if not is_individual:
+        moist_shift = st.selectbox("Vardiya", SHIFT_OPTIONS, key=f"moist_shift_{key_scope}")
+    lot_no = st.text_input("Parti/Lot No (opsiyonel)", key=f"moist_lot_no_{key_scope}")
+    notes = st.text_area("Not (opsiyonel)", key=f"moist_notes_{key_scope}")
+
+    if st.button(
+        "\U0001F4CC SPC Veri Setine Aktar", key=f"moist_bridge_button_{key_scope}",
+        disabled=has_error,
+    ):
+        urun = st.session_state.get("product_select", "")
+        if is_individual:
+            for result in triples:
+                entry = build_bridge_subgroup_entry(
+                    value=result["dry_matter_pct"], shift="-", notes=notes, urun=urun,
+                )
+                entry["lot_no"] = lot_no
+                st.session_state.subgroups.append(entry)
+            st.success(f"{len(triples)} Kuru Madde ölçümü SPC veri setine eklendi (I-MR).")
+        else:
+            entry = build_bridge_subgroup_entry(
+                value=[t["moisture_pct"] for t in triples], shift=moist_shift,
+                notes=notes, urun=urun,
+            )
+            entry["lot_no"] = lot_no
+            st.session_state.subgroups.append(entry)
+            st.success(f"1 Nem/Rutubet alt grubu SPC veri setine eklendi (X-bar/R, n={n}).")
+
+    st.divider()
+    render_generic_data_entry_tab()
+
+
 def render_generic_data_entry_tab() -> None:
     """SEKME 1: Veri Girisi - tek-aktif-parametre (L*/a*/b* HARIC tum
     parametreler) icin veri girisi formu, demo veri, CSV import, Excel
@@ -2139,6 +2236,8 @@ def render_generic_data_entry_tab() -> None:
 with tab_data:
     if st.session_state.active_parameter == "L*":
         render_color_lab_data_entry_tab()
+    elif st.session_state.active_parameter in ("Nem/Rutubet", "Kuru Madde"):
+        render_moisture_dry_matter_data_entry_tab()
     else:
         render_generic_data_entry_tab()
 
@@ -3277,36 +3376,6 @@ with tab_calc:
         "sectigi bir SPC parametresine 'SPC Veri Setine Aktar' butonuyla "
         "koprulenebilir - hicbiri otomatik/sessiz aktarim yapmaz."
     )
-    st.divider()
-
-    st.markdown("### ⚖️ Gravimetrik Nem / Kuru Madde")
-    st.caption("AOAC 925.10 yöntemi: dara + yaş numune + kuru kalıntı ağırlığından hesaplar.")
-
-    col_g1, col_g2, col_g3 = st.columns(3)
-    with col_g1:
-        dish_tare = st.number_input("Kap darası (g)", min_value=0.0, value=25.000, step=0.001, format="%.3f", key="qc_moisture_tare")
-    with col_g2:
-        wet_with_dish = st.number_input("Kap + yaş numune (g)", min_value=0.0, value=30.000, step=0.001, format="%.3f", key="qc_moisture_wet")
-    with col_g3:
-        dry_with_dish = st.number_input("Kap + kuru kalıntı (g)", min_value=0.0, value=29.400, step=0.001, format="%.3f", key="qc_moisture_dry")
-
-    try:
-        moisture_result = gravimetric_moisture(dish_tare, wet_with_dish, dry_with_dish)
-        col_r1, col_r2 = st.columns(2)
-        col_r1.metric("Nem (%)", f"{moisture_result['moisture_pct']:.2f}")
-        col_r2.metric("Kuru Madde (%)", f"{moisture_result['dry_matter_pct']:.2f}")
-
-        render_bridge_widget(
-            values_by_target={
-                "Nem/Rutubet": moisture_result["moisture_pct"],
-                "Kuru Madde": moisture_result["dry_matter_pct"],
-            },
-            source_label="Gravimetrik Nem/Kuru Madde",
-            widget_key_prefix="qc_moisture",
-        )
-    except ValueError as exc:
-        st.error(f"Girdi hatası: {exc}")
-
     st.divider()
 
     st.markdown("### 🧪 Titre Edilebilir Asitlik")
