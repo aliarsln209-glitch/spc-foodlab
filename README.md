@@ -19,9 +19,14 @@ tek bir config-driven Parameter Framework üzerinden) eklendi; v1.7 ile
 **QC Veri Dönüştürücüler** (Gravimetrik Nem, Totox, Titre Edilebilir
 Asitlik, Tuz/Mohr Metodu, Termal Letalite/F₀ — hepsi tek bir merkezi
 köprü widget'ı üzerinden mevcut I-MR/X-bar/R parametrelerine veri
-aktarır) eklendi (bkz. "v1.2 — Advanced Statistical SPC", "v1.3 —
-Mikrobiyoloji (kantitatif)", "v1.4 → v1.6 — Food Quality Parameters" ve
-"v1.7 — QC Veri Dönüştürücüler" bölümleri aşağıda).
+aktarır) eklendi; v1.7.1 → v1.7.2 ile **Renk (L*a*b*) Paneli**
+(L*/a*/b* sidebar'da tek bir birleşik girişe toplandı — istatistiksel
+olarak hâlâ 3 bağımsız I-MR serisi, ΔE hesaplanmaz — parti/not takibi,
+tekli-satır silme, düşük-örnek Cpk güvenilirlik uyarısı, grafik üzerinde
+LSL/USL çizgileri ve opsiyonel hedef renk swatch'i eklendi) (bkz. "v1.2
+— Advanced Statistical SPC", "v1.3 — Mikrobiyoloji (kantitatif)", "v1.4
+→ v1.6 — Food Quality Parameters" ve "v1.7.1 → v1.7.2 — Renk (L*a*b*)
+Paneli" bölümleri aşağıda).
 
 🔗 **Demo:** [spc-foodlab.streamlit.app](https://spc-foodlab.streamlit.app/)
 
@@ -132,7 +137,10 @@ SPC FoodLab turns routine food-quality lab measurements into proper
 
 Son 11 parametre (Protein…İletkenlik) v1.4→v1.6 "Food Quality
 Parameters" genişlemesiyle geldi — detay için aşağıdaki ilgili bölüme
-bakın. Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
+bakın. L*/a*/b* istatistiksel olarak yukarıdaki tabloda hâlâ 3 bağımsız
+I-MR serisidir, ama sidebar'da v1.7.1'den beri ayrı ayrı seçilemezler —
+birleşik "Renk (L*a*b*) Paneli" adıyla tek bir sayfada gösterilirler
+(detay: "v1.7.1 → v1.7.2 — Renk (L*a*b*) Paneli" bölümü). Tek/iki taraflı Cpk mantığı **ürün bazında** otomatik belirlenir (örn.
 Bal'ın nem spesifikasyonunda sadece üst limit vardır); alt grup büyüklüğü
 (n) sidebar'dan seçilebilir (varsayılan n=4, aralık n=2–10) — detaylı
 mantık ve kaynaklar için [METHODOLOGY.md](METHODOLOGY.md). Mikrobiyoloji
@@ -248,6 +256,42 @@ formülünün yeni parametrelere doğru uygulandığının kanıtı).
 
 Detaylı kaynak notları, fazlı roadmap ve mimari kararlar:
 [METHODOLOGY.md](METHODOLOGY.md).
+
+## v1.7.1 → v1.7.2 — Renk (L*a*b*) Paneli
+
+L*, a*, b* aynı spektrofotometre/kolorimetre okumasından çıkan üç eksen
+olduğu halde sidebar'da 3 ayrı parametre gibi (ayrı seçim, ayrı giriş,
+ayrı ekran) davranıyordu — bu, **ΔE hesabını AÇMAZ** (ΔE ve türetilmiş
+renk-farkı metrikleri kesin kapsam dışıdır); L*, a*, b* istatistiksel
+olarak hâlâ 3 bağımsız I-MR serisidir, sadece UI katmanı birleştirildi:
+
+- **Birleşik veri girişi:** L*, a*, b* aynı satırda tek formda girilir
+  (aynı ölçüme ait oldukları için), canlı bir swatch (renk kutusu)
+  önizlemesiyle — hatalar Chart sekmesine geçmeden, girerken fark edilir.
+  Swatch **D65 aydınlatıcı varsayımıyla hesaplanan yaklaşık bir
+  önizlemedir**, karar verici değildir; cihazın gerçek aydınlatıcı/
+  gözlemci ayarı farklıysa gerçek rengi yansıtmayabilir.
+- **Parti/Lot No + Not (opsiyonel) + otomatik zaman damgası** — her ölçüm
+  için izlenebilirlik alanları (sadece Renk Paneli'ne özgü; diğer
+  parametrelerde bu alanlar henüz yok, bkz. METHODOLOGY.md'deki "v1.8
+  veya sonrası" backlog notu).
+- **Tek satır silme** — geçmiş ölçüm tablosundan yanlışlıkla eklenen bir
+  kaydı tek tıkla çıkarma.
+- **Düşük örnek sayısı uyarısı** — n < 20 iken Cpk rozeti yerine
+  güvenilirlik uyarısı gösterilir (Montgomery kaynaklı, diğer
+  parametrelerdeki `MIN_RECOMMENDED_BASELINE` eşiğiyle aynı).
+- **Grafik üzerinde LSL/USL çizgileri** ve **opsiyonel hedef renk
+  swatch'i** (girilirse ikinci bir renk kutusu gösterilir — yine
+  **ΔE hesaplanmaz**, sadece görsel karşılaştırma).
+- **3-eksen özet uyarısı** — hangi eksen(ler)in Cpk<1.0 ile yetersiz
+  yeterlilik gösterdiğini tek satırda özetler (n≥20 iken; altındaysa
+  güvenilir bir özet gösterilemeyeceği belirtilir).
+
+**Bu turda YOK (bilinçli olarak ertelendi):** CSV/Excel toplu içe
+aktarma, PNG/CSV export, numune fotoğrafı, ürün bazlı LSL/USL tablosu —
+detay ve gerekçe: [METHODOLOGY.md](METHODOLOGY.md) "v1.7.1" ve "v1.7.2"
+bölümleri, tasarım kararları: `docs/superpowers/specs/
+2026-08-20-renk-paneli-v2-design.md`.
 
 ## Hızlı Hesaplayıcılar — Totox
 

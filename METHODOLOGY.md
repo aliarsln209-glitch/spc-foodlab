@@ -858,6 +858,27 @@ görsel), 3-eksen trend özet uyarısı. Detay: `docs/superpowers/specs/
 export, numune fotoğrafı, ürün bazlı LSL/USL tablosu HALA YOK (aynı
 gerekçelerle ertelendi).
 
+**Final review düzeltmeleri (aynı v1.7.2 kapsamında, implementasyon
+sonrası):** whole-branch code review'da bulunan 4 önemli sorun tek
+dispatch'te düzeltildi — 3-eksen özet uyarısı "kontrol dışı" (control-
+chart kavramı) diyordu ama aslında Cpk (capability) ölçüyordu, metin
+"yeterlilik yetersiz"e çevrildi; `Cpk=-inf` (sıfır varyans + spec dışı
+ortalama, en kötü olası durum) yanlışlıkla "sorun yok" sayılıyordu,
+düzeltildi; özet, üstündeki düşük-n uyarısıyla çelişiyordu (n<20'de
+güvenilmez Cpk'den confident bir ✅/⚠️ üretiyordu), artık n<20'de bilgi
+mesajına dönüyor; "Eklendi" başarı mesajı `st.rerun()` ile sessizce
+kayboluyordu, session_state'te tutulup bir sonraki render'da gösteriliyor.
+Ayrıca, final review'ın işaretlediği iki minor bulgu (3 yerde tekrarlanan
+swatch HTML/CSS bloğu, hedef swatch'in yanında ΔE-yok notunun sadece
+checkbox'ın üstünde bir kez görünmesi) ayrı bir küçük iş kalemi olarak
+giderildi: `_render_swatch()` yardımcı fonksiyonu ve hedef swatch
+caption'ında tekrarlanan "(ΔE yok)" notu eklendi. Diğer 4 minor bulgu
+(`remove_color_sample`'ın negatif/aralık-dışı index'te tanımsız
+davranışı, satır-silme listesinin dataframe ile tekrar etmesi, hedef
+renk varsayılanının ölçüm varsayılanıyla aynı olması, panelde LSL/USL
+giriş widget'ının hâlâ olmaması) bilinçli olarak ertelendi — hiçbiri
+engelleyici değil.
+
 **v1.8 veya sonrası — Tüm parametrelere lot_no/timestamp/notes**
 
 Canlı denetimde gelen geri bildirim: hiçbir parametrede (Renk Paneli
