@@ -1558,7 +1558,9 @@ def render_moisture_dry_matter_data_entry_tab() -> None:
     secmez, bu yuzden render_bridge_widget'in secim/gating UI'i BURADA
     KULLANILMAZ; build_bridge_subgroup_entry DOGRUDAN cagrilir.
 
-    Kuru Madde (I-MR): n numune -> n AYRI I-MR noktasi (dongude).
+    Kuru Madde (I-MR): daima n=1 (I-MR tanimi geregi tek numune) -> 1 I-MR
+    noktasi. Dongu, Nem/Rutubet ile ayni kod yolunu paylasmak icin var (n=1
+    oldugunda dongu tek kez calisir), n>1 asla olusmaz.
     Nem/Rutubet (X-bar/R): n numune -> TEK bir X-bar/R alt grubu (n
     degerlik values listesi).
 
@@ -1574,7 +1576,7 @@ def render_moisture_dry_matter_data_entry_tab() -> None:
         "doğrudan değer girişi/CSV/pano yapıştırma seçenekleri de mevcuttur."
     )
 
-    is_individual = st.session_state.active_parameter == "Kuru Madde"
+    is_individual = PARAMETER_CONFIG.get(st.session_state.active_parameter, {}).get("is_individual", False)
     n = 1 if is_individual else st.session_state.subgroup_size
     # Widget key'lerine active_parameter EKLENIR (sadece i/n degil) - aksi
     # halde Nem/Rutubet icin subgroup_size=1 iken Kuru Madde ile (o da
@@ -3371,8 +3373,8 @@ def render_bridge_widget(
 with tab_calc:
     st.markdown("## \U0001F517 SPC'ye Koprulenebilir Hesaplayicilar")
     st.caption(
-        "Bu bes hesaplayici ham laboratuvar girdilerinden (dara/agirlik, "
-        "titrasyon hacmi vb.) bir deger uretir ve kullanicinin acikca "
+        "Bu dort hesaplayici ham laboratuvar girdilerinden (titrasyon "
+        "hacmi, agirlik/hacim vb.) bir deger uretir ve kullanicinin acikca "
         "sectigi bir SPC parametresine 'SPC Veri Setine Aktar' butonuyla "
         "koprulenebilir - hicbiri otomatik/sessiz aktarim yapmaz."
     )

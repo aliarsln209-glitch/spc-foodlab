@@ -174,6 +174,9 @@ def test_moisture_dry_matter_panel_exists_and_is_routed():
     # parametreler arasi gecişte eski degerleri tasir (bkz. kullanici
     # geri bildirimi / implementasyon plani onceki turu).
     assert 'key_scope = f"{st.session_state.active_parameter}_{n}"' in body
+    # Hatali uclu varsa Kaydet devre disi kalir - sessiz kismi kayit YOK.
+    assert "disabled=has_error" in body
+    assert "has_error = True" in body
 
 
 def test_old_gravimetric_calculator_removed_from_tab_calc():
