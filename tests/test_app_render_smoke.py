@@ -110,3 +110,19 @@ def test_color_lab_chart_tab_uses_min_recommended_baseline_threshold():
     body = source[start:end]
     assert "MIN_RECOMMENDED_BASELINE" in body
     assert "annotate_hline" in body
+
+
+def test_history_table_column_config_includes_traceability_columns():
+    # Task 5: gecmis tablosunda lot_no/notes duzenlenebilir, urun/timestamp
+    # salt-okunur olmali - regresyon: biri yanlislikla bu sutunlari
+    # cikarirsa veya disabled durumunu ters cevirirse bu test yakalar.
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    start = source.index("def render_generic_data_entry_tab()")
+    end = source.index("def render_generic_chart_tab()")
+    body = source[start:end]
+    assert 'column_config["Parti/Lot No"] = st.column_config.TextColumn()' in body
+    assert 'column_config["Not"] = st.column_config.TextColumn()' in body
+    assert 'column_config["Urun"] = st.column_config.TextColumn(disabled=True)' in body
+    assert 'column_config["Zaman"] = st.column_config.TextColumn(disabled=True)' in body
+    assert '"Urun": st.column_config.TextColumn(disabled=True),' in body  # microbio dali

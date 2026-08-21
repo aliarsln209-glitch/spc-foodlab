@@ -2054,6 +2054,10 @@ def render_generic_data_entry_tab() -> None:
                         "Kullanilan (KOB/g)": st.column_config.NumberColumn(format="%.2f", disabled=True),
                         "log10": st.column_config.NumberColumn(format="%.3f", disabled=True),
                         index_col: st.column_config.NumberColumn(disabled=True),
+                        "Parti/Lot No": st.column_config.TextColumn(),
+                        "Not": st.column_config.TextColumn(),
+                        "Urun": st.column_config.TextColumn(disabled=True),
+                        "Zaman": st.column_config.TextColumn(disabled=True),
                     }
                     st.caption(
                         "**Kullanilan (KOB/g)** ve **log10**, LOD ikamesi/log10 donusumunun "
@@ -2063,7 +2067,10 @@ def render_generic_data_entry_tab() -> None:
                 else:
                     # Sadece GORUNUMU laboratuvar hassasiyetine yuvarlar - alttaki veri
                     # (ve CSV export'u) kullanicinin girdigi tam degerleri korur.
-                    numeric_cols = [c for c in df.columns if c not in ("Sira", "Grup", "Vardiya")]
+                    numeric_cols = [
+                        c for c in df.columns
+                        if c not in ("Sira", "Grup", "Vardiya", "Parti/Lot No", "Not", "Urun", "Zaman")
+                    ]
                     derived_cols = {"Ortalama", "Range"} & set(df.columns)  # turetilmis, elle DUZENLENEMEZ
                     column_config = {
                         c: st.column_config.NumberColumn(
@@ -2076,6 +2083,10 @@ def render_generic_data_entry_tab() -> None:
                         column_config["Vardiya"] = st.column_config.SelectboxColumn(
                             options=SHIFT_OPTIONS, required=True
                         )
+                    column_config["Parti/Lot No"] = st.column_config.TextColumn()
+                    column_config["Not"] = st.column_config.TextColumn()
+                    column_config["Urun"] = st.column_config.TextColumn(disabled=True)
+                    column_config["Zaman"] = st.column_config.TextColumn(disabled=True)
 
                 st.caption(
                     "Hucreleri duzenleyebilir, bir satiri SILEBILIR (satiri secip "
