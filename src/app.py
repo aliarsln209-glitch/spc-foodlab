@@ -1322,6 +1322,17 @@ tab_data, tab_chart, tab_calc, tab_about = st.tabs([
 # tarafindan temizlenmesi ihtimaline karsi asagida setdefault() kullaniliyor -
 # bu, sirlamaya bagli olmadan 0.0'a dusmeyi onluyor.
 
+def _render_swatch(hex_code: str, size: int = 60) -> None:
+    """Bir renk kutusu (swatch) cizer - Renk Paneli'nde 3 yerde (canli
+    onizleme, son olcum, hedef renk) tekrarlanan ayni HTML/CSS bloğunu
+    tek yerden yonetmek icin (bkz. final review bulgusu)."""
+    st.markdown(
+        f'<div style="width:{size}px;height:{size}px;border-radius:8px;'
+        f'background-color:{hex_code};border:1px solid #888;"></div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_color_lab_data_entry_tab() -> None:
     """Renk (L*a*b*) Paneli - SEKME 1: birlesik veri girisi. v2 (bkz.
     docs/superpowers/specs/2026-08-20-renk-paneli-v2-design.md): st.form
@@ -1358,11 +1369,7 @@ def render_color_lab_data_entry_tab() -> None:
     _preview_hex = lab_to_hex(l_val, a_val, b_val)
     pc1, pc2 = st.columns([1, 4])
     with pc1:
-        st.markdown(
-            f'<div style="width:48px;height:48px;border-radius:8px;'
-            f'background-color:{_preview_hex};border:1px solid #888;"></div>',
-            unsafe_allow_html=True,
-        )
+        _render_swatch(_preview_hex, size=48)
     with pc2:
         st.caption(
             f"Canli onizleme: {_preview_hex}. ⚠️ Yaklasik onizleme, D65 "
@@ -1453,19 +1460,11 @@ def render_color_lab_chart_tab() -> None:
         sc3 = None
     with sc1:
         st.caption("Son olcum")
-        st.markdown(
-            f'<div style="width:60px;height:60px;border-radius:8px;'
-            f'background-color:{swatch_hex};border:1px solid #888;"></div>',
-            unsafe_allow_html=True,
-        )
+        _render_swatch(swatch_hex, size=60)
     if target_hex:
         with sc2:
-            st.caption("Hedef")
-            st.markdown(
-                f'<div style="width:60px;height:60px;border-radius:8px;'
-                f'background-color:{target_hex};border:1px solid #888;"></div>',
-                unsafe_allow_html=True,
-            )
+            st.caption("Hedef (ΔE yok)")
+            _render_swatch(target_hex, size=60)
         _caption_col = sc3
     else:
         _caption_col = sc2
