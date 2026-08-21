@@ -102,6 +102,8 @@ if "subgroups" not in st.session_state:
     st.session_state.subgroups = []  # list of dict: {"shift": str, "values": list[float]}
 if "color_lab_samples" not in st.session_state:
     st.session_state.color_lab_samples = []  # list of dict: {"L", "a", "b"}
+if "color_lab_form_nonce" not in st.session_state:
+    st.session_state.color_lab_form_nonce = 0
 if "baseline" not in st.session_state:
     st.session_state.baseline = None  # dict: {"x_double_bar", "r_bar", "n_baseline"}
 if "active_parameter" not in st.session_state:
@@ -1335,18 +1337,19 @@ def render_color_lab_data_entry_tab() -> None:
         "bagimsiz 3 I-MR serisi olarak izlenir (ΔE hesaplanmaz)."
     )
 
+    _nonce = st.session_state.color_lab_form_nonce
     c1, c2, c3 = st.columns(3)
     l_val = c1.number_input(
         "L* (0-100)", min_value=0.0, max_value=100.0, value=65.0, step=0.1,
-        key="color_lab_l_input",
+        key=f"color_lab_l_input_{_nonce}",
     )
     a_val = c2.number_input(
         "a* (-128/+127)", min_value=-128.0, max_value=127.0, value=10.0, step=0.1,
-        key="color_lab_a_input",
+        key=f"color_lab_a_input_{_nonce}",
     )
     b_val = c3.number_input(
         "b* (-128/+127)", min_value=-128.0, max_value=127.0, value=20.0, step=0.1,
-        key="color_lab_b_input",
+        key=f"color_lab_b_input_{_nonce}",
     )
 
     _preview_hex = lab_to_hex(l_val, a_val, b_val)
@@ -1364,8 +1367,8 @@ def render_color_lab_data_entry_tab() -> None:
             "gozlemci ayari farkliysa gercek rengi yansitmayabilir."
         )
 
-    lot_no = st.text_input("Parti/Lot No (opsiyonel)", key="color_lab_lot_input")
-    notes = st.text_area("Not (opsiyonel)", key="color_lab_notes_input")
+    lot_no = st.text_input("Parti/Lot No (opsiyonel)", key=f"color_lab_lot_input_{_nonce}")
+    notes = st.text_area("Not (opsiyonel)", key=f"color_lab_notes_input_{_nonce}")
 
     if st.button("Olcumu Ekle", type="primary"):
         st.session_state.color_lab_samples = append_color_sample(
@@ -1377,12 +1380,13 @@ def render_color_lab_data_entry_tab() -> None:
         # esdeger) - aksi halde ayni degerler ekranda kalir, kullanici
         # farkinda olmadan tekrar "Olcumu Ekle"ye basarsa AYNI satir ikinci
         # kez eklenir (canli denetimde bulunan L=65,a=10,b=20 duplicate'i).
-        for _key in (
-            "color_lab_l_input", "color_lab_a_input", "color_lab_b_input",
-            "color_lab_lot_input", "color_lab_notes_input",
-        ):
-            if _key in st.session_state:
-                del st.session_state[_key]
+        # NOT: del st.session_state[key] + st.rerun() bu Streamlit surumunde
+        # (1.61.1) widget'i GORSEL olarak repaint etmiyor - deger backend'de
+        # sifirlaniyor ama ekranda eski deger kalmis gibi gorunuyor. Bunun
+        # yerine widget key'lerini nonce ile turetip nonce'u arttiriyoruz -
+        # bir sonraki render'da HIC GORULMEMIS key'ler olusuyor, Streamlit
+        # bunlari garantili sekilde value= varsayilanindan baslatiyor.
+        st.session_state.color_lab_form_nonce += 1
         st.rerun()
 
     n_samples = len(st.session_state.color_lab_samples)
