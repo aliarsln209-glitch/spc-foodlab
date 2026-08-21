@@ -1418,10 +1418,12 @@ def render_color_lab_data_entry_tab() -> None:
 
 
 def render_color_lab_chart_tab() -> None:
-    """Renk (L*a*b*) Paneli - SEKME 2: 3 bagimsiz I-MR karti + swatch.
-    v1.7.1 v1 kapsami: baseline dondurma/Nelson kurallari YOK - her
-    render'da TUM veriyle canli I-MR limitleri hesaplanir (bkz.
-    METHODOLOGY.md 'v1.7.1' v1 kapsam notu)."""
+    """Renk (L*a*b*) Paneli - SEKME 2: 3 bagimsiz I-MR karti + swatch. v2
+    (bkz. docs/superpowers/specs/2026-08-20-renk-paneli-v2-design.md):
+    dusuk-n uyarisi (Cpk rozeti yerine), LSL/USL cizgileri, opsiyonel hedef
+    swatch, 3-eksen trend ozet uyarisi eklendi. Baseline dondurma/Nelson
+    kurallari HALA YOK (v1 kapsam kararindan degismedi) - her render'da TUM
+    veriyle canli I-MR limitleri hesaplanir."""
     samples = st.session_state.color_lab_samples
     if len(samples) < 2:
         render_empty_state("\U0001F3A8", "Grafik icin en az 2 olcum gerekli. Once Veri Girisi sekmesinden ekleyin.")
@@ -1430,14 +1432,41 @@ def render_color_lab_chart_tab() -> None:
     l_vals, a_vals, b_vals = color_samples_to_series(samples)
     last = samples[-1]
     swatch_hex = lab_to_hex(last["L"], last["a"], last["b"])
-    sc1, sc2 = st.columns([1, 4])
+
+    st.markdown("**Hedef renk karsilastirmasi (opsiyonel, ΔE HESAPLANMAZ - sadece gorsel)**")
+    tc1, tc2, tc3, tc4 = st.columns(4)
+    _target_enabled = tc1.checkbox("Hedef renk gir", key="color_lab_target_enabled")
+    target_hex = None
+    if _target_enabled:
+        _tl = tc2.number_input("Hedef L*", min_value=0.0, max_value=100.0, value=65.0, step=0.1, key="color_lab_target_l")
+        _ta = tc3.number_input("Hedef a*", min_value=-128.0, max_value=127.0, value=10.0, step=0.1, key="color_lab_target_a")
+        _tb = tc4.number_input("Hedef b*", min_value=-128.0, max_value=127.0, value=20.0, step=0.1, key="color_lab_target_b")
+        target_hex = lab_to_hex(_tl, _ta, _tb)
+
+    if target_hex:
+        sc1, sc2, sc3 = st.columns([1, 1, 3])
+    else:
+        sc1, sc2 = st.columns([1, 4])
+        sc3 = None
     with sc1:
+        st.caption("Son olcum")
         st.markdown(
             f'<div style="width:60px;height:60px;border-radius:8px;'
             f'background-color:{swatch_hex};border:1px solid #888;"></div>',
             unsafe_allow_html=True,
         )
-    with sc2:
+    if target_hex:
+        with sc2:
+            st.caption("Hedef")
+            st.markdown(
+                f'<div style="width:60px;height:60px;border-radius:8px;'
+                f'background-color:{target_hex};border:1px solid #888;"></div>',
+                unsafe_allow_html=True,
+            )
+        _caption_col = sc3
+    else:
+        _caption_col = sc2
+    with _caption_col:
         st.caption(
             f"Son olcum onizlemesi: {swatch_hex} (L*={last['L']:g}, a*={last['a']:g}, b*={last['b']:g}). "
             "⚠️ Yaklasik onizleme, D65 aydinlatici varsayimiyla hesaplanir - "
@@ -1450,6 +1479,9 @@ def render_color_lab_chart_tab() -> None:
         ("a*", a_vals, FOOD_QUALITY_PARAMETER_CONFIG["a*"]),
         ("b*", b_vals, FOOD_QUALITY_PARAMETER_CONFIG["b*"]),
     ]
+
+    n_current = len(samples)
+    _out_of_control_axes: list[str] = []
     cols = st.columns(3)
     for col, (axis_name, values, axis_cfg) in zip(cols, axis_configs):
         with col:
@@ -1458,22 +1490,46 @@ def render_color_lab_chart_tab() -> None:
             mr_list = compute_moving_ranges(values)
             mr_bar = sum(mr_list) / len(mr_list)
             lsl, usl = axis_cfg["default_lsl"], axis_cfg["default_usl"]
-            if is_spec_valid(axis_cfg["one_sided"], lsl, usl):
+            spec_valid = is_spec_valid(axis_cfg["one_sided"], lsl, usl)
+            cpk = None
+            if spec_valid:
                 cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=axis_cfg["one_sided"])
-                _emoji, badge_label, _color = cpk_capability_badge(cpk, True)
-                st.metric(f"{axis_name} Cpk", format_cpk(cpk))
-                st.caption(f"{_emoji} {badge_label}")
+                if cpk != float("-inf") and cpk < 1.0:
+                    _out_of_control_axes.append(axis_name)
+                if n_current < MIN_RECOMMENDED_BASELINE:
+                    st.warning(
+                        f"Cpk guvenilir yorum icin en az {MIN_RECOMMENDED_BASELINE} "
+                        f"olcum onerilir (su an n={n_current})."
+                    )
+                    st.caption(f"{axis_name} Cpk (gosterge): {format_cpk(cpk)}")
+                else:
+                    _emoji, badge_label, _color = cpk_capability_badge(cpk, True)
+                    st.metric(f"{axis_name} Cpk", format_cpk(cpk))
+                    st.caption(f"{_emoji} {badge_label}")
             else:
                 st.caption("Gecersiz spesifikasyon (LSL >= USL)")
+
             fig, ax = plt.subplots(figsize=(3.2, 2.4))
             imr = compute_imr_limits(x_bar, mr_bar)
             ax.plot(range(1, len(values) + 1), values, marker="o", markersize=3)
             ax.axhline(imr.ucl_i, color="red", linestyle="--", linewidth=0.8)
             ax.axhline(imr.lcl_i, color="red", linestyle="--", linewidth=0.8)
             ax.axhline(x_bar, color="gray", linestyle=":", linewidth=0.8)
+            if spec_valid:
+                decimal_places = axis_cfg["decimal_places"]
+                annotate_hline(ax, len(values), usl, f"USL={usl:.{decimal_places}f}", "#e8590c")
+                ax.axhline(usl, color="#e8590c", linestyle="-.", linewidth=0.8)
+                if not axis_cfg["one_sided"]:
+                    annotate_hline(ax, len(values), lsl, f"LSL={lsl:.{decimal_places}f}", "#e8590c")
+                    ax.axhline(lsl, color="#e8590c", linestyle="-.", linewidth=0.8)
             style_chart(fig, ax, dark=(st.session_state.get("chart_theme") == "Koyu"))
             st.pyplot(fig)
             plt.close(fig)
+
+    if _out_of_control_axes:
+        st.warning(f"⚠️ Kontrol disi eksen(ler): {', '.join(_out_of_control_axes)} — digerleri normal.")
+    else:
+        st.success("✅ Uc eksen de kontrol altinda (Cpk >= 1.0 veya spesifikasyon tanimsiz).")
 
 
 # ---------------------------------------------------------------------------
