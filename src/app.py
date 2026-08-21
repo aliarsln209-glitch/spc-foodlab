@@ -3190,10 +3190,16 @@ def render_bridge_widget(
                 "eksik/fazla ölçümü düzeltin."
             )
             return
+        bridge_shift = st.selectbox(
+            "Vardiya", SHIFT_OPTIONS, key=f"{widget_key_prefix}_shift",
+            help="Bu köprüyle eklenecek verinin hangi vardiyada ölçüldüğünü belirtin.",
+        )
         st.caption(f"Aktif parametre: {target} (X-bar/R, n={required_n})")
         if st.button(f"📌 SPC Veri Setine Aktar ({source_label})", key=f"{widget_key_prefix}_bridge_button"):
             entry = build_bridge_subgroup_entry(
-                value=target_values, shift_label=f"QC Dönüştürücü - {source_label}",
+                value=target_values, shift=bridge_shift,
+                notes=f"QC Dönüştürücü - {source_label}",
+                urun=st.session_state.get("product_select", ""),
             )
             st.session_state.subgroups.append(entry)
             message = (
@@ -3218,7 +3224,9 @@ def render_bridge_widget(
     st.caption(f"Aktif parametre: {target} (I-MR)")
     if st.button(f"📌 SPC Veri Setine Aktar ({source_label})", key=f"{widget_key_prefix}_bridge_button"):
         entry = build_bridge_subgroup_entry(
-            value=imr_value, shift_label=f"QC Dönüştürücü - {source_label}",
+            value=imr_value, shift="-",
+            notes=f"QC Dönüştürücü - {source_label}",
+            urun=st.session_state.get("product_select", ""),
         )
         st.session_state.subgroups.append(entry)
         message = f"{source_label} değeri SPC veri setine eklendi ({target}, I-MR)."
