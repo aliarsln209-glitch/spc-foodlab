@@ -879,6 +879,37 @@ renk varsayılanının ölçüm varsayılanıyla aynı olması, panelde LSL/USL
 giriş widget'ının hâlâ olmaması) bilinçli olarak ertelendi — hiçbiri
 engelleyici değil.
 
+**Renk Paneli backlog — ÖNCELİKLİ: Ürün/Hat alanı + ürün bazlı LSL/USL (birlikte ele alınmalı)**
+
+v1.7.2'nin `lot_no` alanı "hangi partiden" sorusunu cevaplıyor ama "hangi
+üründen" sorusunu cevaplamıyor — Renk Paneli birden fazla ürün (çikolata,
+bisküvi, un vb.) için kullanılacaksa, ürün bilgisi olmadan geçmiş tablo
+anlamsız karışık bir veri yığınına dönüşür. Bu, v1.7.2 tasarım
+görüşmesinde "sadece 'Özel/Manuel gir' yeterli" diye ertelenen ürün bazlı
+LSL/USL tablosu kararıyla DOĞRUDAN bağlantılıdır: limitler ürüne göre
+değişecekse, hangi kaydın hangi ürüne ait olduğunu bilmek şarttır. Bu
+yüzden iki özellik AYRI değil, TEK bir iş paketi olarak ele alınmalı:
+`product`/`hat` alanı (muhtemelen mevcut `products` seçim deseniyle
+tutarlı bir selectbox) + o ürüne özgü LSL/USL (kaynak varsa tablo,
+yoksa yine "Özel/Manuel gir"). Öncelik: YÜKSEK — gerçek bir işlevsel
+boşluk, kolaylık eksikliği değil.
+
+**Renk Paneli backlog — düşük öncelik: satır düzenleme (inline cell edit)**
+
+v1.7.2 sadece tek satır SİLME ekledi (🗑️ buton), hücre düzenleme yok —
+kullanıcı yanlış girilen bir satırı silip yeniden eklemek zorunda (iki
+ekstra tık, veri kaybı/yanlış karar riski yok). Kontrol edildi: diğer 24
+atomic parametrede (`app.py:2061`, `st.data_editor` — hücre düzenleme,
+klavyeden satır silme, "+" ile yeni satır) bu ÖZELLİK ZATEN VAR. Yani bu,
+Renk Paneline özel bir eksik "zenginleştirme" değil, panelin geri kalan
+24 parametreden GERİDE olduğu bir noktadır — ama etkisi düşük (silme +
+yeniden ekleme aynı sonucu veriyor, sadece daha az ergonomik) olduğu için
+öncelik düşük tutuldu. Muhtemel çözüm: Veri Girişi sekmesindeki
+`st.dataframe` + ayrı silme-listesi kombinasyonunu, diğer parametrelerde
+kullanılan `st.data_editor` desenine geçirmek (bu aynı zamanda final
+review'ın ayrı bir minor bulgusu olan "silme listesi dataframe ile tekrar
+ediyor" sorununu da çözer — iki bulgu aynı çözümle giderilebilir).
+
 **v1.8 veya sonrası — Tüm parametrelere lot_no/timestamp/notes**
 
 Canlı denetimde gelen geri bildirim: hiçbir parametrede (Renk Paneli
