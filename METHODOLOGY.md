@@ -934,6 +934,19 @@ eklenmesi (sadece mevcut "Değişiklikleri kaydet" özelliğinin bu
 alanları KORUMASI sağlandı, yeni bir CSV formatı/sütun beklentisi
 YOK), demo veri üreticisinin bu alanları anlamlı doldurması.
 
+**v1.8.1 — Nem/Kuru Madde Birleşik Panel (TAMAMLANDI)**
+
+`active_parameter` `Nem/Rutubet` veya `Kuru Madde` iken Veri Girişi
+sekmesi artık gravimetrik (AOAC 925.10) n-üçlü (dara/yaş/kuru-kalıntı)
+giriş paneli gösteriyor — tek "SPC Veri Setine Aktar" ile hem %Nem hem
+%Kuru Madde hesaplanıp DOĞRUDAN aktif parametreye (kullanıcı hedef
+seçmeden) yazılıyor; `lot_no`/`notes` alanları ve otomatik `urun`/
+`timestamp` damgalaması dahil. `Hızlı Hesaplayıcılar`'daki eski tekil
+hesaplayıcı (dropdown'la tek hedef seçilen) bu panelle DEĞİŞTİRİLDİ.
+Detay ve bilerek kabul edilen state-drift riski notu:
+`docs/superpowers/specs/2026-08-21-nem-kuru-madde-birlesik-panel-
+design.md`.
+
 **v1.9+ — Nem/Kuru Madde kanonikleştirme**
 
 Alt-proje 2 (Nem/Kuru Madde Birleşik Panel, bkz.
