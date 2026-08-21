@@ -8,6 +8,7 @@ CSV olarak indirilen bir dosyanin aynen geri yuklenebildiginin kaniti
 import io
 import sys
 import os
+from datetime import datetime as _dt
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -141,7 +142,7 @@ def test_parse_individual_success():
     df = pd.DataFrame({"Sira": [1, 2, 3], "Olcum 1": [7.0, 7.1, 7.2]})
     subgroups, err = parse_uploaded_dataframe(df, is_individual=True, subgroup_n=4, shift_options=["Sabah"])
     assert err is None
-    assert subgroups == [
+    assert [{"shift": sg["shift"], "values": sg["values"]} for sg in subgroups] == [
         {"shift": "-", "values": [7.0]},
         {"shift": "-", "values": [7.1]},
         {"shift": "-", "values": [7.2]},
@@ -159,8 +160,8 @@ def test_parse_subgroup_success_with_valid_shift():
         df, is_individual=False, subgroup_n=2, shift_options=["Sabah", "Ogle", "Gece"]
     )
     assert err is None
-    assert subgroups[0] == {"shift": "Sabah", "values": [7.0, 7.05]}
-    assert subgroups[1] == {"shift": "Gece", "values": [7.1, 7.15]}
+    assert subgroups[0]["shift"] == "Sabah" and subgroups[0]["values"] == [7.0, 7.05]
+    assert subgroups[1]["shift"] == "Gece" and subgroups[1]["values"] == [7.1, 7.15]
 
 
 def test_parse_subgroup_missing_shift_column_falls_back_to_first_option():
@@ -198,7 +199,7 @@ def test_round_trip_individual_preserves_values():
     )
 
     assert err is None
-    assert round_tripped == original
+    assert [{"shift": sg["shift"], "values": sg["values"]} for sg in round_tripped] == original
 
 
 def test_round_trip_subgroup_preserves_values_despite_extra_export_columns():
@@ -223,7 +224,7 @@ def test_round_trip_subgroup_preserves_values_despite_extra_export_columns():
     )
 
     assert err is None
-    assert round_tripped == original
+    assert [{"shift": sg["shift"], "values": sg["values"]} for sg in round_tripped] == original
 
 
 # --- parse_pasted_text (Excel/pano yapistirma, v1.2) -----------------------
@@ -326,6 +327,93 @@ def test_parse_pasted_text_skips_blank_lines_between_rows():
     subgroups, err = parse_pasted_text(text, is_individual=True, subgroup_n=1, shift_options=["-"])
     assert err is None
     assert len(subgroups) == 3
+
+
+# --- v2: lot_no/notes/urun/timestamp round-trip (Task 3) ----------------
+
+def test_parse_uploaded_dataframe_preserves_lot_no_and_notes_when_present():
+    df = pd.DataFrame({
+        "Olcum 1": [7.0, 7.1],
+        "lot_no": ["LOT-1", "LOT-2"],
+        "notes": ["ilk numune", ""],
+    })
+    subgroups, err = parse_uploaded_dataframe(df, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"])
+    assert err is None
+    assert subgroups[0]["lot_no"] == "LOT-1"
+    assert subgroups[0]["notes"] == "ilk numune"
+    assert subgroups[1]["lot_no"] == "LOT-2"
+    assert subgroups[1]["notes"] == ""
+
+
+def test_parse_uploaded_dataframe_defaults_lot_no_and_notes_when_absent():
+    df = pd.DataFrame({"Olcum 1": [7.0]})
+    subgroups, err = parse_uploaded_dataframe(df, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"])
+    assert err is None
+    assert subgroups[0]["lot_no"] == ""
+    assert subgroups[0]["notes"] == ""
+
+
+def test_parse_uploaded_dataframe_preserves_urun_when_present_else_uses_default():
+    df_with = pd.DataFrame({"Olcum 1": [7.0], "urun": ["Bal"]})
+    subgroups, _ = parse_uploaded_dataframe(df_with, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"], default_urun="Ozel/Manuel gir")
+    assert subgroups[0]["urun"] == "Bal"
+
+    df_without = pd.DataFrame({"Olcum 1": [7.0]})
+    subgroups2, _ = parse_uploaded_dataframe(df_without, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"], default_urun="Ozel/Manuel gir")
+    assert subgroups2[0]["urun"] == "Ozel/Manuel gir"
+
+
+def test_parse_uploaded_dataframe_preserves_timestamp_when_present_else_stamps_now():
+    df_with = pd.DataFrame({"Olcum 1": [7.0], "timestamp": ["2026-01-01T10:00:00"]})
+    subgroups, _ = parse_uploaded_dataframe(df_with, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"])
+    assert subgroups[0]["timestamp"] == "2026-01-01T10:00:00"
+
+    df_without = pd.DataFrame({"Olcum 1": [7.0]})
+    subgroups2, _ = parse_uploaded_dataframe(df_without, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"])
+    _dt.fromisoformat(subgroups2[0]["timestamp"])  # ValueError firlatirsa FAIL
+
+
+def test_parse_uploaded_dataframe_xbar_r_preserves_new_fields_too():
+    df = pd.DataFrame({
+        "Vardiya": ["Sabah", "Sabah"],
+        "Olcum 1": [7.0, 7.1], "Olcum 2": [7.05, 7.15],
+        "lot_no": ["L1", "L2"],
+    })
+    subgroups, err = parse_uploaded_dataframe(df, is_individual=False, subgroup_n=2, shift_options=["Sabah", "Ogle", "Gece"])
+    assert err is None
+    assert subgroups[0]["lot_no"] == "L1"
+    assert subgroups[1]["lot_no"] == "L2"
+
+
+def test_parse_uploaded_dataframe_microbio_preserves_new_fields_too():
+    df = pd.DataFrame({"Raw (KOB/g)": [500.0], "lot_no": ["LOT-M1"]})
+    subgroups, err = parse_uploaded_dataframe(
+        df, is_individual=True, subgroup_n=1, shift_options=["Sabah", "Ogle", "Gece"],
+        is_microbio=True, default_lod=10.0,
+    )
+    assert err is None
+    assert subgroups[0]["lot_no"] == "LOT-M1"
+
+
+def test_subgroups_to_records_includes_traceability_columns():
+    subgroups = [{
+        "shift": "-", "values": [7.0], "lot_no": "L1", "notes": "n1",
+        "urun": "Bal", "timestamp": "2026-01-01T10:00:00",
+    }]
+    rows = subgroups_to_records(subgroups, is_individual=True)
+    assert rows[0]["Parti/Lot No"] == "L1"
+    assert rows[0]["Not"] == "n1"
+    assert rows[0]["Urun"] == "Bal"
+    assert rows[0]["Zaman"] == "2026-01-01T10:00:00"
+
+
+def test_subgroups_to_records_defaults_missing_traceability_fields():
+    subgroups = [{"shift": "-", "values": [7.0]}]  # eski/demo kaydi - yeni alanlar yok
+    rows = subgroups_to_records(subgroups, is_individual=True)
+    assert rows[0]["Parti/Lot No"] == ""
+    assert rows[0]["Not"] == ""
+    assert rows[0]["Urun"] == ""
+    assert rows[0]["Zaman"] == ""
 
 
 if __name__ == "__main__":

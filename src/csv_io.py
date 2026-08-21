@@ -9,6 +9,7 @@ result_helpers.py icin de gecerlidir.
 """
 
 import re
+from datetime import datetime
 
 import pandas as pd
 
@@ -100,6 +101,12 @@ def subgroups_to_records(subgroups: list[dict], is_individual: bool, is_microbio
     rows = []
     for i, sg in enumerate(subgroups, start=1):
         vals = sg["values"]
+        trace = {
+            "Parti/Lot No": sg.get("lot_no", ""),
+            "Not": sg.get("notes", ""),
+            "Urun": sg.get("urun", ""),
+            "Zaman": sg.get("timestamp", ""),
+        }
         if is_individual and is_microbio:
             is_below = sg.get("is_below_lod", False)
             lod = sg.get("lod")
@@ -111,11 +118,13 @@ def subgroups_to_records(subgroups: list[dict], is_individual: bool, is_microbio
                 "LOD": lod,
                 "Kullanilan (KOB/g)": used_value,
                 "log10": vals[0],
+                **trace,
             })
         elif is_individual:
             rows.append({
                 "Sira": i,
                 **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
+                **trace,
             })
         else:
             rows.append({
@@ -124,17 +133,23 @@ def subgroups_to_records(subgroups: list[dict], is_individual: bool, is_microbio
                 **{f"Olcum {j + 1}": v for j, v in enumerate(vals)},
                 "Ortalama": sum(vals) / len(vals),
                 "Range": max(vals) - min(vals),
+                **trace,
             })
     return rows
 
 
-def _parse_microbio_dataframe(df: pd.DataFrame, unit: str, default_lod: float | None) -> tuple[list[dict] | None, str | None]:
+def _parse_microbio_dataframe(
+    df: pd.DataFrame, unit: str, default_lod: float | None, default_urun: str = "",
+) -> tuple[list[dict] | None, str | None]:
     """parse_uploaded_dataframe'in is_microbio=True dali - 'Raw (KOB/g)'
     sutununu (yoksa 'Olcum 1'i HAM KOB/g olarak) okur, opsiyonel 'LOD altimi'
     (bool-benzeri: True/False, Evet/Hayir) ve 'LOD' sutunlarini kullanir.
     Sutun yoksa is_below_lod=False / lod=default_lod varsayilir. Asil
     ikame/log10 mantigi burada YAZILMAZ - microbiology.build_subgroup_entry
-    cagrilir (TEK merkezi insa noktasi)."""
+    cagrilir (TEK merkezi insa noktasi). v2: lot_no/notes/urun/timestamp
+    sutunlari df'de VARSA korunur, YOKSA sirasiyla ""/""/default_urun/
+    simdiki-zamana duser (bkz. docs/superpowers/specs/2026-08-21-
+    paylasilan-subgroups-izlenebilirlik-design.md)."""
     raw_col = "Raw (KOB/g)" if "Raw (KOB/g)" in df.columns else "Olcum 1"
     if raw_col not in df.columns:
         return None, (
@@ -145,6 +160,10 @@ def _parse_microbio_dataframe(df: pd.DataFrame, unit: str, default_lod: float | 
 
     below_col = next((c for c in df.columns if c.lower() in ("lod altimi", "is_below_lod")), None)
     lod_col = next((c for c in df.columns if c.lower() == "lod"), None)
+    lot_no_col = "lot_no" if "lot_no" in df.columns else None
+    notes_col = "notes" if "notes" in df.columns else None
+    urun_col = "urun" if "urun" in df.columns else None
+    timestamp_col = "timestamp" if "timestamp" in df.columns else None
 
     subgroups = []
     for i in range(len(df)):
@@ -165,13 +184,20 @@ def _parse_microbio_dataframe(df: pd.DataFrame, unit: str, default_lod: float | 
         subgroups.append({
             "shift": "-", "values": [entry["log_value"]],
             "raw": entry["raw"], "is_below_lod": entry["is_below_lod"], "lod": entry["lod"],
+            "lot_no": str(df[lot_no_col].iloc[i]) if lot_no_col and pd.notna(df[lot_no_col].iloc[i]) else "",
+            "notes": str(df[notes_col].iloc[i]) if notes_col and pd.notna(df[notes_col].iloc[i]) else "",
+            "urun": str(df[urun_col].iloc[i]) if urun_col and pd.notna(df[urun_col].iloc[i]) else default_urun,
+            "timestamp": (
+                str(df[timestamp_col].iloc[i]) if timestamp_col and pd.notna(df[timestamp_col].iloc[i])
+                else datetime.now().isoformat(timespec="seconds")
+            ),
         })
     return subgroups, None
 
 
 def parse_uploaded_dataframe(
     df: pd.DataFrame, is_individual: bool, subgroup_n: int, shift_options: list[str], unit: str = "",
-    is_microbio: bool = False, default_lod: float | None = None,
+    is_microbio: bool = False, default_lod: float | None = None, default_urun: str = "",
 ) -> tuple[list[dict] | None, str | None]:
     """CSV'den okunan DataFrame'i subgroups formatina (session_state.subgroups
     ile ayni sekil) cevirir. Basarili olursa (subgroups, None), basarisiz
@@ -183,9 +209,13 @@ def parse_uploaded_dataframe(
     is_microbio=True (sadece is_individual=True ile birlikte kullanilir):
     HAM KOB/g + opsiyonel LOD-altmi/LOD sutunlarini okuyup
     microbiology.build_subgroup_entry uzerinden gecirir - bkz.
-    _parse_microbio_dataframe."""
+    _parse_microbio_dataframe.
+
+    v2: lot_no/notes/urun/timestamp sutunlari df'de VARSA korunur (round-trip
+    icin gerekli - "Degisiklikleri kaydet" bu fonksiyonu kullanir), YOKSA
+    sirasiyla ""/""/default_urun/simdiki-zamana duser."""
     if is_individual and is_microbio:
-        return _parse_microbio_dataframe(df, unit, default_lod)
+        return _parse_microbio_dataframe(df, unit, default_lod, default_urun)
 
     measurement_cols = [c for c in df.columns if c.startswith("Olcum")]
     expected_count = 1 if is_individual else subgroup_n
@@ -199,12 +229,31 @@ def parse_uploaded_dataframe(
             "dogru formati indirebilirsiniz."
         )
 
+    lot_no_col = "lot_no" if "lot_no" in df.columns else None
+    notes_col = "notes" if "notes" in df.columns else None
+    urun_col = "urun" if "urun" in df.columns else None
+    timestamp_col = "timestamp" if "timestamp" in df.columns else None
+
+    def _trace_fields(i: int) -> dict:
+        return {
+            "lot_no": str(df[lot_no_col].iloc[i]) if lot_no_col and pd.notna(df[lot_no_col].iloc[i]) else "",
+            "notes": str(df[notes_col].iloc[i]) if notes_col and pd.notna(df[notes_col].iloc[i]) else "",
+            "urun": str(df[urun_col].iloc[i]) if urun_col and pd.notna(df[urun_col].iloc[i]) else default_urun,
+            "timestamp": (
+                str(df[timestamp_col].iloc[i]) if timestamp_col and pd.notna(df[timestamp_col].iloc[i])
+                else datetime.now().isoformat(timespec="seconds")
+            ),
+        }
+
     if is_individual:
         raw_series = df[measurement_cols[0]]
         numeric_vals = pd.to_numeric(raw_series, errors="coerce")
         if numeric_vals.isna().any():
             return None, friendly_numeric_error(raw_series, numeric_vals, unit)
-        subgroups = [{"shift": "-", "values": [float(v)]} for v in numeric_vals]
+        subgroups = [
+            {"shift": "-", "values": [float(v)], **_trace_fields(i)}
+            for i, v in enumerate(numeric_vals)
+        ]
         return subgroups, None
 
     numeric_block = df[measurement_cols].apply(pd.to_numeric, errors="coerce")
@@ -219,7 +268,7 @@ def parse_uploaded_dataframe(
         shift_val = str(shift_col.iloc[i]) if shift_col is not None else shift_options[0]
         if shift_val not in shift_options:
             shift_val = shift_options[0]
-        subgroups.append({"shift": shift_val, "values": vals})
+        subgroups.append({"shift": shift_val, "values": vals, **_trace_fields(i)})
     return subgroups, None
 
 
