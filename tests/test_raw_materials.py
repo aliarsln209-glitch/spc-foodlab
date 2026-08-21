@@ -42,7 +42,7 @@ ALL_PARAM_DICTS = {
     "Brix": BRIX_PRODUCT_RANGES,
     "Aw": AW_PRODUCT_RANGES,
     "Viskozite": VISCOSITY_PRODUCT_RANGES,
-    "Nem/Rutubet": MOISTURE_PRODUCT_RANGES,
+    "Nem / Kuru Madde": MOISTURE_PRODUCT_RANGES,
     "Tuz/NaCl": SALT_PRODUCT_RANGES,
     "Titrasyon Asitligi": TITRATABLE_ACIDITY_PRODUCT_RANGES,
     "Peroksit Degeri": PEROXIDE_PRODUCT_RANGES,
@@ -88,7 +88,7 @@ def test_bitkisel_yag_only_in_peroxide_and_viscosity():
 
 def test_bugday_unu_only_in_moisture_aw_ph():
     key = _key("Bugday unu")
-    expected_present = {"Nem/Rutubet", "Aw", "pH"}
+    expected_present = {"Nem / Kuru Madde", "Aw", "pH"}
     for param_name, product_dict in ALL_PARAM_DICTS.items():
         if param_name in expected_present:
             assert key in product_dict
@@ -184,11 +184,11 @@ def test_exactly_four_sourced_pairs_three_full_one_partial():
         for p, spec in params.items() if spec["verified"] == "kismi"
     ]
     assert set(fully_sourced) == {
-        ("Peynir alti suyu tozu", "Nem/Rutubet"),
-        ("Kakao tozu", "Nem/Rutubet"),
+        ("Peynir alti suyu tozu", "Nem / Kuru Madde"),
+        ("Kakao tozu", "Nem / Kuru Madde"),
         ("Tuz", "Tuz/NaCl"),
     }
-    assert partially_sourced == [("Bugday unu", "Nem/Rutubet")]
+    assert partially_sourced == [("Bugday unu", "Nem / Kuru Madde")]
     assert len(fully_sourced) + len(partially_sourced) == 4
 
 

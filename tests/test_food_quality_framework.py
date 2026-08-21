@@ -86,9 +86,14 @@ def test_food_quality_parameters_distributed_into_measurement_type_categories():
     # a*/b* PARAMETER_CONFIG/FOOD_QUALITY_PARAMETER_CONFIG kayitlari SILINMEDI
     # (Renk Paneli hala okur), sadece kategori listesinden bilerek disarida
     # birakildilar - bkz. constants.py PARAMETER_CATEGORIES "optik" yorumu.
-    color_lab_trio_members_not_separately_listed = {"a*", "b*"}
+    # v1.8.2: ayni desen "Kuru Madde" icin de gecerli - "Nem/Rutubet" ve
+    # "Kuru Madde" TEK "Nem / Kuru Madde" parametresinde birlestirildi,
+    # "Kuru Madde"nin FOOD_QUALITY_PARAMETER_CONFIG kaydi SILINMEDI (v1.4
+    # Faz 3 testleri hala okuyor, bkz. asagidaki test_faz1_* testleri),
+    # sadece kategori listesinden CIKARILDI.
+    not_separately_listed = {"a*", "b*", "Kuru Madde"}
     for param_name in FOOD_QUALITY_PARAMETER_CONFIG:
-        if param_name in color_lab_trio_members_not_separately_listed:
+        if param_name in not_separately_listed:
             continue
         assert param_name in all_categorized_params, (
             f"{param_name}: hicbir sidebar kategorisinde yok"

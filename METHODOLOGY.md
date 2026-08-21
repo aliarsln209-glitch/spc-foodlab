@@ -947,22 +947,32 @@ Detay ve bilerek kabul edilen state-drift riski notu:
 `docs/superpowers/specs/2026-08-21-nem-kuru-madde-birlesik-panel-
 design.md`.
 
-**v1.9+ — Nem/Kuru Madde kanonikleştirme**
+**v1.8.2 — Nem/Kuru Madde gerçek kanonik birleşim (TAMAMLANDI)**
 
-Alt-proje 2 (Nem/Kuru Madde Birleşik Panel, bkz.
-`docs/superpowers/specs/2026-08-21-nem-kuru-madde-birlesik-panel-
-design.md`) sırasında bilerek ertelendi. `Nem/Rutubet` ve `Kuru Madde`
-matematiksel olarak bağlı (100 − Nem% = Kuru Madde%) ama hâlâ iki AYRI
-SPC parametresi (iki ayrı Cpk/chart/subgroups) — kullanıcı birini
-kaydedip diğerini unutursa veya farklı zamanlarda ayrı düzenlerse iki
-seri arasında teorik bir sapma oluşabilir (pratikte küçük risk, çünkü
-Birleşik Panel ikisini AYNI n-üçlü kaynaktan aynı anda hesaplıyor).
-Gerçek çözüm — tek kanonik `moisture_pct` + `dry_matter_pct`'nin HER
-YERDE dinamik türetilmesi, ayrı bir ikinci Cpk/chart/subgroups YOK —
-`st.session_state.subgroups`'u (şu an tek global liste, `active_parameter`
-değişince sıfırlanıyor) `dict[str, list]`'e çevirecek bağımsız, büyük
-bir refactor gerektiriyor; Birleşik Panel'in kapsamına BİLEREK
-alınmadı.
+v1.8.1'deki kısmi çözüm (sadece giriş formu birleşti, `Nem/Rutubet` ve
+`Kuru Madde` sidebar'da hâlâ iki AYRI parametreydi) kullanıcı testinde
+yetersiz bulundu — aynı gravimetrik ölçümden gelen veri iki farklı `n`
+varsayımıyla (X-bar/R alt grup vs I-MR tekil) aynı anda temsil edilmeye
+çalışılıyordu, bu da kafa karışıklığına ve teorik state-drift riskine
+(biri kaydedilip diğeri unutulabilir) yol açıyordu. Beklenenin aksine
+büyük bir `dict[str, list]` refactor'u GEREKMEDİ — iki parametre TEK
+parametreye indirgendiği için mevcut tek-`subgroups`-listesi mimarisi
+yeterli oldu.
+
+Yapılan değişiklik: `Nem/Rutubet` ve `Kuru Madde` sidebar'da TEK
+"Nem / Kuru Madde" parametresinde birleşti (`Kuru Madde`'nin
+`PARAMETER_CONFIG`/`FOOD_QUALITY_PARAMETER_CONFIG` kaydı a*/b*
+örneğindeki gibi SİLİNMEDİ, sadece kategori listesinden çıkarıldı).
+Kanonik değer HER ZAMAN %Nem'dir; %Kuru Madde ayrı bir SPC kaydı
+DEĞİLDİR — Chart sekmesinde `100-x` olarak canlı türetilir, yanında
+Renk Paneli'nin L*/a*/b* "ayna" mantığıyla aynı dürüstlük notu
+("bu değer türetilmiştir, ayrı bir istatistiksel ölçüm değildir")
+gösterilir. Chart tipi (I-MR/X-bar/R) artık registry'de sabit değil —
+"Nem / Kuru Madde" aktifken sidebar'da yeni bir "Ölçüm türü" seçici
+(Alt-grup/Tekil) belirir; bu, eski iki parametrenin gerçek bir lab
+pratiği farkını (n-tekrarlı alt grup vs tahribatli tekil tayin)
+korur, sadece isim ve veri modeli birleşti. Mod değişimi, `n` değişimiyle
+aynı "mevcut veri silinecek, emin misiniz?" onay desenini kullanır.
 
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek

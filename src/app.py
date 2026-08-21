@@ -35,7 +35,6 @@ from pdf_report import build_pdf_report
 from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, thermal_lethality_f0, titratable_acidity
 from color_lab import append_color_sample, color_samples_to_series, lab_to_hex, remove_color_sample
 from result_helpers import (
-    build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
     build_quick_summary,
     build_totox_comment,
@@ -250,6 +249,11 @@ if st.session_state.pop("_reset_parameter_radio", False):
 # (widget instantiate edilmeden ONCE yapilmali - bkz. yukaridaki aciklama).
 if st.session_state.pop("_reset_subgroup_n_input", False):
     st.session_state.subgroup_size_input = st.session_state.subgroup_size
+if st.session_state.pop("_reset_km_mode_input", False):
+    st.session_state.moisture_km_mode_input = (
+        "Tekil (I-MR)" if st.session_state.get("moisture_km_is_individual", False)
+        else "Alt-grup (X-bar/R)"
+    )
 
 with st.sidebar:
     # "Ayarlar" basligi eskiden burada, parametre secicisinin USTUNDE
@@ -366,7 +370,56 @@ unit = param_config["unit"]
 # 2 basamak verirken ekranda 4.5512344 gostermek sahte kesinlik olur) -
 # tum grafik etiketi/tablo/Cpk-adim gosterimi buna gore yuvarlanir.
 decimal_places = param_config["decimal_places"]
-is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
+if st.session_state.active_parameter == "Nem / Kuru Madde":
+    # v1.8.2: Nem/Rutubet ve Kuru Madde TEK parametrede birlestirildi -
+    # kanonik deger daima %Nem'dir (Kuru Madde HER YERDE 100-x turetilir),
+    # ama chart tipi (I-MR/X-bar/R) artik SABIT bir registry bayragiyla
+    # degil, kullanicinin BURADA sectigi olcum turuyle belirlenir - cunku
+    # eski iki parametrenin biri I-MR biri X-bar/R'ydi ve bu ayrim gercek
+    # bir lab pratigi farkini (tahribatli tekil tayin vs n-tekrarli alt
+    # grup) yansitiyordu, sadece isim birlesti. subgroup_size kontrolu
+    # (asagida) SADECE Alt-grup secilince gorunur/kullanilir - MIN_SUBGROUP_
+    # SIZE=2 sinirina DOKUNULMADI (bkz. asagidaki n kontrolu yorumu).
+    with st.sidebar:
+        st.divider()
+        selected_km_mode = st.radio(
+            "Ölçüm türü",
+            ["Alt-grup (X-bar/R)", "Tekil (I-MR)"],
+            index=1 if st.session_state.get("moisture_km_is_individual", False) else 0,
+            key="moisture_km_mode_input",
+            help=(
+                "Ayni numuneden n tekrar olcum aliyorsaniz Alt-grup "
+                "(X-bar/R) secin; her seferinde tek bir tahribatli tayin "
+                "yapiyorsaniz Tekil (I-MR) secin. Kanonik deger her iki "
+                "modde de %Nem'dir - %Kuru Madde her yerde 100-x olarak "
+                "turetilir, ayri bir olcum serisi DEGILDIR."
+            ),
+        )
+        _selected_km_is_individual = selected_km_mode == "Tekil (I-MR)"
+        if _selected_km_is_individual != st.session_state.get("moisture_km_is_individual", False):
+            if st.session_state.subgroups:
+                st.warning(
+                    "Ölçüm türü değiştirilirse mevcut alt gruplar ve baseline "
+                    "silinecek (mevcut veri eski ölçüm türüne göre girildi). "
+                    "Emin misiniz?"
+                )
+                kmc1, kmc2 = st.columns(2)
+                with kmc1:
+                    if st.button("Evet, degistir", type="primary", key="km_mode_change_yes"):
+                        st.session_state.moisture_km_is_individual = _selected_km_is_individual
+                        st.session_state.subgroups = []
+                        st.session_state.baseline = None
+                        st.rerun()
+                with kmc2:
+                    if st.button("Vazgec", key="km_mode_change_no"):
+                        st.session_state._reset_km_mode_input = True
+                        st.rerun()
+            else:
+                st.session_state.moisture_km_is_individual = _selected_km_is_individual
+                st.rerun()
+    is_individual = st.session_state.get("moisture_km_is_individual", False)
+else:
+    is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
 is_microbio = param_config.get("is_microbio", False)  # True: log10-CFU (TPC/TMAB) - bkz. microbiology.py
 
 if not is_individual:
@@ -1551,18 +1604,26 @@ def render_moisture_dry_matter_data_entry_tab() -> None:
     """Nem/Kuru Madde Birlesik Paneli - SEKME 1. bkz. docs/superpowers/
     specs/2026-08-21-nem-kuru-madde-birlesik-panel-design.md.
 
+    v1.8.2 (gercek kanonik birlesim): "Nem/Rutubet" ve "Kuru Madde" artik
+    TEK sidebar parametresi ("Nem / Kuru Madde"). Kanonik deger HER ZAMAN
+    %Nem'dir (gravimetric_moisture()'in moisture_pct alani) - %Kuru Madde
+    ayri bir SPC kaydi olarak SAKLANMAZ, sadece canli onizlemede ve Chart
+    sekmesinde 100-x olarak TURETILIR (bkz. render_generic_chart_tab
+    icindeki "Turetilmis Kuru Madde" caption'i). Chart tipi (I-MR/X-bar/R)
+    artik registry'de sabit degil - module-level `is_individual`
+    degiskeni, bu parametre aktifken app.py'nin ust kisimdaki "Olcum turu"
+    radio'suyla DINAMIK belirlenir (bkz. o blok) - burada YENIDEN
+    HESAPLANMAZ, module-level global OLDUGU GIBI okunur (bu fonksiyon
+    is_individual'a hicbir yerde ATAMA yapmiyor, bu yuzden Python'un
+    fonksiyon-govdesi-boyunca-yerel-degisken kurali burada devreye
+    girmez - global gorunur kalir).
+
     Gravimetrik (AOAC 925.10) n-uclu (dara/yas/kuru) giris formu ustte,
     render_generic_data_entry_tab() (dogrudan deger girisi/CSV/pano
     yapıştırma/gecmis tablo, DEGISMEDEN) altta. Hedef HER ZAMAN aktif
-    parametredir (Nem/Rutubet veya Kuru Madde) - kullanici ayrica
-    secmez, bu yuzden render_bridge_widget'in secim/gating UI'i BURADA
-    KULLANILMAZ; build_bridge_subgroup_entry DOGRUDAN cagrilir.
-
-    Kuru Madde (I-MR): daima n=1 (I-MR tanimi geregi tek numune) -> 1 I-MR
-    noktasi. Dongu, Nem/Rutubet ile ayni kod yolunu paylasmak icin var (n=1
-    oldugunda dongu tek kez calisir), n>1 asla olusmaz.
-    Nem/Rutubet (X-bar/R): n numune -> TEK bir X-bar/R alt grubu (n
-    degerlik values listesi).
+    parametredir - kullanici ayrica secmez, bu yuzden render_bridge_
+    widget'in secim/gating UI'i BURADA KULLANILMAZ; build_bridge_
+    subgroup_entry DOGRUDAN cagrilir.
 
     lot_no: build_bridge_subgroup_entry'nin parametresi DEGIL (Alt-proje
     1'de bilerek disaridan birakildi, bkz. o spec) - donen dict'e
@@ -1571,18 +1632,17 @@ def render_moisture_dry_matter_data_entry_tab() -> None:
     st.markdown("#### ⚖️ Gravimetrik Nem/Kuru Madde Girişi (AOAC 925.10)")
     st.caption(
         "Dara + yaş numune + kuru kalıntı ağırlığından hem Nem hem Kuru "
-        "Madde hesaplar ve doğrudan aktif parametreye ("
-        f"**{st.session_state.active_parameter}**) yazar. Aşağıda ayrıca "
-        "doğrudan değer girişi/CSV/pano yapıştırma seçenekleri de mevcuttur."
+        "Madde hesaplar; kanonik değer daima %Nem'dir (Kuru Madde "
+        "100-x olarak türetilir) ve doğrudan aktif parametreye yazılır. "
+        "Aşağıda ayrıca doğrudan değer girişi/CSV/pano yapıştırma "
+        "seçenekleri de mevcuttur."
     )
 
-    is_individual = PARAMETER_CONFIG.get(st.session_state.active_parameter, {}).get("is_individual", False)
     n = 1 if is_individual else st.session_state.subgroup_size
-    # Widget key'lerine active_parameter EKLENIR (sadece i/n degil) - aksi
-    # halde Nem/Rutubet icin subgroup_size=1 iken Kuru Madde ile (o da
-    # daima n=1) AYNI key'ler uretilir, parametreler arasi gecişte eski
-    # yazilmis degerler yanlislikla tasinir (canli testte bu senaryo
-    # ayrica dogrulanacak, bkz. implementasyon plani Task 2).
+    # Widget key'lerine active_parameter ve n dahildir - "Olcum turu"
+    # degisince (I-MR<->X-bar/R) n de degistigi icin (1 <-> subgroup_size,
+    # MIN_SUBGROUP_SIZE=2 oldugundan asla cakismaz) widget'lar otomatik
+    # taze baslar, eski moddan deger tasinmaz.
     key_scope = f"{st.session_state.active_parameter}_{n}"
 
     triples = []
@@ -1628,11 +1688,11 @@ def render_moisture_dry_matter_data_entry_tab() -> None:
         if is_individual:
             for result in triples:
                 entry = build_bridge_subgroup_entry(
-                    value=result["dry_matter_pct"], shift="-", notes=notes, urun=urun,
+                    value=result["moisture_pct"], shift="-", notes=notes, urun=urun,
                 )
                 entry["lot_no"] = lot_no
                 st.session_state.subgroups.append(entry)
-            st.success(f"{len(triples)} Kuru Madde ölçümü SPC veri setine eklendi (I-MR).")
+            st.success(f"{len(triples)} ölçüm SPC veri setine eklendi (I-MR, %Nem kanonik değer).")
         else:
             entry = build_bridge_subgroup_entry(
                 value=[t["moisture_pct"] for t in triples], shift=moist_shift,
@@ -1640,7 +1700,7 @@ def render_moisture_dry_matter_data_entry_tab() -> None:
             )
             entry["lot_no"] = lot_no
             st.session_state.subgroups.append(entry)
-            st.success(f"1 Nem/Rutubet alt grubu SPC veri setine eklendi (X-bar/R, n={n}).")
+            st.success(f"1 alt grup SPC veri setine eklendi (X-bar/R, n={n}, %Nem kanonik değer).")
 
     st.divider()
     render_generic_data_entry_tab()
@@ -2238,7 +2298,7 @@ def render_generic_data_entry_tab() -> None:
 with tab_data:
     if st.session_state.active_parameter == "L*":
         render_color_lab_data_entry_tab()
-    elif st.session_state.active_parameter in ("Nem/Rutubet", "Kuru Madde"):
+    elif st.session_state.active_parameter == "Nem / Kuru Madde":
         render_moisture_dry_matter_data_entry_tab()
     else:
         render_generic_data_entry_tab()
@@ -2281,20 +2341,22 @@ def render_generic_chart_tab() -> None:
                     st.success("Analiz sifirlandi (olculen veriler korundu).")
                     st.rerun()
 
-        if st.session_state.active_parameter == "Kuru Madde":
-            # v1.5 Faz 2: Kuru Madde + Nem capraz tutarlilik kontrolu -
-            # BLOKLAMAYAN, bilgilendirici (bkz. METHODOLOGY.md v1.5 Faz 2 ve
-            # result_helpers.build_dry_matter_moisture_consistency_note
-            # docstring'i - neden GERCEK bir ikinci parametre yerine elle
-            # girilen bir referans Nem % kullanildigini acikliyor).
-            with st.expander("\U0001F50D Capraz kontrol: Kuru Madde + Nem"):
-                _dm_values, _dm_mr, _dm_xbar, _ = compute_individual_stats(st.session_state.subgroups)
-                _nem_ref = st.number_input(
-                    "Referans Nem % (aynı numune icin, elle girilir)",
-                    min_value=0.0, max_value=100.0, value=10.0, step=0.1,
-                    key="kuru_madde_nem_check_input",
-                )
-                st.caption(build_dry_matter_moisture_consistency_note(_dm_xbar, _nem_ref))
+        if st.session_state.active_parameter == "Nem / Kuru Madde" and st.session_state.subgroups:
+            # v1.8.2: Kuru Madde artik AYRI bir parametre degil - kanonik
+            # deger daima %Nem'dir, %Kuru Madde HER YERDE 100-x olarak
+            # turetilir (Renk Paneli'nin L*/a*/b* "ayna" mantigiyla ayni
+            # durustluk standardi - turetilmis deger kendi Cpk'sine/
+            # chart'ina sahip DEGILDIR). Onceki "Capraz kontrol: Kuru
+            # Madde + Nem" expander'i (elle girilen referans Nem % ile,
+            # v1.5 Faz 2) bu yuzden GEREKSIZ hale geldi - KALDIRILDI.
+            _all_moisture_values = [v for sg in st.session_state.subgroups for v in sg["values"]]
+            _mean_moisture = sum(_all_moisture_values) / len(_all_moisture_values)
+            st.caption(
+                f"\U0001F501 Turetilmis Kuru Madde (ortalama): "
+                f"%{100 - _mean_moisture:.{decimal_places}f} — bu deger "
+                "%Nem'den (100-x) turetilmistir, ayri bir istatistiksel "
+                "olcum DEGILDIR (kendi Cpk'si/chart'i yoktur)."
+            )
 
         products = list(param_config["products"].keys())
         default_index = products.index("Ozel/Manuel gir")
@@ -2438,14 +2500,15 @@ def render_generic_chart_tab() -> None:
                     "cikarsa mikrobiyal ureme riski artar; alt limit cogu urun "
                     "icin tanimsiz oldugundan LSL bu parametrede kullanilmaz."
                 )
-            elif active_param == "Nem/Rutubet":
+            elif active_param == "Nem / Kuru Madde":
                 st.caption(
                     "Bu degerler sektor pratigine dayanan gosterge degerlerdir, "
-                    "kalite kontrol referansidir. **Bal urunu icin sadece USL "
-                    "anlamlidir** (TGK Bal Tebligi'nde nem icin tek tarafli ust "
-                    "limit tanimlanmistir) - bu urun secildiginde LSL otomatik "
-                    "devre disi kalir ve Cpu hesaplanir; diger urunler iki "
-                    "tarafli kalir."
+                    "kalite kontrol referansidir (LSL/USL kanonik %Nem "
+                    "eksenindedir, Kuru Madde 100-x turetilir). **Bal urunu "
+                    "icin sadece USL anlamlidir** (TGK Bal Tebligi'nde nem "
+                    "icin tek tarafli ust limit tanimlanmistir) - bu urun "
+                    "secildiginde LSL otomatik devre disi kalir ve Cpu "
+                    "hesaplanir; diger urunler iki tarafli kalir."
                 )
             elif active_param == "Tuz/NaCl":
                 st.caption(
@@ -3987,4 +4050,4 @@ Detayli kaynak ve dogrulama notlari icin bkz. README.
 # disinda oldugu icin hangi sekme secili olursa olsun sayfanin en altinda kalir)
 # ---------------------------------------------------------------------------
 st.divider()
-st.caption(f"SPC FoodLab v1.8.1 · [GitHub]({GITHUB_URL})")
+st.caption(f"SPC FoodLab v1.8.2 · [GitHub]({GITHUB_URL})")

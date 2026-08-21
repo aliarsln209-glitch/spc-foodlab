@@ -153,14 +153,18 @@ def test_render_bridge_widget_stamps_urun_and_notes():
 
 
 def test_moisture_dry_matter_panel_exists_and_is_routed():
-    # Task 1: Nem/Kuru Madde Birlesik Paneli - active_parameter bu iki
-    # degerden biriyken tab_data render_moisture_dry_matter_data_entry_tab'a
-    # yonlenmeli, fonksiyon gravimetric_moisture'i n kez cagirip dogrudan
-    # aktif parametreye yazmali (render_bridge_widget KULLANILMAMALI - hedef
-    # zaten belli, secim UI'i gereksiz).
+    # v1.8.2: "Nem/Rutubet" ve "Kuru Madde" TEK "Nem / Kuru Madde"
+    # parametresinde birlesti (once bir turda ikisi ayri secilebilirdi -
+    # bu artik gecerli degil, kullanici geri bildirimiyle gercek kanonik
+    # birlesime tamamlandi). active_parameter bu tek degerdeyken tab_data
+    # render_moisture_dry_matter_data_entry_tab'a yonlenmeli, fonksiyon
+    # gravimetric_moisture'i n kez cagirip dogrudan aktif parametreye
+    # (kanonik %Nem degeriyle, is_individual modundan BAGIMSIZ) yazmali
+    # (render_bridge_widget KULLANILMAMALI - hedef zaten belli, secim
+    # UI'i gereksiz).
     with open(APP_PATH, encoding="utf-8") as f:
         source = f.read()
-    assert 'active_parameter in ("Nem/Rutubet", "Kuru Madde")' in source
+    assert 'active_parameter == "Nem / Kuru Madde"' in source
     start = source.index("def render_moisture_dry_matter_data_entry_tab()")
     end = source.index("def render_generic_data_entry_tab()")
     body = source[start:end]
@@ -169,14 +173,33 @@ def test_moisture_dry_matter_panel_exists_and_is_routed():
     assert "render_bridge_widget(" not in body  # bu panelde KULLANILMAZ
     assert "render_generic_data_entry_tab()" in body  # dogrudan deger girisi altta kalir
     assert 'entry["lot_no"] = lot_no' in body
-    # widget key'leri active_parameter'i icermeli - aksi halde Nem/Rutubet
-    # (subgroup_size=1) ile Kuru Madde (daima n=1) ayni key'i paylasip
-    # parametreler arasi gecişte eski degerleri tasir (bkz. kullanici
-    # geri bildirimi / implementasyon plani onceki turu).
+    # Kanonik deger HER ZAMAN %Nem - Kuru Madde/I-MR modunda bile
+    # dry_matter_pct DEGIL moisture_pct yazilmali (v1.8.2 duzeltmesi).
+    assert 'value=result["moisture_pct"]' in body
+    assert 'value=result["dry_matter_pct"]' not in body
+    # widget key'leri n'i icermeli - "Olcum turu" degisince (I-MR<->X-bar/R)
+    # n de degistigi icin (1 <-> subgroup_size, MIN_SUBGROUP_SIZE=2) widget'lar
+    # otomatik taze baslar.
     assert 'key_scope = f"{st.session_state.active_parameter}_{n}"' in body
     # Hatali uclu varsa Kaydet devre disi kalir - sessiz kismi kayit YOK.
     assert "disabled=has_error" in body
     assert "has_error = True" in body
+    # is_individual bu fonksiyonda YENIDEN ATANMAMALI (module-level global
+    # olarak, app.py ust kisimdaki "Olcum turu" radio'sundan okunmali).
+    assert "is_individual = PARAMETER_CONFIG.get(" not in body
+
+
+def test_moisture_km_mode_toggle_exists_and_gates_subgroup_size_control():
+    # v1.8.2: "Nem / Kuru Madde" aktifken chart tipi artik registry'de
+    # sabit degil - kullanicinin sectigi bir "Olcum turu" radio'suyla
+    # dinamik belirlenir (I-MR/X-bar/R lab pratigi farkini korur, sadece
+    # isim birlesti).
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    assert 'active_parameter == "Nem / Kuru Madde"' in source
+    assert '"moisture_km_mode_input"' in source
+    assert "st.session_state.moisture_km_is_individual" in source
+    assert "_reset_km_mode_input" in source
 
 
 def test_old_gravimetric_calculator_removed_from_tab_calc():

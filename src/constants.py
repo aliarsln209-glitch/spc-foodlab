@@ -15,7 +15,11 @@ PARAMETER_DESCRIPTIONS = {
     "Brix": "Cozunur kuru madde / seker orani (°Bx). Meyve suyu, salca, recel.",
     "Aw": "Su aktivitesi (0-1) - mikrobiyal bozulma riski gostergesi. Genelde tek tarafli (ust limit).",
     "Viskozite": "Akiskanliga direnc (cP). Tek tek olculur - I-MR chart kullanilir.",
-    "Nem/Rutubet": "Numunedeki nem yuzdesi (%). Bal gibi urunlerde tek tarafli olabilir.",
+    "Nem / Kuru Madde": (
+        "Numunedeki nem yuzdesi (%, kanonik olcum) - Kuru Madde yuzdesi "
+        "her yerde 100-x olarak turetilir, ayri bir olcum DEGILDIR. Bal "
+        "gibi urunlerde tek tarafli olabilir."
+    ),
     "Tuz/NaCl": "Sodyum klorur yuzdesi (%). Salamura, sarkuteri urunlerinde kritik.",
     "Titrasyon Asitligi": "Titre edilebilir toplam asitlik (%). pH'tan farkli, toplam asit miktarini olcer.",
     "Peroksit Degeri": "Yaglarda oksidatif bozulma gostergesi (meq O2/kg). Tek tek olculur, tek tarafli.",
@@ -55,10 +59,12 @@ PARAMETER_INFO = {
         "performansi) acisindan onemlidir - hedeften sapma, uretim "
         "hattinda dolum/paketleme sorunlarina yol acabilir."
     ),
-    "Nem/Rutubet": (
-        "Nem/rutubet, numunedeki su icerigini yuzde olarak gosterir. "
-        "Raf omru, mikrobiyal stabilite ve bazi urunlerde (orn. bal) yasal "
-        "kalite tanimi acisindan dogrudan etkilidir."
+    "Nem / Kuru Madde": (
+        "Nem/rutubet, numunedeki su icerigini yuzde olarak gosterir "
+        "(kanonik olcum - Kuru Madde yuzdesi 100-x olarak turetilir, ayri "
+        "bir SPC kaydi degildir). Raf omru, mikrobiyal stabilite ve bazi "
+        "urunlerde (orn. bal) yasal kalite tanimi acisindan dogrudan "
+        "etkilidir."
     ),
     "Tuz/NaCl": (
         "Tuz/NaCl orani, hem tat/kalite standardizasyonu hem de bazi "
@@ -144,7 +150,7 @@ PARAMETER_CATEGORIES = [
     ("fiziksel", "\U0001F9EA Fiziksel/Duyusal", ["pH", "Brix", "Aw", "Viskozite", "Yogunluk", "Iletkenlik"]),
     (
         "kimyasal", "\U00002697\U0000FE0F Kimyasal Kompozisyon",
-        ["Nem/Rutubet", "Tuz/NaCl", "Titrasyon Asitligi", "Protein", "Yag", "Kul", "Kuru Madde"],
+        ["Nem / Kuru Madde", "Tuz/NaCl", "Titrasyon Asitligi", "Protein", "Yag", "Kul"],
     ),
     (
         "optik", "\U0001F3A8 Optik/Gorunum",
@@ -167,7 +173,7 @@ PARAMETER_SOURCES = {
     "pH": "Oklahoma State University Extension, Dairy Food Safety Victoria",
     "Brix": "19 CFR 151.91 (ABD federal regulasyonu) + sektor pratigi",
     "Aw": "DRINC/UC Davis, Virginia Tech Cooperative Extension",
-    "Nem/Rutubet": "Sektor pratigi (Bal: TGK Bal Tebligi)",
+    "Nem / Kuru Madde": "Sektor pratigi (Bal: TGK Bal Tebligi)",
     "Tuz/NaCl": "Sektor pratigi",
     "Titrasyon Asitligi": "Sektor pratigi",
     "Viskozite": "Prime Resins, Sculpture Supply (teknik viskozite tablolari)",
@@ -422,7 +428,7 @@ RAW_MATERIAL_PREFIX = "\U0001F33E "  # 🌾 - secim listesinde bitmiş urunlerde
 
 RAW_MATERIAL_QC_REFERENCE = {
     "Bugday unu": {
-        "Nem/Rutubet": {
+        "Nem / Kuru Madde": {
             "range": (None, 14.5),
             "source": "TGK Bugday Unu Tebligi (No: 2013/9)",
             "verified": "kismi",  # arama motoru snippet'i ile dogrulandi, tam metin taranmis PDF oldugu icin tablo dogrudan okunamadi
@@ -432,7 +438,7 @@ RAW_MATERIAL_QC_REFERENCE = {
         "pH": {"range": None, "source": None, "verified": False, "note": None},
     },
     "Sut tozu": {
-        "Nem/Rutubet": {
+        "Nem / Kuru Madde": {
             "range": None,
             "source": "TGK Fermente Sut Urunleri Tebligi (No: 2022/44) - 'toz fermente sut urunu' tanimindan; klasik sut tozu icin ayri tebligi bulunamadi",
             "verified": False,  # yanlis urun kategorisinden gelme riski var, sayi kullanilmadi
@@ -448,23 +454,23 @@ RAW_MATERIAL_QC_REFERENCE = {
         "Viskozite": {"range": None, "source": None, "verified": False, "note": "Olcum kosullari (sicaklik, kayma hizi) urune/tesise bagli."},
         "pH": {"range": None, "source": None, "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
-        "Nem/Rutubet": {"range": None, "source": None, "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": None, "verified": False, "note": None},
         "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
     "Maltodekstrin": {
-        "Nem/Rutubet": {"range": None, "source": "JECFA/FCC genel tanimi tipik ~%5 nem belirtiyor, spesifik monograf sayisi dogrulanamadi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "JECFA/FCC genel tanimi tipik ~%5 nem belirtiyor, spesifik monograf sayisi dogrulanamadi", "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
         "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur, metodoloji standardize edilmelidir."},
         "Viskozite": {"range": None, "source": None, "verified": False, "note": "Opsiyonel; cozelti/surup halinde olculur."},
     },
     "Maltitol": {
-        "Nem/Rutubet": {"range": None, "source": "JECFA Food Additives Series 40 'Maltitol syrup' monografi mevcut, sayisal loss-on-drying degeri dogrulanamadi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "JECFA Food Additives Series 40 'Maltitol syrup' monografi mevcut, sayisal loss-on-drying degeri dogrulanamadi", "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
         "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur."},
         "Viskozite": {"range": None, "source": None, "verified": False, "note": "Opsiyonel; cozelti/surup halinde olculur."},
     },
     "Nisasta": {
-        "Nem/Rutubet": {"range": None, "source": "Ayri bir 'TGK Nisasta Tebligi' tespit edilemedi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "Ayri bir 'TGK Nisasta Tebligi' tespit edilemedi", "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
         "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
@@ -478,7 +484,7 @@ RAW_MATERIAL_QC_REFERENCE = {
         "Viskozite": {"range": None, "source": None, "verified": False, "note": "Mevzuatta genelde zorunlu spesifikasyon degil, isletme ici QC parametresidir."},
     },
     "Peynir alti suyu tozu": {
-        "Nem/Rutubet": {
+        "Nem / Kuru Madde": {
             "range": (None, 5.0),
             "source": "TGK Peynir Tebligi (No: 2015/6)",
             "verified": True,
@@ -490,7 +496,7 @@ RAW_MATERIAL_QC_REFERENCE = {
         "Titrasyon Asitligi": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
     "Kakao tozu": {
-        "Nem/Rutubet": {
+        "Nem / Kuru Madde": {
             "range": (None, 9.0),
             "source": "TGK Kakao ve Cikolata Urunleri Tebligi (No: 2017/29)",
             "verified": True,
@@ -500,23 +506,23 @@ RAW_MATERIAL_QC_REFERENCE = {
         "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
     "Toz seker": {
-        "Nem/Rutubet": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) 'Bilesim ve Kalite Ozellikleri' bolumunde olabilir, sayisal deger metinden dogrulanamadi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) 'Bilesim ve Kalite Ozellikleri' bolumunde olabilir, sayisal deger metinden dogrulanamadi", "verified": False, "note": None},
         "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur, metodoloji standardize edilmelidir."},
         "Aw": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
     "Fruktoz": {
-        "Nem/Rutubet": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) fruktozu kapsiyor, sayisal nem limiti dogrulanamadi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "TGK Seker Tebligi (No: 2022/10) fruktozu kapsiyor, sayisal nem limiti dogrulanamadi", "verified": False, "note": None},
         "Brix": {"range": None, "source": None, "verified": False, "note": "Toz halde dogrudan olculmez - cozelti hazirlanarak yapilan olcumdur, metodoloji standardize edilmelidir."},
         "Aw": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
     "Pektin": {
-        "Nem/Rutubet": {"range": None, "source": "JECFA/Codex GSFA Pectins (INS 440) monografinda 'loss on drying' spesifikasyonu bulunuyor, sayisal deger dogrulanamadi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "JECFA/Codex GSFA Pectins (INS 440) monografinda 'loss on drying' spesifikasyonu bulunuyor, sayisal deger dogrulanamadi", "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
         "Viskozite": {"range": None, "source": None, "verified": False, "note": "Dogrudan olculmez - standart cozelti/jel sisteminde olculur, kosullar tesise gore degisir."},
         "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
     },
     "Jelatin": {
-        "Nem/Rutubet": {"range": None, "source": "Ayri bir 'TGK Jelatin Tebligi' tespit edilemedi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "Ayri bir 'TGK Jelatin Tebligi' tespit edilemedi", "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
         "Viskozite": {"range": None, "source": None, "verified": False, "note": "Dogrudan olculmez - standart cozelti/jel sisteminde olculur, kosullar tesise gore degisir."},
         "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
@@ -539,7 +545,7 @@ RAW_MATERIAL_QC_REFERENCE = {
         },
     },
     "Yumurta tozu": {
-        "Nem/Rutubet": {"range": None, "source": "TGK Yumurta ve Yumurta Urunleri Tebligi (2024/7) mevcut, sayisal tablo taranmis PDF'lerden dogrulanamadi", "verified": False, "note": None},
+        "Nem / Kuru Madde": {"range": None, "source": "TGK Yumurta ve Yumurta Urunleri Tebligi (2024/7) mevcut, sayisal tablo taranmis PDF'lerden dogrulanamadi", "verified": False, "note": None},
         "Aw": {"range": None, "source": None, "verified": False, "note": None},
         "Peroksit Degeri": {"range": None, "source": None, "verified": False, "note": None},
         "pH": {"range": None, "source": None, "verified": False, "note": "Opsiyonel olcum."},
@@ -573,7 +579,7 @@ _RAW_MATERIAL_TARGET_DICTS = {
     "Brix": BRIX_PRODUCT_RANGES,
     "Aw": AW_PRODUCT_RANGES,
     "Viskozite": VISCOSITY_PRODUCT_RANGES,
-    "Nem/Rutubet": MOISTURE_PRODUCT_RANGES,
+    "Nem / Kuru Madde": MOISTURE_PRODUCT_RANGES,
     "Tuz/NaCl": SALT_PRODUCT_RANGES,
     "Titrasyon Asitligi": TITRATABLE_ACIDITY_PRODUCT_RANGES,
     "Peroksit Degeri": PEROXIDE_PRODUCT_RANGES,
@@ -656,7 +662,7 @@ PARAMETER_CONFIG = {
         "one_sided": False,
         "is_individual": True,  # X-bar/R degil, I-MR chart kullanilir (alt grup yok)
     },
-    "Nem/Rutubet": {
+    "Nem / Kuru Madde": {
         "unit": "%",
         "min_value": 0.0,
         "max_value": 100.0,
