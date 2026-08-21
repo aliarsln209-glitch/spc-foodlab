@@ -1,6 +1,7 @@
 import math
 import os
 import sys
+from datetime import datetime as _dt
 
 import pytest
 
@@ -36,38 +37,75 @@ def test_gravimetric_moisture_dry_heavier_than_wet_raises():
 
 
 def test_build_bridge_subgroup_entry_shape():
-    entry = build_bridge_subgroup_entry(value=12.34, shift_label="QC Donusturucu - Test")
-    assert entry == {"shift": "QC Donusturucu - Test", "values": [12.34]}
+    entry = build_bridge_subgroup_entry(value=12.34, shift="-", notes="QC Donusturucu - Test")
+    assert entry["shift"] == "-"
+    assert entry["values"] == [12.34]
+    assert entry["notes"] == "QC Donusturucu - Test"
+    assert entry["urun"] == ""
+    assert "timestamp" in entry
 
 
 def test_build_bridge_subgroup_entry_rejects_non_finite_value():
     with pytest.raises(ValueError, match="sonlu"):
-        build_bridge_subgroup_entry(value=float("nan"), shift_label="QC Donusturucu - Test")
+        build_bridge_subgroup_entry(value=float("nan"), shift="-", notes="QC Donusturucu - Test")
 
 
 def test_build_bridge_subgroup_entry_accepts_list_for_xbar_r():
     entry = build_bridge_subgroup_entry(
-        value=[1.1, 1.2, 1.0, 1.3], shift_label="QC Donusturucu - Test XR",
+        value=[1.1, 1.2, 1.0, 1.3], shift="Sabah", notes="QC Donusturucu - Test XR",
     )
-    assert entry == {"shift": "QC Donusturucu - Test XR", "values": [1.1, 1.2, 1.0, 1.3]}
+    assert entry["shift"] == "Sabah"
+    assert entry["values"] == [1.1, 1.2, 1.0, 1.3]
+    assert entry["notes"] == "QC Donusturucu - Test XR"
 
 
 def test_build_bridge_subgroup_entry_rejects_empty_list():
     with pytest.raises(ValueError, match="bos olamaz"):
-        build_bridge_subgroup_entry(value=[], shift_label="QC Donusturucu - Test XR")
+        build_bridge_subgroup_entry(value=[], shift="Sabah", notes="QC Donusturucu - Test XR")
 
 
 def test_build_bridge_subgroup_entry_rejects_non_finite_value_in_list():
     with pytest.raises(ValueError, match="sonlu"):
         build_bridge_subgroup_entry(
-            value=[1.0, float("nan"), 1.2], shift_label="QC Donusturucu - Test XR",
+            value=[1.0, float("nan"), 1.2], shift="Sabah", notes="QC Donusturucu - Test XR",
         )
 
 
 def test_build_bridge_subgroup_entry_single_float_still_works():
     # Faz 1 davranisi degismemeli - regresyon kontrolu
-    entry = build_bridge_subgroup_entry(value=12.34, shift_label="QC Donusturucu - Test")
-    assert entry == {"shift": "QC Donusturucu - Test", "values": [12.34]}
+    entry = build_bridge_subgroup_entry(value=12.34, shift="-", notes="QC Donusturucu - Test")
+    assert entry["shift"] == "-"
+    assert entry["values"] == [12.34]
+
+
+def test_build_bridge_subgroup_entry_individual_uses_given_shift_and_notes():
+    entry = build_bridge_subgroup_entry(5.5, shift="-", notes="QC Donusturucu - Totox")
+    assert entry["shift"] == "-"
+    assert entry["values"] == [5.5]
+    assert entry["notes"] == "QC Donusturucu - Totox"
+    assert entry["urun"] == ""
+
+
+def test_build_bridge_subgroup_entry_xbar_r_uses_given_shift():
+    entry = build_bridge_subgroup_entry([1.0, 2.0, 3.0], shift="Ogle", notes="QC Donusturucu - Titre Edilebilir Asitlik")
+    assert entry["shift"] == "Ogle"
+    assert entry["values"] == [1.0, 2.0, 3.0]
+    assert entry["notes"] == "QC Donusturucu - Titre Edilebilir Asitlik"
+
+
+def test_build_bridge_subgroup_entry_stores_urun_when_given():
+    entry = build_bridge_subgroup_entry(5.5, shift="-", notes="x", urun="Zeytinyagi (naturel sizma)")
+    assert entry["urun"] == "Zeytinyagi (naturel sizma)"
+
+
+def test_build_bridge_subgroup_entry_timestamp_is_iso_format_string():
+    entry = build_bridge_subgroup_entry(5.5, shift="-", notes="x")
+    _dt.fromisoformat(entry["timestamp"])  # ValueError firlatirsa test FAIL olur
+
+
+def test_build_bridge_subgroup_entry_no_longer_accepts_shift_label():
+    with pytest.raises(TypeError):
+        build_bridge_subgroup_entry(5.5, shift_label="eski API")
 
 
 def test_totox_bridge_parameter_config_shape():

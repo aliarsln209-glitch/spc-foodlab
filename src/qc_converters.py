@@ -6,6 +6,7 @@ build_bridge_subgroup_entry() ciktisini subgroups listesine ekleyerek yapilir.
 """
 
 import math
+from datetime import datetime
 
 
 def gravimetric_moisture(
@@ -36,13 +37,24 @@ def gravimetric_moisture(
     }
 
 
-def build_bridge_subgroup_entry(value: float | list[float], shift_label: str) -> dict:
+def build_bridge_subgroup_entry(
+    value: float | list[float], shift: str, notes: str = "", urun: str = "",
+) -> dict:
     """QC donusturucu sonucunu, mevcut subgroups sema formatina cevirir.
 
-    app.py:96-97'deki st.session_state.subgroups listesi
-    {"shift": str, "values": list[float]} sekli bekler; koprubu format
-    degistirmez, sadece dogru sekli uretir - spc_core.py'ye HICBIR
-    degisiklik gerekmez.
+    app.py'deki st.session_state.subgroups listesi {"shift": str, "values":
+    list[float], "notes": str, "urun": str, "timestamp": str} sekli bekler
+    (bkz. docs/superpowers/specs/2026-08-21-paylasilan-subgroups-
+    izlenebilirlik-design.md) - kopru bu formati degistirmez, sadece dogru
+    sekli uretir.
+
+    v2 (bu spec): eskiden 'shift_label' parametresi kaynak etiketini
+    ('QC Donusturucu - Totox' gibi) shift alanina YAZARAK hackliyordu - bu,
+    render_shift_comparison()'in bu kayitlari HICBIR vardiya grubuna dahil
+    etmemesine (sessiz disi birakma) yol aciyordu. Artik 'shift' GERCEK bir
+    vardiya degeri (cagiran taraf - render_bridge_widget - kullanicidan
+    aliyor veya I-MR icin "-" veriyor), kaynak etiketi 'notes' alanina
+    yaziliyor. timestamp OTOMATIK eklenir, kullanici girmez.
 
     value bir float ise (I-MR koprusu - tek olcum): {"values": [value]}.
     value bir list[float] ise (X-bar/R koprusu - n adet tekrar olcumu,
@@ -58,10 +70,15 @@ def build_bridge_subgroup_entry(value: float | list[float], shift_label: str) ->
         for v in value:
             if not math.isfinite(v):
                 raise ValueError("kopru degeri sonlu bir sayi olmalidir (NaN/inf kabul edilmez)")
-        return {"shift": shift_label, "values": list(value)}
-    if not math.isfinite(value):
-        raise ValueError("kopru degeri sonlu bir sayi olmalidir (NaN/inf kabul edilmez)")
-    return {"shift": shift_label, "values": [value]}
+        values = list(value)
+    else:
+        if not math.isfinite(value):
+            raise ValueError("kopru degeri sonlu bir sayi olmalidir (NaN/inf kabul edilmez)")
+        values = [value]
+    return {
+        "shift": shift, "values": values, "notes": notes, "urun": urun,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+    }
 
 
 def bridge_value_count_matches(values: float | list[float], required_n: int) -> bool:
