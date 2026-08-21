@@ -272,7 +272,12 @@ with st.sidebar:
         # yaninda anlamsiz/isik gibi yanan bir ikinci nokta gorunumu
         # yaratiyordu (canli denetimde bulundu) - onlarda nokta hic
         # gosterilmez, sadece isim yazilir.
-        display_name = "Renk (L*a*b*)" if p == "L*" else p
+        # Kacis karakterleri (\*) ZORUNLU: "L*a*b*" duz metin olarak
+        # Markdown'a verilirse tekli yildizlar vurgu (italic) sinirlayicisi
+        # gibi yorumlanip yutulur, ekranda "Renk (Lab*)" gibi bozuk gorunur
+        # (v1.7.1'den beri fark edilmemis bir gosterim hatasi - bkz. Renk
+        # Paneli v2 sonrasi denetimde bulundu).
+        display_name = "Renk (L\\*a\\*b\\*)" if p == "L*" else p
         if p == st.session_state.active_parameter:
             return f"{_status_dot} {display_name}"
         return display_name
@@ -1341,7 +1346,7 @@ def render_color_lab_data_entry_tab() -> None:
     ekleme sonrasi widget'lar sifirlanir (form'un clear_on_submit=True'una
     esdeger - yanlislikla ayni olcumun iki kez eklenmesini onler), gecmis
     tabloda tek satir silme var."""
-    st.subheader("\U0001F3A8 Renk (L*a*b*) - Birlesik Olcum Girisi")
+    st.subheader("\U0001F3A8 Renk (L\\*a\\*b\\*) - Birlesik Olcum Girisi")
     if st.session_state.get("color_lab_last_added"):
         st.success(st.session_state.color_lab_last_added)
         del st.session_state["color_lab_last_added"]
@@ -3223,6 +3228,15 @@ def render_bridge_widget(
 
 
 with tab_calc:
+    st.markdown("## \U0001F517 SPC'ye Koprulenebilir Hesaplayicilar")
+    st.caption(
+        "Bu bes hesaplayici ham laboratuvar girdilerinden (dara/agirlik, "
+        "titrasyon hacmi vb.) bir deger uretir ve kullanicinin acikca "
+        "sectigi bir SPC parametresine 'SPC Veri Setine Aktar' butonuyla "
+        "koprulenebilir - hicbiri otomatik/sessiz aktarim yapmaz."
+    )
+    st.divider()
+
     st.markdown("### ⚖️ Gravimetrik Nem / Kuru Madde")
     st.caption("AOAC 925.10 yöntemi: dara + yaş numune + kuru kalıntı ağırlığından hesaplar.")
 
@@ -3416,8 +3430,16 @@ with tab_calc:
         # notu, constants.py) hedef, uygulamadaki TUM I-MR parametreleri
         # arasindan acikca secilir - mevcut Viskozite parametresine OZEL
         # olarak baglanmaz (Faz 3 kapsam karari).
+        # L*/a*/b* HARIC: bu ucu v1.7.1'den beri Renk Paneli kendi ayri
+        # session-state modelini (color_lab_samples) kullanir, koprunun
+        # yazdigi st.session_state.subgroups'u HIC OKUMAZ - koprulenen deger
+        # sessizce hicbir yerde gorunmeyen bir listeye duserdi. Ayrica tek
+        # bir F0 skaler degeri, 3 eksenli bir Lab kaydini (L,a,b BIRLIKTE)
+        # zaten anlamli sekilde dolduramaz - mimari olarak koprulenebilir
+        # bir hedef degil.
         _f0_individual_params = sorted(
-            p for p, cfg in PARAMETER_CONFIG.items() if cfg.get("is_individual", False)
+            p for p, cfg in PARAMETER_CONFIG.items()
+            if cfg.get("is_individual", False) and p not in ("L*", "a*", "b*")
         )
         render_bridge_widget(
             values_by_target=dict.fromkeys(_f0_individual_params, f0_value),
@@ -3555,8 +3577,10 @@ with tab_calc:
         # TOTOX_BRIDGE_PARAMETER_CONFIG notu) hedef, uygulamadaki TUM I-MR
         # parametreleri arasindan acikca secilir - "su an hangisi aktifse
         # o" varsayimina guvenilmez (Faz 1 final review bulgusu).
+        # L*/a*/b* HARIC - ayni gerekce (F0 koprusundeki ayni notu, yukarida).
         _totox_individual_params = sorted(
-            p for p, cfg in PARAMETER_CONFIG.items() if cfg.get("is_individual", False)
+            p for p, cfg in PARAMETER_CONFIG.items()
+            if cfg.get("is_individual", False) and p not in ("L*", "a*", "b*")
         )
         render_bridge_widget(
             values_by_target=dict.fromkeys(_totox_individual_params, totox_value),
@@ -3570,6 +3594,13 @@ with tab_calc:
                 "bilgi amaçlıdır."
             ),
         )
+
+    st.markdown("## \U0001F9EE Bagimsiz Araclar")
+    st.caption(
+        "Bu hesaplayicilar SPC veri setine koprulenmez, sadece tek seferlik "
+        "bir hesap makinesi/bilgi karti olarak calisir."
+    )
+    st.divider()
 
     # v1.2 Madde 9: Kontrol limiti manuel hesaplayici. Totox/Gravimetrik Nem
     # panellerindeki gated kopru butonlarinin aksine, bu hesaplayici
@@ -3660,7 +3691,7 @@ with tab_about:
     with st.container(border=True, key="card-25"):
         st.subheader("SPC FoodLab hakkinda")
         st.markdown(
-            """
+            r"""
 Gida uretim hatlarinda pH, Brix, aw (su aktivitesi) veya viskozite
 olcumlerinden **istatistiksel proses kontrolu (SPC)** grafigi ve **surec
 yeterlilik analizi (Cpk)** ureten bir arac.
@@ -3706,6 +3737,34 @@ sabit tutulmasi gerektigi icin bu mekanizma eklendi.
 **Parametre degisimi:** Farkli parametrelerin (pH, Brix, aw, viskozite)
 verileri ayni oturumda karismasin diye, sidebar'dan parametre degistirmek
 mevcut veriyi siler (onay istenir).
+
+**Mikrobiyoloji (log10-CFU):** TPC/TMAB, Kuf-Maya, Koliform,
+Enterobacteriaceae, Kantitatif S. aureus - mikrobiyal sayimlar
+log-normal dagildigi icin ham KOB/g dogrudan I-MR/Cpk'ya sokulmaz, once
+log10'a cevrilir (tespit limiti altindaki sonuclar LOD/2 ile ikame
+edilir - ham/log10 donusum HER ZAMAN seffaf bir tabloda gosterilir).
+
+**Food Quality Parameters (Protein, Yag, Kul, Kuru Madde, Yogunluk,
+Refraktif Indeks, Renk, Bulaniklik, Iletkenlik):** ayni X-bar/R ve I-MR
+motoru uzerine, config-driven bir Internal Parameter Registry ile
+eklendi - LSL/USL kaynagi TGK teblig/Codex'te dogrulanamayan urun/
+parametre kombinasyonlarinda sayi UYDURULMAZ, "Ozel/Manuel gir"e
+birakilir.
+
+**QC Veri Donusturuculer:** Gravimetrik Nem, Titre Edilebilir Asitlik,
+Tuz (Mohr Metodu), Termal Letalite (F0), Totox - "Hizli Hesaplayicilar"
+sekmesindeki ham laboratuvar girdilerinden (dara/agirlik, titrasyon
+hacmi vb.) bir SPC-hazir deger hesaplar, kullanici acikca hangi SPC
+parametresine aktarilacagini secer (asla "su an aktif olan" varsayimina
+guvenilmez) ve "SPC Veri Setine Aktar" butonuyla mevcut I-MR/X-bar/R
+veri setine ham deger olarak ekler.
+
+**Renk (L\*a\*b\*) Paneli:** L*, a*, b* ayni kolorimetre okumasindan cikan
+uc eksen oldugu icin sidebar'da tek bir "Renk (L\*a\*b\*)" girisi altinda
+birlesik goruntulenir - ama istatistiksel olarak HALA 3 bagimsiz I-MR
+serisidir, ΔE (renk farki) hicbir yerde hesaplanmaz. Giristeki canli
+swatch (renk kutusu) SADECE gorsel bir on izlemedir (D65 aydinlatici
+varsayimiyla), karar verici degildir.
 
 Detayli kaynak ve dogrulama notlari icin bkz. README.
             """
@@ -3780,6 +3839,34 @@ Detayli kaynak ve dogrulama notlari icin bkz. README.
                 "belirgin sekilde dusukse, surec zaman icinde kaymis/"
                 "kaymakta olabilir demektir - kisa vadede 'iyi' gorunen bir "
                 "surec uzun vadede kayabilir."
+            )
+
+        with st.expander("Mikrobiyoloji parametreleri neden log10'da hesaplaniyor?"):
+            st.markdown(
+                "Mikrobiyal sayimlar (KOB/g) log-normal dagilir - ham degerlerle "
+                "hesaplanan bir Cpk, normal dagilim varsayan formulu yanlis bir "
+                "veriye uygulamis olur. Bu yuzden grafik/Cpk hesaplamasi ONCE "
+                "log10'a cevrilir; ekranda HER ZAMAN hem ham KOB/g hem log10 "
+                "deger yan yana gosterilir (sessizce donusturulmez). Tespit "
+                "limiti altindaki sonuclar ('<10 KOB/g' gibi) ICMSF/FDA BAM "
+                "konvansiyonuna gore LOD/2 ile ikame edilir - bu da ayni "
+                "seffaflik tablosunda acikca gorunur."
+            )
+
+        with st.expander("Renk (L\\*a\\*b\\*) Panelinde neden ΔE (renk farki) hesaplanmiyor?"):
+            st.markdown(
+                "L*, a*, b* zaten ayri ayri izleniyor - ΔE bunlardan tureyen "
+                "bir metrik, yeni bilgi eklemiyor. Tek gercek degeri 'hedefe "
+                "gore sapma' vermesi, ama bunun icin bir 'referans parti' "
+                "(hedef L0a0b0) kavraminin tanimlanmasi gerekir - mevcut "
+                "sistemde OLMAYAN yeni bir SPC kullanim paterni (her "
+                "parametre su an bagimsiz limit karsilastirmasi yapiyor, "
+                "hedefe-gore-fark izleme yapmiyor). Kucuk bir formul degil, "
+                "yeni bir kavramsal eksen acmak demek - bu yuzden L*, a*, b* "
+                "HER ZAMAN 3 bagimsiz I-MR serisi olarak izlenir, her eksenin "
+                "kendi LSL/USL/Cpk'si vardir. Chart sekmesindeki opsiyonel "
+                "'hedef renk' swatch'i de bunu degistirmez - SADECE gorsel "
+                "bir karsilastirma kutusudur, sayisal bir ΔE hesaplamaz."
             )
 
 # ---------------------------------------------------------------------------
