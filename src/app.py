@@ -33,7 +33,7 @@ from demo_data import generate_demo_individual, generate_demo_subgroups
 from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, thermal_lethality_f0, titratable_acidity
-from color_lab import append_color_sample, color_samples_to_series, lab_to_hex
+from color_lab import append_color_sample, color_samples_to_series, lab_to_hex, remove_color_sample
 from result_helpers import (
     build_dry_matter_moisture_consistency_note,
     build_parameter_info_card,
@@ -1321,26 +1321,69 @@ tab_data, tab_chart, tab_calc, tab_about = st.tabs([
 # bu, sirlamaya bagli olmadan 0.0'a dusmeyi onluyor.
 
 def render_color_lab_data_entry_tab() -> None:
-    """Renk (L*a*b*) Paneli - SEKME 1: birlesik veri girisi. v1.7.1 v1
-    kapsami: sadece manuel giris (CSV import/demo veri YOK - bkz.
-    METHODOLOGY.md 'v1.7.1' v1 kapsam notu)."""
+    """Renk (L*a*b*) Paneli - SEKME 1: birlesik veri girisi. v2 (bkz.
+    docs/superpowers/specs/2026-08-20-renk-paneli-v2-design.md): st.form
+    KALDIRILDI (L*/a*/b* normal widget - her degisiklikte anlik rerun,
+    canli swatch onizlemesi mumkun olsun diye), lot_no/notes eklendi,
+    ekleme sonrasi widget'lar sifirlanir (form'un clear_on_submit=True'una
+    esdeger - yanlislikla ayni olcumun iki kez eklenmesini onler), gecmis
+    tabloda tek satir silme var."""
     st.subheader("\U0001F3A8 Renk (L*a*b*) - Birlesik Olcum Girisi")
     st.caption(
         "L*, a*, b* ayni spektrofotometre/kolorimetre okumasindan cikar - "
         "ucu birlikte, tek formda girilir. Istatistiksel olarak DAIMA "
         "bagimsiz 3 I-MR serisi olarak izlenir (ΔE hesaplanmaz)."
     )
-    with st.form("color_lab_entry_form"):
-        c1, c2, c3 = st.columns(3)
-        l_val = c1.number_input("L* (0-100)", min_value=0.0, max_value=100.0, value=65.0, step=0.1)
-        a_val = c2.number_input("a* (-128/+127)", min_value=-128.0, max_value=127.0, value=10.0, step=0.1)
-        b_val = c3.number_input("b* (-128/+127)", min_value=-128.0, max_value=127.0, value=20.0, step=0.1)
-        submitted = st.form_submit_button("Olcumu Ekle")
-        if submitted:
-            st.session_state.color_lab_samples = append_color_sample(
-                st.session_state.color_lab_samples, l_val, a_val, b_val
-            )
-            st.success(f"Eklendi: L*={l_val:g}, a*={a_val:g}, b*={b_val:g}")
+
+    c1, c2, c3 = st.columns(3)
+    l_val = c1.number_input(
+        "L* (0-100)", min_value=0.0, max_value=100.0, value=65.0, step=0.1,
+        key="color_lab_l_input",
+    )
+    a_val = c2.number_input(
+        "a* (-128/+127)", min_value=-128.0, max_value=127.0, value=10.0, step=0.1,
+        key="color_lab_a_input",
+    )
+    b_val = c3.number_input(
+        "b* (-128/+127)", min_value=-128.0, max_value=127.0, value=20.0, step=0.1,
+        key="color_lab_b_input",
+    )
+
+    _preview_hex = lab_to_hex(l_val, a_val, b_val)
+    pc1, pc2 = st.columns([1, 4])
+    with pc1:
+        st.markdown(
+            f'<div style="width:48px;height:48px;border-radius:8px;'
+            f'background-color:{_preview_hex};border:1px solid #888;"></div>',
+            unsafe_allow_html=True,
+        )
+    with pc2:
+        st.caption(
+            f"Canli onizleme: {_preview_hex}. ⚠️ Yaklasik onizleme, D65 "
+            "aydinlatici varsayimiyla hesaplanir - cihazinizin aydinlatici/"
+            "gozlemci ayari farkliysa gercek rengi yansitmayabilir."
+        )
+
+    lot_no = st.text_input("Parti/Lot No (opsiyonel)", key="color_lab_lot_input")
+    notes = st.text_area("Not (opsiyonel)", key="color_lab_notes_input")
+
+    if st.button("Olcumu Ekle", type="primary"):
+        st.session_state.color_lab_samples = append_color_sample(
+            st.session_state.color_lab_samples, l_val, a_val, b_val,
+            lot_no=lot_no, notes=notes,
+        )
+        st.success(f"Eklendi: L*={l_val:g}, a*={a_val:g}, b*={b_val:g}")
+        # Widget'lari varsayilana dondur (st.form'un clear_on_submit=True'una
+        # esdeger) - aksi halde ayni degerler ekranda kalir, kullanici
+        # farkinda olmadan tekrar "Olcumu Ekle"ye basarsa AYNI satir ikinci
+        # kez eklenir (canli denetimde bulunan L=65,a=10,b=20 duplicate'i).
+        for _key in (
+            "color_lab_l_input", "color_lab_a_input", "color_lab_b_input",
+            "color_lab_lot_input", "color_lab_notes_input",
+        ):
+            if _key in st.session_state:
+                del st.session_state[_key]
+        st.rerun()
 
     n_samples = len(st.session_state.color_lab_samples)
     st.caption(f"Toplam {n_samples} olcum.")
@@ -1348,7 +1391,26 @@ def render_color_lab_data_entry_tab() -> None:
         if st.button("Tum olcumleri temizle", key="color_lab_clear"):
             st.session_state.color_lab_samples = []
             st.rerun()
-        st.dataframe(st.session_state.color_lab_samples, width="stretch")
+
+        st.dataframe(
+            st.session_state.color_lab_samples, width="stretch",
+            column_order=["timestamp", "lot_no", "L", "a", "b", "notes"],
+        )
+
+        st.caption("Tek satir sil:")
+        for _i, _s in enumerate(st.session_state.color_lab_samples):
+            _dcol1, _dcol2 = st.columns([5, 1])
+            with _dcol1:
+                st.caption(
+                    f"#{_i + 1}: L*={_s['L']:g}, a*={_s['a']:g}, b*={_s['b']:g}"
+                    + (f" (lot: {_s['lot_no']})" if _s["lot_no"] else "")
+                )
+            with _dcol2:
+                if st.button("\U0001F5D1\U0000FE0F", key=f"color_lab_del_{_i}"):
+                    st.session_state.color_lab_samples = remove_color_sample(
+                        st.session_state.color_lab_samples, _i
+                    )
+                    st.rerun()
 
 
 def render_color_lab_chart_tab() -> None:
