@@ -910,24 +910,29 @@ kullanılan `st.data_editor` desenine geçirmek (bu aynı zamanda final
 review'ın ayrı bir minor bulgusu olan "silme listesi dataframe ile tekrar
 ediyor" sorununu da çözer — iki bulgu aynı çözümle giderilebilir).
 
-**v1.8 veya sonrası — Tüm parametrelere lot_no/timestamp/notes**
+**v1.8 — Tüm parametrelere lot_no/timestamp/notes/Ürün (TAMAMLANDI)**
 
-Canlı denetimde gelen geri bildirim: hiçbir parametrede (Renk Paneli
-dahil, sadece orada değil) parti/lot numarası, ölçüm zaman damgası veya
-serbest metin not alanı YOK — tek "izlenebilirlik" alanı `Vardiya`
-(Sabah/Öğle/Gece) seçici, o da sadece X-bar/R (alt gruplu)
-parametrelerde var; I-MR (tekil ölçüm) parametrelerinde vardiya bile
-`"-"` olarak sabitlenir, seçilemez. Bu, kalite kontrol izlenebilirliği
-acısından ciddi bir boşluktur ve **bilinçli olarak ertelenmiştir** -
-unutulmuş bir şey değildir. Kapsamı: `subgroups`/`color_lab_samples`
-veri modelinin `lot_no: str`, `timestamp: datetime`, `notes: str`
-alanlarıyla genişletilmesi - TÜM parametreleri (sadece Renk Panelini
-değil) kapsayan tek bir değişiklik olarak ele alınmalı, çünkü aynı veri
-modeli deseni (`{"shift": ..., "values": [...]}`) tüm I-MR/X-bar/R
-kodunda ortak. Batch/Lot History (v2.0, aşağıda) ile örtüşür ama ondan
-BAĞIMSIZ ele alınabilir - kalıcı depolama (SQLite) olmadan da
-session-state içinde lot_no/notes tutulabilir, geçmişe dönük
-karşılaştırma v2.0'ın konusu.
+Daha önce buraya "bilinçli olarak ertelenmiş" diye not düşülmüştü - artık
+tamamlandı. `L*/a*/b*` HARİÇ tüm 23 parametrenin paylaştığı
+`st.session_state.subgroups` şeması `lot_no`, `notes`, `urun`,
+`timestamp` alanlarıyla genişledi - manuel giriş, CSV import, Excel/pano
+yapıştırma, geçmiş-tablo düzenleme VE 5 QC Dönüştürücü köprüsü (Gravimetrik
+Nem/KM, Titrasyon Asitliği, Tuz/Mohr, Termal Letalite F₀, Totox) dahil
+TÜM giriş yollarında. Yan bulgu ve düzeltme: köprü noktaları eskiden
+kaynak etiketini (`"QC Dönüştürücü - Totox"` gibi) `shift` alanına
+YAZARAK hackliyordu - bu, bu kayıtların `render_shift_comparison`'ın
+vardiya gruplamasından SESSİZCE dışlanmasına yol açıyordu (fark
+edilmemiş bir kenar durum, bug raporu yoktu). Artık köprüler gerçek bir
+Vardiya seçici sunuyor, kaynak etiketi `notes`'a taşındı - köprüyle
+eklenen veri artık vardiya karşılaştırmasında görünür VE doğru
+etiketli. Detay: `docs/superpowers/specs/2026-08-21-paylasilan-
+subgroups-izlenebilirlik-design.md`.
+
+Kapsam dışı kalanlar (bilinçli): Renk Paneli (zaten kendi ayrı
+modelinde bu alanlara sahip), CSV import'a yeni bir UI/davranış
+eklenmesi (sadece mevcut "Değişiklikleri kaydet" özelliğinin bu
+alanları KORUMASI sağlandı, yeni bir CSV formatı/sütun beklentisi
+YOK), demo veri üreticisinin bu alanları anlamlı doldurması.
 
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek

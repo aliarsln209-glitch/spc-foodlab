@@ -126,3 +126,27 @@ def test_history_table_column_config_includes_traceability_columns():
     assert 'column_config["Urun"] = st.column_config.TextColumn(disabled=True)' in body
     assert 'column_config["Zaman"] = st.column_config.TextColumn(disabled=True)' in body
     assert '"Urun": st.column_config.TextColumn(disabled=True),' in body  # microbio dali
+
+
+def test_render_bridge_widget_no_longer_hardcodes_sabah_shift():
+    # Task 2: eski tasarimda X-bar/R kopruleri icin sabit shift="Sabah"
+    # varsayimi vardi (spec review'da reddedildi) - artik gercek bir
+    # Vardiya selectbox'i olmali.
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    start = source.index("def render_bridge_widget(")
+    end = source.index("with tab_calc:")
+    body = source[start:end]
+    assert 'st.selectbox(\n            "Vardiya", SHIFT_OPTIONS, key=f"{widget_key_prefix}_shift"' in body
+    assert 'shift="Sabah"' not in body
+    assert "shift_label=" not in body  # eski API tamamen kaldirildi
+
+
+def test_render_bridge_widget_stamps_urun_and_notes():
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    start = source.index("def render_bridge_widget(")
+    end = source.index("with tab_calc:")
+    body = source[start:end]
+    assert 'urun=st.session_state.get("product_select", "")' in body
+    assert 'notes=f"QC Dönüştürücü - {source_label}"' in body
