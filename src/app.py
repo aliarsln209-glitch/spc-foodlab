@@ -1649,6 +1649,12 @@ def render_generic_data_entry_tab() -> None:
                             key=f"m_{i}_{st.session_state.active_parameter}",
                         )
                         measurements.append(val)
+            lot_no = st.text_input(
+                "Parti/Lot No (opsiyonel)", key=f"lot_no_input_{st.session_state.active_parameter}",
+            )
+            notes = st.text_area(
+                "Not (opsiyonel)", key=f"notes_input_{st.session_state.active_parameter}",
+            )
             submitted = st.form_submit_button("Olcumu kaydet" if is_individual else "Alt grubu kaydet")
             if submitted and is_individual and is_microbio:
                 try:
@@ -1661,6 +1667,9 @@ def render_generic_data_entry_tab() -> None:
                     st.session_state.subgroups.append({
                         "shift": shift, "values": [entry["log_value"]],
                         "raw": entry["raw"], "is_below_lod": entry["is_below_lod"], "lod": entry["lod"],
+                        "lot_no": lot_no, "notes": notes,
+                        "urun": st.session_state.get("product_select", ""),
+                        "timestamp": datetime.now().isoformat(timespec="seconds"),
                     })
                     st.success("Olcum eklendi.")
                     if not below_lod:
@@ -1674,7 +1683,12 @@ def render_generic_data_entry_tab() -> None:
                                 + "  \n".join(f"- {w}" for w in plausibility_warnings)
                             )
             elif submitted:
-                st.session_state.subgroups.append({"shift": shift, "values": measurements})
+                st.session_state.subgroups.append({
+                    "shift": shift, "values": measurements,
+                    "lot_no": lot_no, "notes": notes,
+                    "urun": st.session_state.get("product_select", ""),
+                    "timestamp": datetime.now().isoformat(timespec="seconds"),
+                })
                 st.success("Olcum eklendi." if is_individual else "Alt grup eklendi.")
                 labeled_values = (
                     [("Olcum", measurements[0])] if is_individual
@@ -1933,6 +1947,7 @@ def render_generic_data_entry_tab() -> None:
                         new_subgroups, err = csv_io.parse_uploaded_dataframe(
                             import_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit,
                             is_microbio=is_microbio, default_lod=param_config.get("default_lod"),
+                            default_urun=st.session_state.get("product_select", ""),
                         )
                         if err:
                             st.error(err)
@@ -1982,6 +1997,13 @@ def render_generic_data_entry_tab() -> None:
                     if err:
                         st.error(err)
                     else:
+                        _paste_urun = st.session_state.get("product_select", "")
+                        _paste_ts = datetime.now().isoformat(timespec="seconds")
+                        for _row in new_rows:
+                            _row.setdefault("lot_no", "")
+                            _row.setdefault("notes", "")
+                            _row.setdefault("urun", _paste_urun)
+                            _row.setdefault("timestamp", _paste_ts)
                         st.session_state.subgroups.extend(new_rows)
                         st.session_state.baseline = None
                         label = "olcum" if is_individual else "alt grup"
@@ -2087,6 +2109,7 @@ def render_generic_data_entry_tab() -> None:
                             new_subgroups, err = csv_io.parse_uploaded_dataframe(
                                 clean_df, is_individual, subgroup_n, SHIFT_OPTIONS, unit,
                                 is_microbio=is_microbio, default_lod=param_config.get("default_lod"),
+                                default_urun=st.session_state.get("product_select", ""),
                             )
                             if err:
                                 st.error(err)
