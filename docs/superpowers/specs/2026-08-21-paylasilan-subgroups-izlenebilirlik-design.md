@@ -50,6 +50,23 @@ CSV yok" kararıyla aynı ölçülülük).
 }
 ```
 
+**`urun` alanının doğruluğu (spec review'da soruldu, kod incelemesiyle
+doğrulandı):** köprü noktalarında (Totox, F₀ vb.) aktif "Ürün/Hammadde"
+seçiminin köprünün kendi ürünüyle alakasız olabileceği endişesi vardı.
+Kod incelemesi şunu gösterdi: `render_bridge_widget()`'ın
+`target_is_active` kapısı, köprü butonunun SADECE `target ==
+st.session_state.active_parameter` iken render edilmesini zorunlu
+kılıyor (`app.py`, mevcut Faz 1 tasarımı) — yani kullanıcı köprüyü
+tetiklemeden ÖNCE hedef parametrenin Chart sekmesine gidip orada ürünü
+seçmiş OLMAK ZORUNDADIR. `reset_parameter_scoped_state()` her parametre
+değişiminde `product_select` widget key'ini siler (`app.py:225`), ve
+sekmeler arası geçiş bir rerun TETİKLEMEDİĞİ için (`tab_chart`,
+`tab_calc`'tan ÖNCE aynı script çalışmasında render edilir) köprü
+tıklandığı anda `st.session_state.product_select` her zaman O AN aktif
+parametrenin gerçekten seçili ürününü taşır — yanlış ürün yakalama
+riski yapısal olarak yoktur. **Yine de implementasyon planına canlı
+(Playwright) doğrulama adımı eklenecek** (iddia değil, kanıt).
+
 Geriye dönük uyumluluk: session-state-only mimari (kalıcı depolama
 yok), migrasyon gerekmez. Eski/yeni-alansız kayıt okuyan her kod yolu
 `.get("lot_no", "")` vb. ile savunmalı okur (sayfa canlıyken parametre
@@ -57,32 +74,38 @@ değişse bile kırılmaz).
 
 ## 2) `qc_converters.build_bridge_subgroup_entry` imza değişikliği
 
+**Düzeltme (spec review sonrası):** ilk taslakta X-bar/R köprüleri için
+sabit `shift="Sabah"` varsayımı vardı — bu, "sessiz dışlama"yı "sessiz
+yanlış-etiketleme"yle değiştirirdi (akşam vardiyasında girilen bir
+Totox köprü kaydı yanlışlıkla "Sabah" grubuna sayılırdı). Doğrusu:
+kullanıcı gerçek vardiyayı seçsin.
+
 ```python
-def build_bridge_subgroup_entry(value: float | list[float], source_label: str) -> dict:
-    """... 'shift_label' parametresi 'source_label' olarak yeniden
-    adlandirildi VE ARTIK shift alanina YAZILMIYOR - kaynak etiketi
-    ('Totox', 'Gravimetrik Nem/Kuru Madde' vb.) artik notes alanina
-    (f"QC Donusturucu - {source_label}") yazilir. shift alani artik
-    GERCEK bir vardiya degeri tasir (I-MR icin hala "-", X-bar/R icin
-    SHIFT_OPTIONS[0] = "Sabah" - koprulerin gercek bir vardiya bilgisi
-    olmadigi icin notr bir varsayilan, kullanici sonradan gecmis
-    tablodan duzenleyebilir)."""
+def build_bridge_subgroup_entry(value: float | list[float], shift: str, notes: str) -> dict:
+    """... 'shift_label' parametresi kaldirildi, yerine IKI ayri parametre
+    geldi: 'shift' (gercek vardiya degeri - cagiran taraf belirler) ve
+    'notes' (kaynak etiketi, orn. "QC Donusturucu - Totox" - artik
+    notes alanina yazilir, shift'i HACKLEMEZ)."""
 ```
 
-Bu değişiklik `render_bridge_widget()`'ı (app.py) çağıran 5 köprü
-noktasını (Gravimetrik Nem/KM, Titrasyon Asitliği, Tuz/Mohr, Termal
-Letalite F₀, Totox) etkiler — hepsi aynı ortak fonksiyonu çağırdığı için
-tek bir değişiklik hepsine yayılır.
+`render_bridge_widget()` (app.py) çağıran taraf artık şunu yapar:
+- **I-MR hedefler:** `shift = "-"` (mevcut I-MR kuralıyla tutarlı, değişmedi).
+- **X-bar/R hedefler:** yeni bir `st.selectbox("Vardiya", SHIFT_OPTIONS, key=f"{widget_key_prefix}_shift")` eklenir — kullanıcı köprüyü tetiklemeden ÖNCE gerçek vardiyayı seçer, bu değer `shift` olarak geçirilir. Sabit varsayım YOK.
+- Her iki durumda da `notes = f"QC Dönüştürücü - {source_label}"`.
 
-**Neden `render_shift_comparison`'ı bozmuyor:** bu fonksiyon
-`subgroups`'u `shift in SHIFT_OPTIONS` ile gruplar — eski kod
+Bu değişiklik `render_bridge_widget()`'ı çağıran 5 köprü noktasını
+(Gravimetrik Nem/KM, Titrasyon Asitliği, Tuz/Mohr, Termal Letalite F₀,
+Totox) etkiler — hepsi aynı ortak fonksiyonu çağırdığı için tek bir
+değişiklik hepsine yayılır; X-bar/R hedefleyen köprüler (şu an: Gravimetrik
+Nem/KM, Titrasyon Asitliği, Tuz/Mohr) yeni Vardiya seçiciyi otomatik kazanır.
+
+**Neden `render_shift_comparison`'ı bozmuyor, aksine düzeltiyor:** bu
+fonksiyon `subgroups`'u `shift in SHIFT_OPTIONS` ile gruplar — eski kod
 `shift="QC Dönüştürücü - Totox"` yazdığı için bu kayıtlar HİÇBİR
-vardiya grubuna dahil edilmiyordu (sessizce dışlanıyordu, bir bug
-değil ama fark edilmemiş bir kenar durumdu). Yeni davranışta
-`shift="Sabah"` (X-bar/R köprüleri için) artık gerçek bir grup
-oluşturuyor — bu, köprüyle eklenen verinin vardiya karşılaştırma
-tablosunda görünür hale gelmesi anlamına gelir (önceki sessiz
-dışlamadan daha doğru bir davranış, ama görünür bir değişiklik).
+vardiya grubuna dahil edilmiyordu (sessizce dışlanıyordu, bir bug değil
+ama fark edilmemiş bir kenar durumdu). Yeni davranışta köprü kaydı,
+kullanıcının O AN seçtiği GERÇEK vardiyaya yazılır — veri artık hem
+görünür hem doğru etiketli.
 
 ## 3) UI değişiklikleri
 
@@ -111,9 +134,10 @@ desenine (`column_config`, serbest metin) dahil edilir.
 
 ## 4) Test planı
 
-- `tests/test_qc_converters.py` (mevcut dosya): `build_bridge_subgroup_entry` yeni imza (`source_label` parametre adı, `shift` artık `SHIFT_OPTIONS`'tan bir değer veya I-MR için `"-"`, `notes` alanının kaynak etiketini taşıdığı) için testler.
-- Mevcut `render_shift_comparison` davranışını (köprü kayıtlarının artık gruplamaya dahil olduğunu) doğrulayan bir regresyon testi.
+- `tests/test_qc_converters.py` (mevcut dosya): `build_bridge_subgroup_entry` yeni imza (`shift`, `notes` parametreleri açıkça geçiriliyor; `notes` kaynak etiketini taşıyor, `shift` hackleme YOK) için testler.
+- Mevcut `render_shift_comparison` davranışını (köprü kayıtlarının artık kullanıcının seçtiği GERÇEK vardiyayla gruplamaya dahil olduğunu) doğrulayan bir regresyon testi.
 - Mevcut tüm testler (267+) değişmeden geçmeli — sadece yeni alanlar eklendiği için hiçbir mevcut assertion bozulmamalı (yeni alanlar mevcut testlerin kontrol ettiği anahtarlara dokunmuyor).
+- **Canlı (Playwright) doğrulama, zorunlu adım:** `urun` alanının köprü noktalarında gerçekten doğru ürünü yakaladığı iddia değil kanıtla gösterilecek — örn. "Peroksit Değeri" parametresinde "Zeytinyağı (naturel sızma)" ürününü seçip Totox köprüsüyle bir kayıt eklendiğinde, geçmiş tablosundaki `urun` sütununun "Zeytinyağı (naturel sızma)" gösterdiği ekran görüntüsüyle doğrulanacak. Ayrıca yeni Vardiya seçicinin (X-bar/R köprüleri) gerçekten seçilen değeri kaydettiği ve `render_shift_comparison` tablosunda doğru grupta göründüğü de canlı test edilecek.
 
 ## Bilinçli olarak ertelenenler
 
