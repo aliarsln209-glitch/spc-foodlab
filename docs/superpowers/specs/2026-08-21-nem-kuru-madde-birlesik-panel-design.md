@@ -36,10 +36,23 @@ state'te bulunamaz — "tek Kaydet ikisine birden yazsın" tasarımı bu
 mimariyle ÇALIŞMAZ (iki listeyi ayrı tutmak `subgroups`'u
 `dict[str, list]`'e çevirmek gibi çok daha büyük, ayrı bir işi
 gerektirir — bu spec'in kapsamı DIŞINDA tutuluyor). Bunun yerine: panel
-UI'ı (n-üçlü form + lot_no/notes + birlikte görünüm) eklenir, ama "Kaydet"
-mevcut `render_bridge_widget` dropdown'ıyla (kullanıcı hedef seçer, TEK
-hedefe yazılır) çalışmaya devam eder — `subgroups` mimarisine
+UI'ı (n-üçlü form + lot_no/notes + birlikte görünüm) eklenir, "Kaydet"
+TEK hedefe (aktif parametre) yazmaya devam eder — `subgroups` mimarisine
 DOKUNULMAZ.
+
+**GÜNCELLEME (implementasyon planı yazılırken bulundu, kullanıcı
+onayladı):** `render_bridge_widget`'ın dropdown'ı KULLANILMIYOR — bu
+panel sadece `active_parameter` `Nem/Rutubet`/`Kuru Madde` iken
+göründüğü için hedef zaten tek ve bellidir, ayrıca `render_bridge_widget`'ın
+I-MR dalı TEK değer kabul ettiği için n>1 Kuru Madde noktasını tek
+çağrıda geçmek mümkün değildir. Panel `build_bridge_subgroup_entry()`'yi
+DOĞRUDAN çağırır (Kuru Madde: n kez, ayrı I-MR noktaları; Nem/Rutubet:
+1 kez, n değerlik X-bar/R alt grubu). `render_bridge_widget`'ın
+target-uyuşmazlık koruması (Faz 1'in kökeni) BU PANELE GEREKMEZ çünkü
+panelde seçilebilir bir hedef YOK — yazılan değer her zaman
+`active_parameter` ile tanımlıdır, uyuşmazlık yapısal olarak
+oluşamaz. Detay: `docs/superpowers/plans/2026-08-21-nem-kuru-madde-
+birlesik-panel.md`.
 
 **Dahil:**
 - Yeni birleşik panel: `active_parameter` `Nem/Rutubet` VEYA `Kuru Madde`
