@@ -29,11 +29,19 @@ de backlog'daki v1.8 maddesini aynı işle kapatır.
 paylaşılan `st.session_state.subgroups` listesini kullanıyor).
 
 **Kapsam DIŞI:** Renk Paneli (zaten kendi ayrı modelinde bu alanlara
-sahip, v1.7.2), CSV import/export format değişikliği, demo veri
-üreticisine yeni parametre eklenmesi (üretilen kayıtlar yeni alanları
-varsayılan/otomatik değerle alır, ama CSV/demo KOD'u bu alanları
-"üretmeye" özel olarak genişletilmez — YAGNI, Renk Panelinin "bu turda
-CSV yok" kararıyla aynı ölçülülük).
+sahip, v1.7.2), CSV import'a YENİ bir UI/davranış eklenmesi (beklenen
+sütun mesajları, "Boş şablon indir" içeriği değişmez — kullanıcı hâlâ
+eski formatlı bir CSV'yi sorunsuz yükleyebilir), demo veri üreticisine
+yeni parametre eklenmesi (üretilen kayıtlar yeni alanları varsayılan/
+otomatik değerle alır, ama demo KOD'u bu alanları "üretmeye" özel
+olarak genişletilmez — YAGNI). **İSTİSNA (plan yazarken zorunlu
+olduğu bulundu, aşağıda bkz. "Geçmiş tablo"):**
+`csv_io.parse_uploaded_dataframe()` bu 4 sütunu VARSA KORUYACAK
+şekilde genişletilir — "Değişiklikleri kaydet" ile CSV import AYNI
+fonksiyonu paylaştığı için, bu fonksiyona dokunmadan `lot_no`/`notes`
+düzenlemesi sessizce kaybolurdu. Bu, CSV'ye yeni bir ÖZELLİK eklemek
+DEĞİLDİR (kolon isteğe bağlı, eski dosyalar hâlâ çalışır) — mevcut
+"Değişiklikleri kaydet" özelliğinin doğruluğunu korumak için zorunlu.
 
 ## 1) Veri modeli
 
@@ -127,29 +135,34 @@ kaydedilir.
 
 ### Geçmiş tablo (`st.data_editor`)
 
-**Düzeltme (plan yazarken kod okunarak bulundu):** ilk taslakta
-`lot_no`/`notes` düzenlenebilir (`disabled=False`) olacaktı — ama
-`csv_io.py` incelemesi şunu gösterdi: "Değişiklikleri kaydet" butonu
-`edited_df`'i `csv_io.parse_uploaded_dataframe()`'e verir, bu fonksiyon
-(CSV import ile PAYLAŞILAN aynı kod) **"Olcum" ile başlamayan ve
-"Vardiya" olmayan HER sütunu sessizce yok sayıp atar** (docstring:
-"'Ortalama'/'Range' gibi export'ta bulunan ama 'Olcum' ile başlamayan
-ekstra sütunlar yok sayılır"). Yani `lot_no`/`notes`'u düzenlenebilir
-yapıp CSV import'a dokunmamak (kapsam dışı kararı, yukarıda) BİRLİKTE
-şu anlama gelirdi: kullanıcı geçmiş tabloda bir `lot_no` düzenleyip
-"Değişiklikleri kaydet"e bassa, düzenlemesi SESSİZCE kaybolurdu — tam
-da bu oturumda defalarca yakaladığımız türden bir sessiz veri kaybı.
+**İkinci düzeltme (plan yazarken kod okunarak bulundu, ilkinden daha
+büyük):** "Değişiklikleri kaydet" butonu `edited_df`'i
+`csv_io.parse_uploaded_dataframe()`'e verir ve **`st.session_state.
+subgroups`'u TAMAMEN bu fonksiyonun döndürdüğüyle DEĞİŞTİRİR**
+(`app.py:2094`, `st.session_state.subgroups = new_subgroups`) — bu,
+kullanıcı SADECE tek bir sayısal hücreyi düzeltse veya bir satır silse
+BİLE, tüm satırların yeniden inşa edildiği anlamına gelir. Yeni
+sütunları salt-okunur yapmak bu sorunu ÇÖZMEZ — sorun gösterimde değil,
+`parse_uploaded_dataframe`'in bu sütunları TANIMAMASI ve her kaydetmede
+atmasında. Tek doğru çözüm: fonksiyonu bu sütunları KORUYACAK şekilde
+genişletmek (spec review'da onaylandı).
 
-**Düzeltilmiş karar:** yeni 4 sütunun (`lot_no`, `notes`, `urun`,
-`timestamp`) HEPSİ `disabled=True` (salt-okunur) — hücre-düzenleme bu
-turda YOK, sadece görüntüleme. `parse_uploaded_dataframe`'e dokunmadan
-bu, tek tutarlı seçenektir (CSV import'a dokunmama kararıyla çelişmez).
-Satır ekleme/silme (`num_rows="dynamic"`) hâlâ çalışır çünkü o zaten
-`parse_uploaded_dataframe`'in "Olcum"/"Vardiya" sütunlarını yeniden
-işlemesiyle uyumlu — yeni satırlar `lot_no=""`, `notes=""`,
-`urun=<mevcut secili urun>`, `timestamp=<o anki zaman>` ile
-otomatik doldurulur (CSV import'un zaten yaptığı gibi, mevcut değer
-yoksa varsayılana düşer).
+**Düzeltilmiş karar:** `csv_io.parse_uploaded_dataframe()` şu şekilde
+genişletilir: `lot_no`, `notes`, `urun`, `timestamp` sütunları df'de
+VARSA (hem CSV import'ta hem "Değişiklikleri kaydet"te aynı kod yolu)
+her satır için okunup korunur; YOKSA (eski CSV dosyaları, mevcut
+testler, veya `data_editor`'ün "+" ile eklenen boş yeni satırları)
+sırasıyla `""`, `""`, `<o an aktif "Ürün/Hammadde" seçimi>`,
+`<datetime.now().isoformat(timespec="seconds")>` varsayılanına düşer.
+Bu, CSV import'a **yeni bir UI/davranış eklemez** (kullanıcı hâlâ eski
+formatında bir CSV'yi sorunsuz yükleyebilir) — sadece MEVCUT
+"Değişiklikleri kaydet" özelliğinin veri kaybetmemesini sağlar.
+
+Bu düzeltme sayesinde `lot_no`/`notes` artık GÜVENLE düzenlenebilir
+(`disabled=False`, mevcut hücre-düzenleme desenine dahil) — round-trip
+artık korunuyor. `urun`/`timestamp` yine de `disabled=True` kalır
+(otomatik damgalanmış alanlar, elle düzenlenmesi anlamsız/yanıltıcı
+olur, spec'in ilk kararıyla tutarlı).
 
 ## 4) Test planı
 
