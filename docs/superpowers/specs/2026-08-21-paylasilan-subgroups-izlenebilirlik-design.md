@@ -127,10 +127,29 @@ kaydedilir.
 
 ### Geçmiş tablo (`st.data_editor`)
 
-Yeni sütunlar: `lot_no`, `notes`, `urun`, `timestamp`. `urun` ve
-`timestamp` `disabled=True` (otomatik damgalanmış, düzenlenmesi
-anlamsız/yanıltıcı olur); `lot_no`/`notes` mevcut hücre-düzenleme
-desenine (`column_config`, serbest metin) dahil edilir.
+**Düzeltme (plan yazarken kod okunarak bulundu):** ilk taslakta
+`lot_no`/`notes` düzenlenebilir (`disabled=False`) olacaktı — ama
+`csv_io.py` incelemesi şunu gösterdi: "Değişiklikleri kaydet" butonu
+`edited_df`'i `csv_io.parse_uploaded_dataframe()`'e verir, bu fonksiyon
+(CSV import ile PAYLAŞILAN aynı kod) **"Olcum" ile başlamayan ve
+"Vardiya" olmayan HER sütunu sessizce yok sayıp atar** (docstring:
+"'Ortalama'/'Range' gibi export'ta bulunan ama 'Olcum' ile başlamayan
+ekstra sütunlar yok sayılır"). Yani `lot_no`/`notes`'u düzenlenebilir
+yapıp CSV import'a dokunmamak (kapsam dışı kararı, yukarıda) BİRLİKTE
+şu anlama gelirdi: kullanıcı geçmiş tabloda bir `lot_no` düzenleyip
+"Değişiklikleri kaydet"e bassa, düzenlemesi SESSİZCE kaybolurdu — tam
+da bu oturumda defalarca yakaladığımız türden bir sessiz veri kaybı.
+
+**Düzeltilmiş karar:** yeni 4 sütunun (`lot_no`, `notes`, `urun`,
+`timestamp`) HEPSİ `disabled=True` (salt-okunur) — hücre-düzenleme bu
+turda YOK, sadece görüntüleme. `parse_uploaded_dataframe`'e dokunmadan
+bu, tek tutarlı seçenektir (CSV import'a dokunmama kararıyla çelişmez).
+Satır ekleme/silme (`num_rows="dynamic"`) hâlâ çalışır çünkü o zaten
+`parse_uploaded_dataframe`'in "Olcum"/"Vardiya" sütunlarını yeniden
+işlemesiyle uyumlu — yeni satırlar `lot_no=""`, `notes=""`,
+`urun=<mevcut secili urun>`, `timestamp=<o anki zaman>` ile
+otomatik doldurulur (CSV import'un zaten yaptığı gibi, mevcut değer
+yoksa varsayılana düşer).
 
 ## 4) Test planı
 
