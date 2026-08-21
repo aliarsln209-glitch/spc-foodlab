@@ -934,6 +934,23 @@ eklenmesi (sadece mevcut "Değişiklikleri kaydet" özelliğinin bu
 alanları KORUMASI sağlandı, yeni bir CSV formatı/sütun beklentisi
 YOK), demo veri üreticisinin bu alanları anlamlı doldurması.
 
+**v1.9+ — Nem/Kuru Madde kanonikleştirme**
+
+Alt-proje 2 (Nem/Kuru Madde Birleşik Panel, bkz.
+`docs/superpowers/specs/2026-08-21-nem-kuru-madde-birlesik-panel-
+design.md`) sırasında bilerek ertelendi. `Nem/Rutubet` ve `Kuru Madde`
+matematiksel olarak bağlı (100 − Nem% = Kuru Madde%) ama hâlâ iki AYRI
+SPC parametresi (iki ayrı Cpk/chart/subgroups) — kullanıcı birini
+kaydedip diğerini unutursa veya farklı zamanlarda ayrı düzenlerse iki
+seri arasında teorik bir sapma oluşabilir (pratikte küçük risk, çünkü
+Birleşik Panel ikisini AYNI n-üçlü kaynaktan aynı anda hesaplıyor).
+Gerçek çözüm — tek kanonik `moisture_pct` + `dry_matter_pct`'nin HER
+YERDE dinamik türetilmesi, ayrı bir ikinci Cpk/chart/subgroups YOK —
+`st.session_state.subgroups`'u (şu an tek global liste, `active_parameter`
+değişince sıfırlanıyor) `dict[str, list]`'e çevirecek bağımsız, büyük
+bir refactor gerektiriyor; Birleşik Panel'in kapsamına BİLEREK
+alınmadı.
+
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
   anlamda kapatılması.

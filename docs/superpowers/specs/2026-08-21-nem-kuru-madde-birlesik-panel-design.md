@@ -76,6 +76,21 @@ DOKUNULMAZ.
   `st.session_state.subgroup_size` aynen kullanılır.
 - Renk Paneli'ne dokunmak.
 
+**Bilerek kabul edilen risk (kullanıcı onayıyla, kapsam daraltma
+tartışmasında):** Nem/Rutubet ve Kuru Madde iki AYRI SPC parametresi
+(iki ayrı Cpk, iki ayrı chart) olarak kaldığı için, teorik olarak
+kullanıcı n-üçlü formdan SADECE birini (örn. Nem'i) SPC'ye aktarıp
+diğerini (Kuru Madde) hiç aktarmayabilir veya farklı bir oturumda ayrı
+aktarabilir — bu durumda iki seri arasında (matematiksel olarak
+100'e tamamlanması gereken) bir sapma oluşabilir. Risk pratikte KÜÇÜK
+çünkü ikisi de AYNI n-üçlü kaynaktan aynı anda hesaplanıyor (kullanıcı
+elle çelişkili veri giremez) — asıl risk "birini kaydedip diğerini
+unutma" gibi bir UX detayıdır, mimari bir tehlike değildir. Gerçek
+kanonikleştirme (tek `moisture_pct` + dinamik ayna türetimi,
+`st.session_state.subgroups`'u `dict[str, list]`'e çevirecek refactor
+gerektirir) BİLEREK bu spec'in kapsamı DIŞINDA bırakılıp METHODOLOGY.md
+backlog'una v1.9+ maddesi olarak düşülüyor (bkz. Task son adımı).
+
 ## Veri Modeli
 
 Değişiklik YOK. `st.session_state.subgroups` tek global liste olarak
@@ -111,6 +126,16 @@ Totox köprüleriyle birebir aynı.
   render edilir (mevcut generic formun `key=f"...{active_parameter}"`
   deseniyle aynı — widget key'lerine `n` de eklenmeli ki n değişince eski
   girişler görsel olarak kalmasın).
+- **Kuru Madde I-MR döngüsünde vardiya:** `render_bridge_widget`'ın I-MR
+  dalı `shift` parametresini SABİT `"-"` olarak geçer (Alt-proje 1,
+  `app.py` — X-bar/R dalındaki "Vardiya" selectbox'ı I-MR dalında HİÇ
+  render edilmez, `shift="Sabah"` gibi bir varsayım YOKTUR, X-bar/R'a
+  özgü bir bug kalıntısı bu dalda söz konusu değildir). n kez döngüyle
+  çağrıldığında da her çağrı bağımsız olarak `shift="-"` yazar — n
+  noktanın hepsi tutarlı şekilde "-" alır, YANLIŞ bir vardiyaya
+  düşme riski YOKTUR. Yine de canlı testte (aşağıda) n=3 ile doğrulanacak
+  (kod-okuması ile canlı davranış arasında sapma olmadığından emin olmak
+  için, sadece teorik güvenceyle yetinilmeyecek).
 
 ## Test Stratejisi
 
@@ -121,4 +146,21 @@ Totox köprüleriyle birebir aynı.
 - Canlı (Playwright/manuel) doğrulama ZORUNLU: n=1 ve n=3 ile panели test
   et, her ikisinde de Kuru Madde VE Nem/Rutubet chart'larının doğru
   sayıda nokta aldığını, `lot_no`/`urun`'ün ikisine de doğru yazıldığını
-  doğrula.
+  doğrula. n=3 testinde AYRICA Kuru Madde'ye aktarılan 3 I-MR noktasının
+  ÜÇÜNÜN DE `shift="-"` aldığını (hiçbirinin yanlışlıkla bir vardiyaya
+  düşmediğini) doğrula.
+
+## Backlog (kapsam dışı, bilerek ertelenmiş)
+
+**v1.9+ — Nem/Kuru Madde kanonikleştirme**
+
+Bu panel iki AYRI SPC parametresini (Nem/Rutubet X-bar/R, Kuru Madde
+I-MR) aynı n-üçlü formdan besler ama session-state'te AYRI iki liste
+olarak tutmaya devam eder (`st.session_state.subgroups` tek global liste
+olduğu için ikisi asla AYNI ANDA var olamaz). Teorik state-drift riski
+(biri kaydedilip diğeri unutulursa iki seri arasında 100%'e tamamlanma
+tutarsızlığı) BİLEREK kabul edildi. Gerçek çözüm — tek kanonik
+`moisture_pct` parametresi + `dry_matter_pct`'nin HER YERDE dinamik
+türetilmesi (ayrı bir Cpk/chart/subgroups YOK) — `st.session_state.
+subgroups`'u `dict[str, list]`'e çevirecek bağımsız, büyük bir refactor
+gerektirir ve bu spec'in kapsamı dışındadır.
