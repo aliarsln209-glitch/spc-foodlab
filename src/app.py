@@ -101,7 +101,7 @@ st.set_page_config(page_title="SPC FoodLab", page_icon="\U0001F4CA", layout="wid
 if "subgroups" not in st.session_state:
     st.session_state.subgroups = []  # list of dict: {"shift": str, "values": list[float]}
 if "color_lab_samples" not in st.session_state:
-    st.session_state.color_lab_samples = []  # list of dict: {"L", "a", "b"}
+    st.session_state.color_lab_samples = []  # list of dict: {"L", "a", "b", "lot_no", "notes", "timestamp"}
 if "color_lab_form_nonce" not in st.session_state:
     st.session_state.color_lab_form_nonce = 0
 if "baseline" not in st.session_state:
@@ -1331,6 +1331,9 @@ def render_color_lab_data_entry_tab() -> None:
     esdeger - yanlislikla ayni olcumun iki kez eklenmesini onler), gecmis
     tabloda tek satir silme var."""
     st.subheader("\U0001F3A8 Renk (L*a*b*) - Birlesik Olcum Girisi")
+    if st.session_state.get("color_lab_last_added"):
+        st.success(st.session_state.color_lab_last_added)
+        del st.session_state["color_lab_last_added"]
     st.caption(
         "L*, a*, b* ayni spektrofotometre/kolorimetre okumasindan cikar - "
         "ucu birlikte, tek formda girilir. Istatistiksel olarak DAIMA "
@@ -1375,7 +1378,7 @@ def render_color_lab_data_entry_tab() -> None:
             st.session_state.color_lab_samples, l_val, a_val, b_val,
             lot_no=lot_no, notes=notes,
         )
-        st.success(f"Eklendi: L*={l_val:g}, a*={a_val:g}, b*={b_val:g}")
+        st.session_state.color_lab_last_added = f"Eklendi: L*={l_val:g}, a*={a_val:g}, b*={b_val:g}"
         # Widget'lari varsayilana dondur (st.form'un clear_on_submit=True'una
         # esdeger) - aksi halde ayni degerler ekranda kalir, kullanici
         # farkinda olmadan tekrar "Olcumu Ekle"ye basarsa AYNI satir ikinci
@@ -1481,7 +1484,7 @@ def render_color_lab_chart_tab() -> None:
     ]
 
     n_current = len(samples)
-    _out_of_control_axes: list[str] = []
+    _low_capability_axes: list[str] = []
     cols = st.columns(3)
     for col, (axis_name, values, axis_cfg) in zip(cols, axis_configs):
         with col:
@@ -1494,8 +1497,8 @@ def render_color_lab_chart_tab() -> None:
             cpk = None
             if spec_valid:
                 cpk = compute_cpk(x_bar, mr_bar, 2, lsl, usl, one_sided=axis_cfg["one_sided"])
-                if cpk != float("-inf") and cpk < 1.0:
-                    _out_of_control_axes.append(axis_name)
+                if cpk < 1.0:
+                    _low_capability_axes.append(axis_name)
                 if n_current < MIN_RECOMMENDED_BASELINE:
                     st.warning(
                         f"Cpk guvenilir yorum icin en az {MIN_RECOMMENDED_BASELINE} "
@@ -1526,10 +1529,15 @@ def render_color_lab_chart_tab() -> None:
             st.pyplot(fig)
             plt.close(fig)
 
-    if _out_of_control_axes:
-        st.warning(f"⚠️ Kontrol disi eksen(ler): {', '.join(_out_of_control_axes)} — digerleri normal.")
+    if n_current < MIN_RECOMMENDED_BASELINE:
+        st.info(
+            f"ℹ️ Ozet yorum icin yetersiz veri (n={n_current}, onerilen minimum: "
+            f"{MIN_RECOMMENDED_BASELINE}) - guvenilir bir kapasite ozeti su an gosterilemez."
+        )
+    elif _low_capability_axes:
+        st.warning(f"⚠️ Yeterlilik yetersiz (Cpk<1.0): {', '.join(_low_capability_axes)} — digerleri normal.")
     else:
-        st.success("✅ Uc eksen de kontrol altinda (Cpk >= 1.0 veya spesifikasyon tanimsiz).")
+        st.success("✅ Uc eksenin de Cpk >= 1.0 (veya spesifikasyon tanimsiz).")
 
 
 # ---------------------------------------------------------------------------
