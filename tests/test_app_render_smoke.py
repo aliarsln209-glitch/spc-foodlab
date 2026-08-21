@@ -85,3 +85,28 @@ def test_a_star_and_b_star_config_still_valid_but_not_in_sidebar_categories():
     assert "L*" in all_categorized
     assert "a*" in FOOD_QUALITY_PARAMETER_CONFIG
     assert "b*" in FOOD_QUALITY_PARAMETER_CONFIG
+
+
+def test_color_lab_data_entry_uses_widget_keys_not_form():
+    # Task 2: st.form KALDIRILDI (canli onizleme icin) - regresyon: biri
+    # yanlislikla st.form'u geri getirirse bu testin yakalamasi beklenir.
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    start = source.index("def render_color_lab_data_entry_tab()")
+    end = source.index("def render_color_lab_chart_tab()")
+    body = source[start:end]
+    assert 'st.form("color_lab_entry_form")' not in body
+    assert 'key=f"color_lab_l_input_' in body
+    assert 'key=f"color_lab_lot_input_' in body
+
+
+def test_color_lab_chart_tab_uses_min_recommended_baseline_threshold():
+    # Task 3: duzenli MIN_RECOMMENDED_BASELINE sabiti kullanilmali, yeni
+    # bir esik icat edilmemis olmali.
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    start = source.index("def render_color_lab_chart_tab()")
+    end = source.index("def render_generic_data_entry_tab()")
+    body = source[start:end]
+    assert "MIN_RECOMMENDED_BASELINE" in body
+    assert "annotate_hline" in body

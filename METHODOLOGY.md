@@ -844,6 +844,20 @@ bağımsız doğrulanmamış durumda — Brix sıcaklık düzeltmesi için yukar
 "kaynak bekliyor" notuyla aynı desende, bilinçli ve açıkça belgelenmiş bir
 boşluktur, sessiz bir eksiklik değildir.
 
+**v1.7.2 — Renk Paneli izlenebilirlik + okunabilirlik iyileştirmeleri**
+
+v1.7.1'in dar v1 kapsamına (bkz. yukarı) canlı denetimde gelen geri
+bildirimle şu eklendi: `lot_no`/`notes`/otomatik `timestamp` (Renk
+Paneline ÖZGÜ — tüm parametrelere genelleme aşağıdaki v1.8+ notunun
+konusu), canlı swatch önizlemesi (form kaldırıldı), duplicate-kayıt
+koruması (ekleme sonrası alanlar sıfırlanır), tek satır silme, düşük-n
+(<20) Cpk rozeti yerine güvenilirlik uyarısı, grafiklerde LSL/USL
+çizgileri, opsiyonel hedef renk swatch'i (ΔE HESAPLANMAZ, sadece
+görsel), 3-eksen trend özet uyarısı. Detay: `docs/superpowers/specs/
+2026-08-20-renk-paneli-v2-design.md`. CSV/Excel içe aktarma, PNG/CSV
+export, numune fotoğrafı, ürün bazlı LSL/USL tablosu HALA YOK (aynı
+gerekçelerle ertelendi).
+
 **v1.8 veya sonrası — Tüm parametrelere lot_no/timestamp/notes**
 
 Canlı denetimde gelen geri bildirim: hiçbir parametrede (Renk Paneli
