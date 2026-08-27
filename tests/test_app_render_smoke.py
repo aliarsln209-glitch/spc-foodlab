@@ -202,6 +202,27 @@ def test_moisture_km_mode_toggle_exists_and_gates_subgroup_size_control():
     assert "_reset_km_mode_input" in source
 
 
+def test_no_bare_parameter_config_reads_remain_in_app():
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    # get_combined_parameter_config()[...]/.get(...) icindeki "PARAMETER_CONFIG"
+    # alt-string'ini YANLISLIKLA yakalamamak icin bir onceki karakterin
+    # harf/altcizgi OLMADIGINI (?<![A-Za-z_]) sart kosuyoruz - bu, hem
+    # "get_combined_parameter_config()" hem de FOOD_QUALITY_PARAMETER_CONFIG /
+    # F0_BRIDGE_PARAMETER_CONFIG / TOTOX_BRIDGE_PARAMETER_CONFIG gibi TAMAMEN
+    # AYRI (bu task'in kapsami DISINDaki) sozlukleri de dogru sekilde haric
+    # tutar - sadece brief'teki basit "get_combined_" onek kontrolu bu farkli
+    # ad-alani sozluklerini yanlislikla forbidden olarak isaretliyordu.
+    # Geriye sadece dogrudan bare "PARAMETER_CONFIG[" / ".get(" / ".items()"
+    # cagrilari kalmali, hicbiri kalmamalidir.
+    forbidden = re.findall(r"(?<![A-Za-z_])PARAMETER_CONFIG\[|(?<![A-Za-z_])PARAMETER_CONFIG\.get\(|(?<![A-Za-z_])PARAMETER_CONFIG\.items\(\)", source)
+    assert not forbidden, (
+        "app.py'de hala dogrudan PARAMETER_CONFIG erisimi var - Senaryo B "
+        "geregi hepsi get_combined_parameter_config() uzerinden gecmeli "
+        f"(bulunanlar: {forbidden})"
+    )
+
+
 def test_old_gravimetric_calculator_removed_from_tab_calc():
     # Task 1: eski tekil hesaplayici (Hizli Hesaplayicilar sekmesinde,
     # sadece TEK hedefe koprulenebiliyordu) yeni panelle DEGISTIRILDI.

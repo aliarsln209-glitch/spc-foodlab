@@ -34,6 +34,8 @@ from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, thermal_lethality_f0, titratable_acidity
 from color_lab import append_color_sample, color_samples_to_series, lab_to_hex, remove_color_sample
+from custom_parameters_db import get_connection as get_custom_param_connection, list_custom_parameters, insert_custom_parameter, insert_custom_measurement, list_custom_measurements
+from parameter_registry import merge_parameter_config, merge_parameter_categories
 from result_helpers import (
     build_parameter_info_card,
     build_quick_summary,
@@ -114,6 +116,40 @@ for _flag in ("confirm_clear", "confirm_freeze", "confirm_reset_baseline", "conf
         st.session_state[_flag] = False
 
 
+def get_combined_parameter_config() -> dict:
+    """PARAMETER_CONFIG'i (built-in) SQLite'taki custom_parameters ile
+    birlestirir - SADECE bu session'a ait bir kopya uzerinde (st.session_
+    state icinde cache'lenir). constants.PARAMETER_CONFIG'in KENDISI ASLA
+    mutasyona ugramaz (Senaryo A'nin coklu-kullanici veri sizintisi riski
+    boylece yapisal olarak imkansiz - bkz. parameter_registry.merge_
+    parameter_config docstring'i). Cache, yeni bir custom parametre
+    eklendiginde invalidate_parameter_registry_cache() ile temizlenir."""
+    if "_param_registry_cache" not in st.session_state:
+        conn = get_custom_param_connection()
+        try:
+            custom_rows = list_custom_parameters(conn)
+        finally:
+            conn.close()
+        st.session_state._param_registry_cache = merge_parameter_config(PARAMETER_CONFIG, custom_rows)
+        st.session_state._param_categories_cache = merge_parameter_categories(PARAMETER_CATEGORIES, custom_rows)
+    return st.session_state._param_registry_cache
+
+
+def get_combined_parameter_categories() -> list:
+    """bkz. get_combined_parameter_config() - iki cache birlikte doldurulur,
+    bu fonksiyon sadece kategori tarafini dondurur."""
+    get_combined_parameter_config()
+    return st.session_state._param_categories_cache
+
+
+def invalidate_parameter_registry_cache() -> None:
+    """Yeni bir custom parametre SQLite'a eklendikten HEMEN sonra
+    cagrilmali - aksi halde ekleyen kullanicinin kendi session'i bile
+    az once ekledigi parametreyi goremez (cache bayat kalir)."""
+    st.session_state.pop("_param_registry_cache", None)
+    st.session_state.pop("_param_categories_cache", None)
+
+
 def compute_stats(subgroups):
     """Alt gruplardan ortalama/range listelerini ve genel ortalama/R-bar'i hesaplar.
     Her kullanim yerinde taze cagrilir, boylece ayni script run'i icindeki veri
@@ -179,7 +215,7 @@ def compute_active_parameter_status() -> tuple[str, float | None]:
         # Renk Paneli kendi ayri veri modelini (color_lab_samples) kullanir,
         # sidebar durum noktasi bu model icin anlamli degil - notr kalir.
         return "gray", None
-    param_cfg = PARAMETER_CONFIG[active_param]
+    param_cfg = get_combined_parameter_config()[active_param]
     is_indiv = param_cfg.get("is_individual", False)
 
     lsl, usl, one_sided = resolve_current_spec_hint(param_cfg)
@@ -239,7 +275,7 @@ def reset_parameter_scoped_state() -> None:
 # kategoride tiklanmis ama iptal edilmis/degistirilmis bir secim, o kategori
 # artik aktif degilken bile "secili" gorunmeye devam ederdi (hayalet secim).
 if st.session_state.pop("_reset_parameter_radio", False):
-    for _cat_id, _cat_label, _cat_params in PARAMETER_CATEGORIES:
+    for _cat_id, _cat_label, _cat_params in get_combined_parameter_categories():
         st.session_state[f"parameter_radio_{_cat_id}"] = (
             st.session_state.active_parameter
             if st.session_state.active_parameter in _cat_params
@@ -292,7 +328,7 @@ with st.sidebar:
     # varsayilan olarak acik baslar, digerleri kapali (sidebar'in daha kisa/
     # taranabilir kalmasi icin); kullanici istedigi kategoriyi elle acabilir.
     selected_param_radio = st.session_state.active_parameter
-    for _cat_id, _cat_label, _cat_params in PARAMETER_CATEGORIES:
+    for _cat_id, _cat_label, _cat_params in get_combined_parameter_categories():
         _is_active_category = st.session_state.active_parameter in _cat_params
         with st.expander(_cat_label, expanded=_is_active_category):
             _default_index = _cat_params.index(st.session_state.active_parameter) if _is_active_category else None
@@ -364,7 +400,7 @@ with st.sidebar:
     )
 
 dark = chart_theme == "Koyu"
-param_config = PARAMETER_CONFIG[st.session_state.active_parameter]
+param_config = get_combined_parameter_config()[st.session_state.active_parameter]
 unit = param_config["unit"]
 # Laboratuvar cihazinin gercek olcum hassasiyetini yansitir (orn. pH metre
 # 2 basamak verirken ekranda 4.5512344 gostermek sahte kesinlik olur) -
@@ -1951,7 +1987,7 @@ def render_generic_data_entry_tab() -> None:
                     # scenario_targets) - generate_demo_individual'a vermeden
                     # ONCE log10'a cevrilir; demo_spread (RAW olcekte, urun
                     # araligina bagli) burada KULLANILMAZ, sabit log10_sigma
-                    # (PARAMETER_CONFIG["demo_target_sigma"]) tercih edilir
+                    # (get_combined_parameter_config()["demo_target_sigma"]) tercih edilir
                     # (bkz. constants.py notu). Uretilen log10 seri, HER
                     # DEGER icin build_subgroup_entry() uzerinden gecirilir
                     # (raw=10**log_deger, is_below_lod=False) - ayri bir mock
@@ -2365,7 +2401,7 @@ def render_generic_chart_tab() -> None:
             """Tek/iki tarafli Cpk secimi PARAMETRE degil URUN bazindadir:
             secilen urunun LSL'i None ise (orn. Nem/Rutubet'te 'Bal') o urun
             icin tek tarafli Cpu hesaplanir; 'Ozel/Manuel gir' secildiginde
-            parametrenin kendi varsayilanina (PARAMETER_CONFIG['one_sided'])
+            parametrenin kendi varsayilanina (get_combined_parameter_config()['one_sided'])
             geri donulur."""
             product_range = param_config["products"].get(product_name)
             if product_range is None:
@@ -3364,7 +3400,7 @@ def render_bridge_widget(
         index=default_index,
         key=f"{widget_key_prefix}_target_param",
     )
-    target_config = PARAMETER_CONFIG.get(target, {})
+    target_config = get_combined_parameter_config().get(target, {})
     target_is_individual = target_config.get("is_individual", False)
     target_is_active = target == st.session_state.active_parameter
 
@@ -3614,7 +3650,7 @@ with tab_calc:
         # zaten anlamli sekilde dolduramaz - mimari olarak koprulenebilir
         # bir hedef degil.
         _f0_individual_params = sorted(
-            p for p, cfg in PARAMETER_CONFIG.items()
+            p for p, cfg in get_combined_parameter_config().items()
             if cfg.get("is_individual", False) and p not in ("L*", "a*", "b*")
         )
         render_bridge_widget(
@@ -3755,7 +3791,7 @@ with tab_calc:
         # o" varsayimina guvenilmez (Faz 1 final review bulgusu).
         # L*/a*/b* HARIC - ayni gerekce (F0 koprusundeki ayni notu, yukarida).
         _totox_individual_params = sorted(
-            p for p, cfg in PARAMETER_CONFIG.items()
+            p for p, cfg in get_combined_parameter_config().items()
             if cfg.get("is_individual", False) and p not in ("L*", "a*", "b*")
         )
         render_bridge_widget(
