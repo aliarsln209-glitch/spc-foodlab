@@ -74,13 +74,25 @@ def test_merge_parameter_config_does_not_mutate_builtin():
     assert "Ekstraksiyon Verimi" in merged
     assert "Ekstraksiyon Verimi" not in builtin
     assert merged["pH"] == builtin["pH"]
+    # Verify nested dicts are separate objects (deep copy, not shallow copy)
+    assert merged["pH"] is not builtin["pH"]
+    # Mutate a nested value in the merged dict
+    merged["pH"]["min_value"] = 999
+    # Verify the original builtin is unchanged (would fail with shallow copy)
+    assert builtin["pH"]["min_value"] == 0.0
 
 
 def test_merge_parameter_config_empty_custom_rows_returns_copy():
-    builtin = {"pH": {"unit": "-"}}
+    builtin = {"pH": {"unit": "-", "min_value": 0.0}}
     merged = merge_parameter_config(builtin, [])
     assert merged == builtin
     assert merged is not builtin
+    # Verify nested dicts are also separate (deep copy, not shallow copy)
+    assert merged["pH"] is not builtin["pH"]
+    # Mutate a nested value in the merged dict
+    merged["pH"]["min_value"] = 999
+    # Verify the original builtin is unchanged (would fail with shallow copy)
+    assert builtin["pH"]["min_value"] == 0.0
 
 
 def test_merge_parameter_categories_adds_custom_category_when_rows_exist():
