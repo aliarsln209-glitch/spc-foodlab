@@ -273,3 +273,10 @@ def test_new_custom_parameter_form_exists():
     assert 'st.form("new_custom_parameter_form"' in source
     assert "insert_custom_parameter(" in source
     assert "invalidate_parameter_registry_cache()" in source
+
+
+def test_custom_measurement_persisted_on_submit():
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    assert "insert_custom_measurement(" in source
+    assert '"_custom_hydrated_for"' in source

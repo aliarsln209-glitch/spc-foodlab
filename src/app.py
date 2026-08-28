@@ -508,6 +508,30 @@ unit = param_config["unit"]
 # 2 basamak verirken ekranda 4.5512344 gostermek sahte kesinlik olur) -
 # tum grafik etiketi/tablo/Cpk-adim gosterimi buna gore yuvarlanir.
 decimal_places = param_config["decimal_places"]
+if param_config.get("is_custom", False) and "_custom_hydrated_for" not in st.session_state:
+    st.session_state._custom_hydrated_for = None
+if (
+    param_config.get("is_custom", False)
+    and st.session_state.get("_custom_hydrated_for") != st.session_state.active_parameter
+    and not st.session_state.subgroups
+):
+    # Custom parametre ilk kez aktif oldugunda (bu session'da), SQLite'taki
+    # gecmis olcumleri session_state.subgroups'a yukler - custom parametreler
+    # ARTIK sadece session-state-only degil, kalici (bkz. custom_measurements
+    # tablosu). "not st.session_state.subgroups" korumasi: kullanici ayni
+    # parametrede zaten veri girmisse (submitted blogu subgroups'a EKLEMIS
+    # olabilir bu run'dan once) hydrate ETMEZ - cift kayit onlenir.
+    _conn = get_custom_param_connection()
+    try:
+        _hydrated = list_custom_measurements(_conn, param_config["custom_parameter_id"])
+    finally:
+        _conn.close()
+    st.session_state.subgroups = [
+        {"shift": r["shift"], "values": r["values"], "notes": r["notes"] or "",
+         "urun": r["urun"] or "", "timestamp": r["timestamp"], "lot_no": r["lot_no"] or ""}
+        for r in _hydrated
+    ]
+    st.session_state._custom_hydrated_for = st.session_state.active_parameter
 if st.session_state.active_parameter == "Nem / Kuru Madde":
     # v1.8.2: Nem/Rutubet ve Kuru Madde TEK parametrede birlestirildi -
     # kanonik deger daima %Nem'dir (Kuru Madde HER YERDE 100-x turetilir),
@@ -559,6 +583,16 @@ if st.session_state.active_parameter == "Nem / Kuru Madde":
 else:
     is_individual = param_config.get("is_individual", False)  # True: I-MR (alt grup yok), False: X-bar/R
 is_microbio = param_config.get("is_microbio", False)  # True: log10-CFU (TPC/TMAB) - bkz. microbiology.py
+
+if param_config.get("is_custom", False) and not param_config["is_individual"]:
+    # Custom X-bar/R parametrenin SQLite'a kaydedilmis subgroup_size'i,
+    # global st.session_state.subgroup_size'a senkronize edilir - Nem/Kuru
+    # Madde panelinin is_individual'i runtime'da set etmesiyle (yukaridaki
+    # blok) AYNI desen. Sadece parametre YENI aktif oldugunda (henuz veri
+    # girilmemisken) senkronize edilir - kullanici sidebar'daki "Alt grup
+    # buyuklugu" widget'iyla ELLE degistirdiyse (asagida) o tercih ezilmez.
+    if not st.session_state.subgroups and param_config.get("custom_subgroup_size"):
+        st.session_state.subgroup_size = param_config["custom_subgroup_size"]
 
 if not is_individual:
     with st.sidebar:
@@ -1980,12 +2014,27 @@ def render_generic_data_entry_tab() -> None:
                                 + "  \n".join(f"- {w}" for w in plausibility_warnings)
                             )
             elif submitted:
-                st.session_state.subgroups.append({
+                _new_entry = {
                     "shift": shift, "values": measurements,
                     "lot_no": lot_no, "notes": notes,
                     "urun": st.session_state.get("product_select", ""),
                     "timestamp": datetime.now().isoformat(timespec="seconds"),
-                })
+                }
+                st.session_state.subgroups.append(_new_entry)
+                if param_config.get("is_custom", False):
+                    # Custom parametreler kalici olmali (bkz. custom_measurements
+                    # tablosu) - session_state.subgroups'a ek olarak SQLite'a da
+                    # yazilir, boylece uygulama yeniden baslatilinca veri kaybolmaz.
+                    _conn = get_custom_param_connection()
+                    try:
+                        insert_custom_measurement(
+                            _conn, parameter_id=param_config["custom_parameter_id"],
+                            shift=_new_entry["shift"], values=_new_entry["values"],
+                            notes=_new_entry["notes"], urun=_new_entry["urun"],
+                            timestamp=_new_entry["timestamp"], lot_no=_new_entry["lot_no"],
+                        )
+                    finally:
+                        _conn.close()
                 st.success("Olcum eklendi." if is_individual else "Alt grup eklendi.")
                 labeled_values = (
                     [("Olcum", measurements[0])] if is_individual
