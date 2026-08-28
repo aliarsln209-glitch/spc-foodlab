@@ -21,7 +21,12 @@ def get_connection(db_path: str = DEFAULT_DB_PATH) -> sqlite3.Connection:
     """Baglanti acar, dizin yoksa olusturur, semayi (yoksa) kurar. Her
     cagrida CREATE TABLE IF NOT EXISTS calistigi icin idempotenttir -
     var olan bir DB'ye tekrar baglanmak semayi bozmaz."""
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    # db_path uzantisiz/dizinsiz bir bare filename ise (orn. testlerde
+    # "test.db") os.path.dirname(db_path) "" doner ve os.makedirs("")
+    # FileNotFoundError firlatir - bu yuzden sadece gercek bir dizin
+    # bileseni varsa olusturulur (final-review Fix 8).
+    if os.path.dirname(db_path):
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     _ensure_schema(conn)
@@ -116,6 +121,17 @@ def insert_custom_measurement(
         """,
         (parameter_id, shift, json.dumps(values), notes, urun, timestamp, lot_no),
     )
+    conn.commit()
+
+
+def delete_custom_measurements(conn: sqlite3.Connection, parameter_id: int) -> None:
+    """Bir ozel parametreye ait TUM olcumleri siler - CSV/Excel-yapistir
+    toplu-degistirme sonrasi SQLite'i session_state.subgroups ile yeniden
+    senkronize etmek (once sil, sonra yeniden ekle) ve "Tum verileri
+    temizle" onay diyalogunun verdigi sozu (SQLite'ta sessizce hayatta
+    kalip bir sonraki hydrate'te geri gelmemesini) tutmak icin kullanilir
+    (final-review Fix 5b/5c/5d)."""
+    conn.execute("DELETE FROM custom_measurements WHERE parameter_id = ?", (parameter_id,))
     conn.commit()
 
 

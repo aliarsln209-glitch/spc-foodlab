@@ -11,6 +11,7 @@ from custom_parameters_db import (
     list_custom_parameters,
     insert_custom_measurement,
     list_custom_measurements,
+    delete_custom_measurements,
 )
 
 
@@ -70,6 +71,50 @@ def test_insert_and_list_custom_measurements(conn):
 
 def test_list_custom_measurements_empty_for_unknown_parameter(conn):
     assert list_custom_measurements(conn, 999) == []
+
+
+def test_delete_custom_measurements_clears_only_that_parameter(conn):
+    pid1 = insert_custom_parameter(conn, **_base_kwargs())
+    pid2 = insert_custom_parameter(conn, **_base_kwargs(name="Diger Analiz"))
+    insert_custom_measurement(
+        conn, parameter_id=pid1, shift="-", values=[82.5], notes="", urun="",
+        timestamp="2026-08-27T10:00:00", lot_no="L1",
+    )
+    insert_custom_measurement(
+        conn, parameter_id=pid1, shift="-", values=[83.1], notes="", urun="",
+        timestamp="2026-08-27T11:00:00", lot_no="L2",
+    )
+    insert_custom_measurement(
+        conn, parameter_id=pid2, shift="-", values=[10.0], notes="", urun="",
+        timestamp="2026-08-27T12:00:00", lot_no="L3",
+    )
+
+    delete_custom_measurements(conn, pid1)
+
+    assert list_custom_measurements(conn, pid1) == []
+    assert len(list_custom_measurements(conn, pid2)) == 1
+
+
+def test_delete_custom_measurements_unknown_parameter_is_noop(conn):
+    pid = insert_custom_parameter(conn, **_base_kwargs())
+    insert_custom_measurement(
+        conn, parameter_id=pid, shift="-", values=[82.5], notes="", urun="",
+        timestamp="2026-08-27T10:00:00", lot_no="L1",
+    )
+    delete_custom_measurements(conn, 999)
+    assert len(list_custom_measurements(conn, pid)) == 1
+
+
+def test_get_connection_with_bare_filename_no_directory(tmp_path, monkeypatch):
+    # Fix 8: db_path'in dizin bileseni yoksa ("" doner) os.makedirs("")
+    # FileNotFoundError firlatmamali.
+    monkeypatch.chdir(tmp_path)
+    c = get_connection("bare_no_dir.db")
+    try:
+        insert_custom_parameter(c, **_base_kwargs())
+        assert len(list_custom_parameters(c)) == 1
+    finally:
+        c.close()
 
 
 def test_reopening_connection_preserves_schema(tmp_path):
