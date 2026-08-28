@@ -24,12 +24,15 @@ def custom_parameter_to_config_entry(row: dict) -> dict:
     noktalari (param_config['unit'], ['min_value'], ['is_individual'] vb.)
     built-in/custom ayrimi yapmadan calisabilsin diye.
 
-    'products' HER ZAMAN bos sozluk: custom parametrelerde urun-bazli
-    LSL/USL yok, tek bir genel LSL/USL var - resolve_current_spec_hint()
-    ve demo_scenario_targets() gibi built-in tuketiciler zaten
-    product_range=None durumunu genel varsayilana (default_lsl/default_usl)
-    duserek ele aliyor, bu yuzden custom parametreler icin ekstra bir
-    dallanma GEREKMEZ.
+    'products' HER ZAMAN sadece {'Ozel/Manuel gir': None} icerir: custom
+    parametrelerde urun-bazli LSL/USL yok, tek bir genel LSL/USL var -
+    resolve_current_spec_hint() ve demo_scenario_targets() gibi built-in
+    tuketiciler zaten product_range=None durumunu genel varsayilana
+    (default_lsl/default_usl) duserek ele aliyor, bu yuzden custom
+    parametreler icin ekstra bir dallanma GEREKMEZ. 'Ozel/Manuel gir'
+    anahtari, app.py'nin urun secim listesinde bu degeri VARSAYILAN
+    OLARAK bulup .index() ile secebilmesi icin ZORUNLUdur (bkz. app.py
+    ~2579-2617).
 
     has_specification=False ise default_lsl/default_usl 0.0'a sabitlenir
     (spc_core.is_spec_valid ve Cpk hesabi cagrilirken has_specification
@@ -49,7 +52,8 @@ def custom_parameter_to_config_entry(row: dict) -> dict:
         "min_value": row["min_value"],
         "max_value": row["max_value"],
         "decimal_places": decimal_places,
-        "products": {},
+        "default_measurement": 0.0,
+        "products": {"Ozel/Manuel gir": None},
         "default_lsl": lsl,
         "default_usl": usl,
         "one_sided": bool(row["one_sided"]),
