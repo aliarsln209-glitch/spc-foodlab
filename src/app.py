@@ -34,7 +34,7 @@ from microbiology import build_subgroup_entry, to_log10
 from pdf_report import build_pdf_report
 from qc_converters import build_bridge_subgroup_entry, bridge_value_count_matches, bridge_value_is_single, gravimetric_moisture, salt_content_mohr, thermal_lethality_f0, titratable_acidity
 from color_lab import append_color_sample, color_samples_to_series, lab_to_hex, remove_color_sample
-from custom_parameters_db import get_connection as get_custom_param_connection, list_custom_parameters, insert_custom_parameter, insert_custom_measurement, list_custom_measurements
+from custom_parameters_db import get_connection as get_custom_param_connection, list_custom_parameters, insert_custom_parameter, insert_custom_measurement, list_custom_measurements, delete_custom_measurements
 from parameter_registry import merge_parameter_config, merge_parameter_categories
 from result_helpers import (
     build_parameter_info_card,
@@ -150,6 +150,33 @@ def invalidate_parameter_registry_cache() -> None:
     st.session_state.pop("_param_categories_cache", None)
 
 
+def resync_custom_measurements(parameter_id: int, subgroups: list[dict]) -> None:
+    """Bir custom parametrenin SQLite'taki custom_measurements kayitlarini,
+    verilen subgroups listesiyle TAM olarak eslesecek sekilde yeniden
+    yazar (once TUMUNU sil, sonra listedeki her satiri tek tek ekle).
+
+    CSV yukleme / Excel-pano yapistir / ham veri tablosunda duzenle-kaydet
+    gibi akislar st.session_state.subgroups'u TOPLU olarak degistirir
+    (satir bazinda diff almadan) - manuel tek-satir kaydinda oldugu gibi
+    (bkz. yukaridaki insert_custom_measurement cagrisi, Task 6) SQLite'i
+    tek tek guncellemek yerine, "once sil sonra hepsini yeniden ekle"
+    daha basit VE dogru sonucu verir: sil+ekle sonrasi SQLite, subgroups
+    ile satir satir ayni olur (final-review Fix 5c)."""
+    _conn = get_custom_param_connection()
+    try:
+        delete_custom_measurements(_conn, parameter_id)
+        for _sg in subgroups:
+            insert_custom_measurement(
+                _conn, parameter_id=parameter_id,
+                shift=_sg.get("shift", "-"), values=_sg["values"],
+                notes=_sg.get("notes", ""), urun=_sg.get("urun", ""),
+                timestamp=_sg.get("timestamp", datetime.now().isoformat(timespec="seconds")),
+                lot_no=_sg.get("lot_no", ""),
+            )
+    finally:
+        _conn.close()
+
+
 def compute_stats(subgroups):
     """Alt gruplardan ortalama/range listelerini ve genel ortalama/R-bar'i hesaplar.
     Her kullanim yerinde taze cagrilir, boylece ayni script run'i icindeki veri
@@ -256,9 +283,20 @@ def reset_parameter_scoped_state() -> None:
     edilmeyen widget state'ini otomatik temizliyor - onceden yasanan ve kok
     nedeni bulunan bir hata. Silinen anahtarlar bir sonraki render'da
     tab_chart'taki init mantigiyla dogru parametre varsayilanlarindan yeniden
-    olusturulur."""
+    olusturulur.
+
+    "_custom_hydrated_for" / "_custom_subgroup_synced_for" de burada
+    temizlenir: bunlar "custom parametre X bu session'da hydrate/senkron
+    EDILDI" bayraklaridir ve parametre degisince (ya da "Analizi Temizle"
+    ile) sifirlanmazlarsa, kullanici custom parametre A'dan baska bir
+    parametreye gecip GERI A'ya donduğunde guard'lar (satir ~515, ~603)
+    "zaten bu parametre icin yapildi" saniyor ve A'nin SQLite'taki verisini
+    (ve dogru subgroup_size'ini) BIR DAHA yuklemiyor - oysa subgroups o
+    arada [] 'e sifirlanmisti (final-review Fix 3)."""
     for key in ("product_select", "prev_product", "prev_parameter", "lsl_input", "usl_input"):
         st.session_state.pop(key, None)
+    st.session_state.pop("_custom_hydrated_for", None)
+    st.session_state.pop("_custom_subgroup_synced_for", None)
 
 
 # "Vazgec" ile parametre secici radyo'lari eski durumuna dondurmek icin: bu,
@@ -413,23 +451,32 @@ with st.sidebar:
                 "Ölçüm yapısı", ["Bireysel (I-MR)", "Alt Grup (X-bar/R)"], index=0,
                 key="new_param_structure",
             )
-            new_subgroup_n = None
-            if new_structure == "Alt Grup (X-bar/R)":
-                new_subgroup_n = st.number_input(
-                    "Alt grup büyüklüğü (n)", min_value=MIN_SUBGROUP_SIZE,
-                    max_value=MAX_SUBGROUP_SIZE, value=DEFAULT_SUBGROUP_SIZE,
-                    key="new_param_subgroup_n",
-                )
+            # ONEMLI: bu widget, "Alt Grup (X-bar/R)" secilince gorunur olacak
+            # sekilde KOSULLU render EDILEMEZ - st.form() icindeki widget'lar
+            # SADECE form submit edildiginde script'i yeniden calistirir (dahili
+            # etkilesimlerde DEGIL), bu yuzden kosullu bir blok, en son TAM
+            # rerun'daki (yani BIR ONCEKI submit'teki) new_structure degerini
+            # kullanir - kullanici "Alt Grup" secse bile bu alan submit'e kadar
+            # hic gorunmez/etkilesilemez kalir (final-review Fix 4). Bu yuzden
+            # HER ZAMAN gosterilir; hangi yapida gercekten kullanilacagi submit
+            # anindaki dogrulama/kayit mantiginda (asagida) belirlenir.
+            new_subgroup_n_raw = st.number_input(
+                "Alt grup büyüklüğü (n)", min_value=MIN_SUBGROUP_SIZE,
+                max_value=MAX_SUBGROUP_SIZE, value=DEFAULT_SUBGROUP_SIZE,
+                key="new_param_subgroup_n",
+                help="Sadece 'Alt Grup (X-bar/R)' ölçüm yapısı seçiliyken kullanılır.",
+            )
             with st.expander("Gelişmiş ayarlar", expanded=False):
                 new_is_count = new_data_type_label == "Sayım"
-                new_decimal_places = 0
-                if not new_is_count:
-                    new_decimal_places = st.number_input(
-                        "Ondalık hane", min_value=0, max_value=6, value=2,
-                        key="new_param_decimal_places",
-                    )
-                else:
-                    st.caption("Sayım verisi için ondalık hane 0'a sabitlenir.")
+                # Ayni "form icinde kosullu gorunurluk" nedeniyle (yukaridaki
+                # aciklama) bu alan da HER ZAMAN render edilir - Sayım secilse
+                # bile submit aninda decimal_places 0'a sabitlenir (asagida).
+                new_decimal_places_raw = st.number_input(
+                    "Ondalık hane", min_value=0, max_value=6, value=2,
+                    key="new_param_decimal_places",
+                    disabled=new_is_count,
+                    help="Sayım verisi için ondalık hane submit aninda 0'a sabitlenir.",
+                )
                 new_log_scale = st.checkbox(
                     "Veriler log ölçekte mi gösterilsin?", value=False,
                     key="new_param_log_scale",
@@ -458,8 +505,16 @@ with st.sidebar:
                 _lsl = new_lsl if (_has_spec and new_lsl_enabled) else None
                 _usl = new_usl if (_has_spec and new_usl_enabled) else None
                 _one_sided = _has_spec and (_lsl is None or _usl is None)
+                # Fix 4: her iki alan da HER ZAMAN render edildigi (yukarida)
+                # icin, hangisinin GERCEKTEN kullanilacagi burada -submit
+                # aninda- new_structure/new_is_count'un GUNCEL (bu rerun'daki)
+                # degerine gore belirlenir - "gate at submit" deseni.
+                new_subgroup_n = new_subgroup_n_raw if new_structure == "Alt Grup (X-bar/R)" else None
+                new_decimal_places = 0 if new_is_count else new_decimal_places_raw
                 if _has_spec and _lsl is not None and _usl is not None and _lsl >= _usl:
                     st.error("LSL, USL'den küçük olmalıdır.")
+                elif new_min_enabled and new_max_enabled and new_min_value >= new_max_value:
+                    st.error("Min, Max'tan küçük olmalıdır.")
                 else:
                     conn = get_custom_param_connection()
                     try:
@@ -477,10 +532,11 @@ with st.sidebar:
                     except ValueError as exc:
                         st.error(str(exc))
                     else:
-                        conn.close()
                         invalidate_parameter_registry_cache()
                         st.success(f"'{_name_clean}' eklendi. Sol menüden 'Özel Parametreler' altında bulabilirsiniz.")
                         st.rerun()
+                    finally:
+                        conn.close()
 
     st.divider()
     st.subheader("Gorunum Ayarlari")
@@ -2256,6 +2312,14 @@ def render_generic_data_entry_tab() -> None:
                         st.session_state.subgroups = []
                         st.session_state.baseline = None
                         st.session_state.confirm_clear = False
+                        if param_config.get("is_custom", False):
+                            # Onay metni "Tum alt gruplar ... silinecek, bu
+                            # islem geri alinamaz" der - ama SQLite'a
+                            # dokunulmazsa bu YALAN olur: veri hayatta kalir
+                            # ve bir sonraki hydrate'te (bkz. satir ~511)
+                            # geri gelir. Burada da silinerek metin dogru
+                            # kilinir (final-review Fix 5d).
+                            resync_custom_measurements(param_config["custom_parameter_id"], [])
                         st.rerun()
                 with cc2:
                     if st.button("Vazgec", key="confirm_clear_no"):
@@ -2331,6 +2395,14 @@ def render_generic_data_entry_tab() -> None:
                         else:
                             st.session_state.subgroups = new_subgroups
                             st.session_state.baseline = None
+                            if param_config.get("is_custom", False):
+                                # CSV yukleme subgroups'u TOPLU degistirir -
+                                # SQLite'i (kalici depo) yeni listeyle
+                                # yeniden senkronize etmezsek, custom
+                                # parametrenin gecmisi bir sonraki hydrate'te
+                                # CSV-oncesi haline geri doner (final-review
+                                # Fix 5c).
+                                resync_custom_measurements(param_config["custom_parameter_id"], new_subgroups)
                             label = "olcum" if is_individual else "alt grup"
                             st.success(f"{len(new_subgroups)} {label} CSV'den yuklendi.")
 
@@ -2383,6 +2455,15 @@ def render_generic_data_entry_tab() -> None:
                             _row.setdefault("timestamp", _paste_ts)
                         st.session_state.subgroups.extend(new_rows)
                         st.session_state.baseline = None
+                        if param_config.get("is_custom", False):
+                            # Excel/pano yapistir mevcut subgroups'un SONUNA
+                            # ekler ama SQLite'a hic dokunmaz - resync,
+                            # (eski + yeni) TAM listeyi SQLite'a yeniden
+                            # yazarak kalici depoyu ekranla eslestirir
+                            # (final-review Fix 5c).
+                            resync_custom_measurements(
+                                param_config["custom_parameter_id"], st.session_state.subgroups
+                            )
                         label = "olcum" if is_individual else "alt grup"
                         st.success(f"{len(new_rows)} {label} eklendi (baseline sifirlandi).")
 
@@ -2504,6 +2585,17 @@ def render_generic_data_entry_tab() -> None:
                             else:
                                 st.session_state.subgroups = new_subgroups
                                 st.session_state.baseline = None
+                                if param_config.get("is_custom", False):
+                                    # Ham veri tablosu duzenle-kaydet de
+                                    # subgroups'u TOPLU degistirir (CSV
+                                    # yuklemeyle AYNI parse_uploaded_dataframe
+                                    # yolunu kullanir) - ayni gerekce, SQLite
+                                    # resync edilmezse duzenlenmis satirlar
+                                    # (silme/ekleme dahil) kalici degil
+                                    # (final-review Fix 5c).
+                                    resync_custom_measurements(
+                                        param_config["custom_parameter_id"], new_subgroups
+                                    )
                                 st.success("Degisiklikler kaydedildi (baseline sifirlandi).")
                                 st.rerun()
                 with ec2:
@@ -3883,9 +3975,17 @@ with tab_calc:
         # bir F0 skaler degeri, 3 eksenli bir Lab kaydini (L,a,b BIRLIKTE)
         # zaten anlamli sekilde dolduramaz - mimari olarak koprulenebilir
         # bir hedef degil.
+        # is_custom parametreler HARIC: kopru, st.session_state.subgroups'a
+        # dogrudan yazar, SQLite'a HICBIR sekilde dokunmaz - custom
+        # parametreler icin bu, "Analizi Temizle"/hydrate/CSV-eslenmesi gibi
+        # kalicilik yollarindan SESSIZCE ayrisan bir veri yolu acar (final-
+        # review Fix 5a). Kopruleme zaten custom parametreler icin
+        # tasarlanmis bir ozellik degildi - Task 3'un combined config'i
+        # okuyacak sekilde genisletilmesinin yan etkisiydi.
         _f0_individual_params = sorted(
             p for p, cfg in get_combined_parameter_config().items()
             if cfg.get("is_individual", False) and p not in ("L*", "a*", "b*")
+            and not cfg.get("is_custom", False)
         )
         render_bridge_widget(
             values_by_target=dict.fromkeys(_f0_individual_params, f0_value),
@@ -4024,9 +4124,12 @@ with tab_calc:
         # parametreleri arasindan acikca secilir - "su an hangisi aktifse
         # o" varsayimina guvenilmez (Faz 1 final review bulgusu).
         # L*/a*/b* HARIC - ayni gerekce (F0 koprusundeki ayni notu, yukarida).
+        # is_custom parametreler HARIC - bkz. F0 koprusundeki ayni gerekce
+        # (final-review Fix 5a).
         _totox_individual_params = sorted(
             p for p, cfg in get_combined_parameter_config().items()
             if cfg.get("is_individual", False) and p not in ("L*", "a*", "b*")
+            and not cfg.get("is_custom", False)
         )
         render_bridge_widget(
             values_by_target=dict.fromkeys(_totox_individual_params, totox_value),
