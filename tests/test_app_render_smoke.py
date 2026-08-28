@@ -223,6 +223,29 @@ def test_no_bare_parameter_config_reads_remain_in_app():
     )
 
 
+def test_custom_parameter_branch_exists_before_microbio_else():
+    chain = _read_info_card_chain()
+    custom_pos = chain.index('elif param_config.get("is_custom", False):')
+    else_pos = chain.index("else:  # is_microbio")
+    assert custom_pos < else_pos, (
+        "Custom parametre yakalama dali, mikrobiyoloji-ozel 'else' "
+        "dalindan ONCE olmali - aksi halde custom parametreler "
+        "param_config['default_usl'] KeyError'iyla cokme riski tasir "
+        "(ayni sinif hata, bkz. dosyanin en ustundeki 1.1 bulgusu)."
+    )
+
+
+def test_demo_section_guards_custom_parameters():
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    demo_guard_pos = source.index('if param_config.get("is_custom", False):')
+    products_read_pos = source.index('demo_scenario_options = ["Genel (varsayilan)"]')
+    assert demo_guard_pos < products_read_pos, (
+        "Demo bolumu, param_config['products'] okumadan ONCE is_custom "
+        "kontrolu yapmali - aksi halde custom parametrelerde KeyError."
+    )
+
+
 def test_old_gravimetric_calculator_removed_from_tab_calc():
     # Task 1: eski tekil hesaplayici (Hizli Hesaplayicilar sekmesinde,
     # sadece TEK hedefe koprulenebiliyordu) yeni panelle DEGISTIRILDI.

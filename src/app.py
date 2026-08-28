@@ -1899,168 +1899,176 @@ def render_generic_data_entry_tab() -> None:
                         + "  \n".join(f"- {w}" for w in plausibility_warnings)
                     )
 
-        demo_scenario_options = ["Genel (varsayilan)"] + [
-            p for p in param_config["products"] if p != "Ozel/Manuel gir"
-        ]
-        demo_scenario = st.selectbox(
-            "Demo senaryosu", demo_scenario_options,
-            key=f"demo_scenario_{st.session_state.active_parameter}",
-            help=(
-                "'Genel (varsayilan)' parametrenin standart demo verisini uretir. "
-                "Bir urun secersen, demo veri o urunun LSL/USL araligina gore "
-                "ortalanmis olarak uretilir (orn. 'Bal' secilirse nem verisi "
-                "Bal'in nem spesifikasyonu civarinda olusturulur)."
-            ),
-        )
-
-        # v1.2 Madde 12: Demo senaryo galerisi - "Demo senaryosu" (yukarida,
-        # HANGI URUNE gore ortalanacagini secer) ile BAGIMSIZ bir eksen: bu
-        # secim surecin NASIL DAVRANDIGINI (iyi/kayan/degisken/trend) belirler.
-        # Ikisi carpilarak (urun x davranis) kullanilabilir - orn. "Bal" +
-        # "Kayan ortalama" -> Bal'in spesifikasyonu civarinda kalici kayan veri.
-        demo_pattern_labels = {
-            "Ani sicrama (tek nokta)": "point_shift",
-            "Iyi surec (kontrol altinda)": "none",
-            "Kayan ortalama (kalici kayma)": "persistent_shift",
-            "Dusuk Cpk (yuksek degiskenlik)": "high_variation",
-            "Trend (dogrusal kayma)": "trend",
-        }
-        demo_pattern_choice = st.selectbox(
-            "Demo davranis deseni", list(demo_pattern_labels.keys()),
-            key=f"demo_pattern_{st.session_state.active_parameter}",
-            help=(
-                "Surecin demo verisinde NASIL davranacagini secer - Nelson "
-                "kurallarini/dusuk Cpk'yi/trendi gormek icin farkli desenler "
-                "dener. 'Ani sicrama' onceki surumlerin varsayilan demosudur."
-            ),
-        )
-        demo_pattern = demo_pattern_labels[demo_pattern_choice]
-
-        if is_microbio:
-            # Ayri bir "Normal SPC Demo / Microbiology Demo" secici EKLENMEDI -
-            # is_microbio zaten parametre secimiyle otomatik belirlendigi icin
-            # (bu parametre TPC/TMAB ise demo HER ZAMAN log-normal uretilir,
-            # baska turlusu anlamsiz olurdu) boyle bir secici sadece TEK gecerli
-            # cevabi olan bir soru sorar - kafa karistirir. Bunun yerine burada
-            # NEDEN log-normal uretildigi aciklanir (bkz. asagidaki demo yukleme
-            # kodu: generate_demo_individual log10 uzayinda cagrilir, sonra
-            # 10**log_deger ile ham KOB/g'ye cevrilip build_subgroup_entry()'den
-            # gecirilir).
-            st.caption(
-                "\U0001F9EA Bu parametre icin demo veri **log-normal dagilimdan** "
-                "uretilir (once log10 olceginde normal dagilim uretilir, sonra ham "
-                "KOB/g'ye cevrilir) - mikrobiyal sayimlarin gercek dagilimini "
-                "yansitir, bu yuzden neden log10 donusumu kullanildigini gorsel "
-                "olarak da gosterir."
+        col_a, col_b = st.columns(2)
+        if param_config.get("is_custom", False):
+            with col_a:
+                st.caption(
+                    "ℹ️ Bu özel parametre için demo veri üretimi desteklenmiyor "
+                    "(demo veri built-in parametrelerin literatür kaynaklı "
+                    "hedef değerlerine dayanır, özel parametrelerde bu değerler "
+                    "tanımlı değildir)."
+                )
+        else:
+            demo_scenario_options = ["Genel (varsayilan)"] + [
+                p for p in param_config["products"] if p != "Ozel/Manuel gir"
+            ]
+            demo_scenario = st.selectbox(
+                "Demo senaryosu", demo_scenario_options,
+                key=f"demo_scenario_{st.session_state.active_parameter}",
+                help=(
+                    "'Genel (varsayilan)' parametrenin standart demo verisini uretir. "
+                    "Bir urun secersen, demo veri o urunun LSL/USL araligina gore "
+                    "ortalanmis olarak uretilir (orn. 'Bal' secilirse nem verisi "
+                    "Bal'in nem spesifikasyonu civarinda olusturulur)."
+                ),
             )
 
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
-                scenario_product = None if demo_scenario == "Genel (varsayilan)" else demo_scenario
-                demo_mean, demo_spread, demo_shift_amount = demo_scenario_targets(param_config, scenario_product)
-                # "point_shift" (mevcut varsayilan) TEK bir noktayi carpici
-                # sekilde disari cikarmak icin buyuk bir shift_amount kullanir
-                # (orn. pH icin 0.35 - 3sigma'nin cok uzerinde). "persistent_shift"/
-                # "trend" ise KALICI bir kayma oldugu icin AYNI buyuklukte
-                # kullanilirsa TUM noktalar asiri sekilde disari cikar (manuel
-                # QA'da once denendi: 24/24 nokta hem UCL/LCL hem Nelson ile
-                # isaretleniyordu, Nelson Test 2'nin (9 ardisik) inceligi
-                # kayboluyordu - amac SADECE limit asimini degil, "henuz limit
-                # asmayan ama oruntusel sapma gosteren" durumu da gosterebilmek).
-                # Asagidaki carpanlar/index'ler seed=42 ile deneysel olarak
-                # ayarlandi - cogunlukla Nelson-only bir sinyal, minimal/hic
-                # UCL asimi hedeflenir (bkz. tests/test_demo_data.py, bu
-                # DAVRANIS testlerinde degil sadece yon/genislik kontrol
-                # edilir - kesin sayilar seed'e bagli oldugu icin BURADA
-                # sadece manuel QA ile dogrulanmistir).
-                demo_kwargs = {}
-                if demo_pattern == "persistent_shift":
-                    demo_pattern_shift = demo_spread * (1.8 if is_individual else 0.5)
-                    demo_kwargs["shift_index" if is_individual else "shift_subgroup_index"] = 15 if is_individual else 12
-                elif demo_pattern == "trend":
-                    demo_pattern_shift = demo_spread * (3.0 if is_individual else 1.0)
-                else:
-                    demo_pattern_shift = demo_shift_amount
-                if is_individual and is_microbio:
-                    # demo_mean HAM KOB/g'dir (digerleriyle ayni kaynak: demo_
-                    # scenario_targets) - generate_demo_individual'a vermeden
-                    # ONCE log10'a cevrilir; demo_spread (RAW olcekte, urun
-                    # araligina bagli) burada KULLANILMAZ, sabit log10_sigma
-                    # (get_combined_parameter_config()["demo_target_sigma"]) tercih edilir
-                    # (bkz. constants.py notu). Uretilen log10 seri, HER
-                    # DEGER icin build_subgroup_entry() uzerinden gecirilir
-                    # (raw=10**log_deger, is_below_lod=False) - ayri bir mock
-                    # ikame/log10 mantigi YAZILMAZ.
-                    log_mean = to_log10(demo_mean)
-                    log_sigma = param_config["demo_target_sigma"]
-                    demo_log_values = generate_demo_individual(
-                        target_mean=log_mean,
-                        target_sigma=log_sigma,
-                        shift_amount=demo_pattern_shift / demo_spread * log_sigma if demo_spread else None,
-                        pattern=demo_pattern,
-                        **demo_kwargs,
-                    )
-                    new_subgroups = []
-                    for log_v in demo_log_values:
-                        raw_cfu = max(10 ** log_v, param_config["min_value"])
-                        entry = build_subgroup_entry(raw=raw_cfu, is_below_lod=False, lod=param_config.get("default_lod"))
-                        new_subgroups.append({
-                            "shift": "-", "values": [entry["log_value"]],
-                            "raw": entry["raw"], "is_below_lod": False, "lod": entry["lod"],
-                        })
-                    st.session_state.subgroups = new_subgroups
-                elif is_individual:
-                    demo_values = generate_demo_individual(
-                        target_mean=demo_mean,
-                        target_sigma=demo_spread,
-                        shift_amount=demo_pattern_shift,
-                        pattern=demo_pattern,
-                        **demo_kwargs,
-                    )
-                    st.session_state.subgroups = [{"shift": "-", "values": [v]} for v in demo_values]
-                else:
-                    demo = generate_demo_subgroups(
-                        subgroup_size=subgroup_n,
-                        target_mean=demo_mean,
-                        target_r_bar=demo_spread,
-                        shift_amount=demo_pattern_shift,
-                        pattern=demo_pattern,
-                        clip_min=param_config["min_value"],
-                        clip_max=param_config["max_value"],
-                        **demo_kwargs,
-                    )
-                    st.session_state.subgroups = [
-                        {"shift": SHIFT_OPTIONS[i % len(SHIFT_OPTIONS)], "values": vals}
-                        for i, vals in enumerate(demo)
-                    ]
-                st.session_state.baseline = None
-                st.session_state.confirm_clear = False
-                # KRITIK: burada aciktan st.rerun() cagirmadan onceki halde,
-                # bu mutasyon script'in bu run'inda GEC gerceklesiyordu -
-                # sidebar (dosyanin EN USTUNDE, tab_data'dan ONCE calisir)
-                # zaten ESKI (bos) subgroups ile render edilmis oluyordu.
-                # Sekme degistirmek bunu DUZELTMIYOR (Streamlit'te sekme
-                # gecisi bir rerun TETIKLEMEZ - bkz. asagidaki NOT), yani
-                # sidebar durum noktasi kalici olarak "veri yok" gorunumunde
-                # takili kalabiliyordu.
-                #
-                # _reset_parameter_radio bayragi (asagida, sidebar'dan ONCE
-                # islenir) burada BILEREK yeniden kullanildi: bu rerun,
-                # "parameter_radio" widget'i BU RUN'DA ZATEN (eski/gri durum
-                # etiketiyle) render edildikten SONRA tetikleniyor -
-                # format_func'un urettigi etiket metni (nokta rengi) rerun
-                # oncesi/sonrasi FARKLI oldugu icin (gri->kirmizi/yesil),
-                # React/BaseWeb bu ani ard-arda render'da secili radio'nun
-                # checked gorunumunu kaybediyor (Playwright ile dogrulandi:
-                # input.checked=false kaliyor). session_state.parameter_radio'yu
-                # DOGRUDAN burada atamak DENENDI ama StreamlitAPIException
-                # verdi ("... cannot be modified after the widget ... is
-                # instantiated") - widget bu run'da zaten olusturuldu. Bayrak
-                # deseni bu kisitlamayi dogru sekilde asiyor: gercek atama bir
-                # SONRAKI run'da, widget olusturulmadan ONCE yapilir.
-                st.session_state._reset_parameter_radio = True
-                st.rerun()
+            # v1.2 Madde 12: Demo senaryo galerisi - "Demo senaryosu" (yukarida,
+            # HANGI URUNE gore ortalanacagini secer) ile BAGIMSIZ bir eksen: bu
+            # secim surecin NASIL DAVRANDIGINI (iyi/kayan/degisken/trend) belirler.
+            # Ikisi carpilarak (urun x davranis) kullanilabilir - orn. "Bal" +
+            # "Kayan ortalama" -> Bal'in spesifikasyonu civarinda kalici kayan veri.
+            demo_pattern_labels = {
+                "Ani sicrama (tek nokta)": "point_shift",
+                "Iyi surec (kontrol altinda)": "none",
+                "Kayan ortalama (kalici kayma)": "persistent_shift",
+                "Dusuk Cpk (yuksek degiskenlik)": "high_variation",
+                "Trend (dogrusal kayma)": "trend",
+            }
+            demo_pattern_choice = st.selectbox(
+                "Demo davranis deseni", list(demo_pattern_labels.keys()),
+                key=f"demo_pattern_{st.session_state.active_parameter}",
+                help=(
+                    "Surecin demo verisinde NASIL davranacagini secer - Nelson "
+                    "kurallarini/dusuk Cpk'yi/trendi gormek icin farkli desenler "
+                    "dener. 'Ani sicrama' onceki surumlerin varsayilan demosudur."
+                ),
+            )
+            demo_pattern = demo_pattern_labels[demo_pattern_choice]
+
+            if is_microbio:
+                # Ayri bir "Normal SPC Demo / Microbiology Demo" secici EKLENMEDI -
+                # is_microbio zaten parametre secimiyle otomatik belirlendigi icin
+                # (bu parametre TPC/TMAB ise demo HER ZAMAN log-normal uretilir,
+                # baska turlusu anlamsiz olurdu) boyle bir secici sadece TEK gecerli
+                # cevabi olan bir soru sorar - kafa karistirir. Bunun yerine burada
+                # NEDEN log-normal uretildigi aciklanir (bkz. asagidaki demo yukleme
+                # kodu: generate_demo_individual log10 uzayinda cagrilir, sonra
+                # 10**log_deger ile ham KOB/g'ye cevrilip build_subgroup_entry()'den
+                # gecirilir).
+                st.caption(
+                    "\U0001F9EA Bu parametre icin demo veri **log-normal dagilimdan** "
+                    "uretilir (once log10 olceginde normal dagilim uretilir, sonra ham "
+                    "KOB/g'ye cevrilir) - mikrobiyal sayimlarin gercek dagilimini "
+                    "yansitir, bu yuzden neden log10 donusumu kullanildigini gorsel "
+                    "olarak da gosterir."
+                )
+            with col_a:
+                if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
+                    scenario_product = None if demo_scenario == "Genel (varsayilan)" else demo_scenario
+                    demo_mean, demo_spread, demo_shift_amount = demo_scenario_targets(param_config, scenario_product)
+                    # "point_shift" (mevcut varsayilan) TEK bir noktayi carpici
+                    # sekilde disari cikarmak icin buyuk bir shift_amount kullanir
+                    # (orn. pH icin 0.35 - 3sigma'nin cok uzerinde). "persistent_shift"/
+                    # "trend" ise KALICI bir kayma oldugu icin AYNI buyuklukte
+                    # kullanilirsa TUM noktalar asiri sekilde disari cikar (manuel
+                    # QA'da once denendi: 24/24 nokta hem UCL/LCL hem Nelson ile
+                    # isaretleniyordu, Nelson Test 2'nin (9 ardisik) inceligi
+                    # kayboluyordu - amac SADECE limit asimini degil, "henuz limit
+                    # asmayan ama oruntusel sapma gosteren" durumu da gosterebilmek).
+                    # Asagidaki carpanlar/index'ler seed=42 ile deneysel olarak
+                    # ayarlandi - cogunlukla Nelson-only bir sinyal, minimal/hic
+                    # UCL asimi hedeflenir (bkz. tests/test_demo_data.py, bu
+                    # DAVRANIS testlerinde degil sadece yon/genislik kontrol
+                    # edilir - kesin sayilar seed'e bagli oldugu icin BURADA
+                    # sadece manuel QA ile dogrulanmistir).
+                    demo_kwargs = {}
+                    if demo_pattern == "persistent_shift":
+                        demo_pattern_shift = demo_spread * (1.8 if is_individual else 0.5)
+                        demo_kwargs["shift_index" if is_individual else "shift_subgroup_index"] = 15 if is_individual else 12
+                    elif demo_pattern == "trend":
+                        demo_pattern_shift = demo_spread * (3.0 if is_individual else 1.0)
+                    else:
+                        demo_pattern_shift = demo_shift_amount
+                    if is_individual and is_microbio:
+                        # demo_mean HAM KOB/g'dir (digerleriyle ayni kaynak: demo_
+                        # scenario_targets) - generate_demo_individual'a vermeden
+                        # ONCE log10'a cevrilir; demo_spread (RAW olcekte, urun
+                        # araligina bagli) burada KULLANILMAZ, sabit log10_sigma
+                        # (get_combined_parameter_config()["demo_target_sigma"]) tercih edilir
+                        # (bkz. constants.py notu). Uretilen log10 seri, HER
+                        # DEGER icin build_subgroup_entry() uzerinden gecirilir
+                        # (raw=10**log_deger, is_below_lod=False) - ayri bir mock
+                        # ikame/log10 mantigi YAZILMAZ.
+                        log_mean = to_log10(demo_mean)
+                        log_sigma = param_config["demo_target_sigma"]
+                        demo_log_values = generate_demo_individual(
+                            target_mean=log_mean,
+                            target_sigma=log_sigma,
+                            shift_amount=demo_pattern_shift / demo_spread * log_sigma if demo_spread else None,
+                            pattern=demo_pattern,
+                            **demo_kwargs,
+                        )
+                        new_subgroups = []
+                        for log_v in demo_log_values:
+                            raw_cfu = max(10 ** log_v, param_config["min_value"])
+                            entry = build_subgroup_entry(raw=raw_cfu, is_below_lod=False, lod=param_config.get("default_lod"))
+                            new_subgroups.append({
+                                "shift": "-", "values": [entry["log_value"]],
+                                "raw": entry["raw"], "is_below_lod": False, "lod": entry["lod"],
+                            })
+                        st.session_state.subgroups = new_subgroups
+                    elif is_individual:
+                        demo_values = generate_demo_individual(
+                            target_mean=demo_mean,
+                            target_sigma=demo_spread,
+                            shift_amount=demo_pattern_shift,
+                            pattern=demo_pattern,
+                            **demo_kwargs,
+                        )
+                        st.session_state.subgroups = [{"shift": "-", "values": [v]} for v in demo_values]
+                    else:
+                        demo = generate_demo_subgroups(
+                            subgroup_size=subgroup_n,
+                            target_mean=demo_mean,
+                            target_r_bar=demo_spread,
+                            shift_amount=demo_pattern_shift,
+                            pattern=demo_pattern,
+                            clip_min=param_config["min_value"],
+                            clip_max=param_config["max_value"],
+                            **demo_kwargs,
+                        )
+                        st.session_state.subgroups = [
+                            {"shift": SHIFT_OPTIONS[i % len(SHIFT_OPTIONS)], "values": vals}
+                            for i, vals in enumerate(demo)
+                        ]
+                    st.session_state.baseline = None
+                    st.session_state.confirm_clear = False
+                    # KRITIK: burada aciktan st.rerun() cagirmadan onceki halde,
+                    # bu mutasyon script'in bu run'inda GEC gerceklesiyordu -
+                    # sidebar (dosyanin EN USTUNDE, tab_data'dan ONCE calisir)
+                    # zaten ESKI (bos) subgroups ile render edilmis oluyordu.
+                    # Sekme degistirmek bunu DUZELTMIYOR (Streamlit'te sekme
+                    # gecisi bir rerun TETIKLEMEZ - bkz. asagidaki NOT), yani
+                    # sidebar durum noktasi kalici olarak "veri yok" gorunumunde
+                    # takili kalabiliyordu.
+                    #
+                    # _reset_parameter_radio bayragi (asagida, sidebar'dan ONCE
+                    # islenir) burada BILEREK yeniden kullanildi: bu rerun,
+                    # "parameter_radio" widget'i BU RUN'DA ZATEN (eski/gri durum
+                    # etiketiyle) render edildikten SONRA tetikleniyor -
+                    # format_func'un urettigi etiket metni (nokta rengi) rerun
+                    # oncesi/sonrasi FARKLI oldugu icin (gri->kirmizi/yesil),
+                    # React/BaseWeb bu ani ard-arda render'da secili radio'nun
+                    # checked gorunumunu kaybediyor (Playwright ile dogrulandi:
+                    # input.checked=false kaliyor). session_state.parameter_radio'yu
+                    # DOGRUDAN burada atamak DENENDI ama StreamlitAPIException
+                    # verdi ("... cannot be modified after the widget ... is
+                    # instantiated") - widget bu run'da zaten olusturuldu. Bayrak
+                    # deseni bu kisitlamayi dogru sekilde asiyor: gercek atama bir
+                    # SONRAKI run'da, widget olusturulmadan ONCE yapilir.
+                    st.session_state._reset_parameter_radio = True
+                    st.rerun()
         with col_b:
             if not st.session_state.confirm_clear:
                 if st.button("\U0001F5D1️ Tum verileri temizle", type="secondary"):
@@ -2575,6 +2583,13 @@ def render_generic_chart_tab() -> None:
                     "genel sektor pratigine dayanir. **Sadece USL anlamlidir**: "
                     "HMF, isil islem/depolama sirasinda sekerlerin bozunmasinin "
                     "gostergesidir; alt limit kavrami yoktur."
+                )
+            elif param_config.get("is_custom", False):
+                st.caption(
+                    "Bu, kullanıcı tarafından tanımlanmış özel bir "
+                    "parametredir — LSL/USL değerleri (varsa) kullanıcı "
+                    "tarafından elle girilmiştir, literatür/regülasyon "
+                    "kaynağı yoktur."
                 )
             elif active_param in FOOD_QUALITY_PARAMETER_CONFIG:
                 # v1.4->v1.6 Food Quality Parameters (Protein, Yag, Kul, Kuru
