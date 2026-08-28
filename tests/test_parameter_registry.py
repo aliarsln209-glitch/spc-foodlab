@@ -70,6 +70,16 @@ def test_custom_parameter_to_config_entry_carries_min_max_and_log_scale():
     assert entry["log_scale"] is True
 
 
+def test_custom_parameter_to_config_entry_clamps_default_measurement_to_positive_min():
+    entry = custom_parameter_to_config_entry(_row(min_value=1.0, max_value=100.0))
+    assert entry["default_measurement"] == 1.0
+
+
+def test_custom_parameter_to_config_entry_clamps_default_measurement_to_negative_max():
+    entry = custom_parameter_to_config_entry(_row(min_value=None, max_value=-5.0))
+    assert entry["default_measurement"] == -5.0
+
+
 def test_merge_parameter_config_does_not_mutate_builtin():
     builtin = {"pH": {"unit": "-", "min_value": 0.0}}
     merged = merge_parameter_config(builtin, [_row()])

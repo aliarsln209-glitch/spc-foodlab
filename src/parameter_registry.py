@@ -47,12 +47,17 @@ def custom_parameter_to_config_entry(row: dict) -> dict:
     lsl = row["lsl"] if has_spec and row["lsl"] is not None else 0.0
     usl = row["usl"] if has_spec and row["usl"] is not None else 0.0
     decimal_places = 0 if row["data_type"] == "count" else row["decimal_places"]
+    default_measurement = 0.0
+    if row["min_value"] is not None and default_measurement < row["min_value"]:
+        default_measurement = row["min_value"]
+    if row["max_value"] is not None and default_measurement > row["max_value"]:
+        default_measurement = row["max_value"]
     return {
         "unit": row["unit"],
         "min_value": row["min_value"],
         "max_value": row["max_value"],
         "decimal_places": decimal_places,
-        "default_measurement": 0.0,
+        "default_measurement": default_measurement,
         "products": {"Ozel/Manuel gir": None},
         "default_lsl": lsl,
         "default_usl": usl,

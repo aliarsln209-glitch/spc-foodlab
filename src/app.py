@@ -691,6 +691,11 @@ if not is_individual:
                         st.session_state.subgroup_size = selected_n
                         st.session_state.subgroups = []
                         st.session_state.baseline = None
+                        if param_config.get("is_custom", False):
+                            # Onay metni "mevcut alt gruplar ... silinecek" der -
+                            # SQLite'a dokunulmazsa bu YALAN olur (bkz. final-review
+                            # Fix 5d, ayni desen burada da uygulanir).
+                            resync_custom_measurements(param_config["custom_parameter_id"], [])
                         st.rerun()
                 with nc2:
                     if st.button("Vazgec", key="n_change_no"):
