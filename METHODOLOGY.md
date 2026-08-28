@@ -974,6 +974,49 @@ pratiği farkını (n-tekrarlı alt grup vs tahribatli tekil tayin)
 korur, sadece isim ve veri modeli birleşti. Mod değişimi, `n` değişimiyle
 aynı "mevcut veri silinecek, emin misiniz?" onay desenini kullanır.
 
+**v1.9 — Kullanıcı Tanımlı Özel Analiz Parametreleri (TAMAMLANDI)**
+
+Kullanıcı, kodda önceden tanımlanmamış bir analiz parametresini (örn.
+"Ekstraksiyon Verimi") sidebar'daki "➕ Yeni Analiz Ekle" formundan
+runtime'da tanımlayıp mevcut I-MR/X-bar-R/Cpk motorunu **hiç
+değiştirmeden** bu parametre için veri toplayıp SPC takibi
+yapabiliyor. Mimari (plan'daki "Senaryo B — Registry Abstraction +
+Merkezi Getter", tam metin `docs/superpowers/plans/
+2026-08-27-ozel-parametre-tanimlama.md`): `constants.PARAMETER_CONFIG`
+runtime'da **asla mutasyona uğramaz**; yeni bir `parameter_registry.py`
+(saf mantık) custom parametreleri SQLite'tan (`custom_parameters_db.py`,
+o da saf mantık — Streamlit'e bağımlı değil) okuyup built-in registry
+ile session-scope'lu, `deepcopy`'lenmiş bir kopya üzerinde birleştirir.
+`app.py`'deki tüm `PARAMETER_CONFIG[...]` erişimleri bu session-cache'li
+getter'a (`get_combined_parameter_config()`) yönlendirilir;
+`spc_core.py`/`pdf_report.py`/`qc_converters.py`'ye hiç dokunulmadı —
+custom parametreler zaten parametreyi argüman olarak alan bu saf
+fonksiyonlara, built-in'lerle **birebir aynı şekilli** bir sözlük
+girdisi olarak sunuluyor, ayrı bir if-else akışı yok.
+
+Değerlendirilip reddedilen üç alternatif: **Senaryo A** (`PARAMETER_CONFIG`'e
+doğrudan `.update()` ile mutasyon) reddedildi — Streamlit Community
+Cloud'un tek-process mimarisinde bu, bir kullanıcının eklediği parametrenin
+diğer tüm kullanıcıların session'ında da görünmesi (çoklu-kullanıcı veri
+sızıntısı) riskini doğururdu. **Senaryo C** (built-in ve custom parametreler
+için ayrı/paralel if-else akışları) reddedildi — bu, custom parametre
+desteğini SPC motorunun kendisine sızdırıp iki paralel bakım yükü
+yaratırdı; bunun yerine custom satırlar built-in'lerle **aynı şekle**
+dönüştürülüyor (`custom_parameter_to_config_entry()`), motor ikisini
+ayırt etmiyor. **EAV (entity-attribute-value) deseni** reddedildi — sabit,
+öngörülebilir bir şema (`custom_parameters`/`custom_measurements`
+tabloları) SQLite katmanını basit ve sorgulanabilir tutuyor. Kalıcılık
+kısıtı **bilinçli olarak MVP için kabul edildi**: SQLite dosyası
+Streamlit Community Cloud'da redeploy/uzun süreli inaktivite sonrası
+sıfırlanabilir — UI'da kullanıcıya bunu belirten bir not gösteriliyor,
+kapsam büyütülmedi (kalıcı disk/harici DB araştırması bu turun dışında).
+Bu, v2.0'daki "Kalıcı depolama (SQLite)" hedefinin **tam karşılığı
+değil** — session-state-only mimarinin genel olarak kapatılması hâlâ
+v2.0'a ait; v1.9 sadece custom parametreler için dar kapsamlı, isteğe
+bağlı bir kalıcılık sağlıyor (`is_microbio`, ürün bazlı LSL/USL,
+demo veri üretimi gibi built-in'lere özgü alanlar custom parametrelere
+kasıtlı olarak taşınmadı/gizlendi).
+
 **v2.0 — Kalıcılık & süreç tanımı**
 - Kalıcı depolama (SQLite) — session-state-only mimarinin gerçek
   anlamda kapatılması.

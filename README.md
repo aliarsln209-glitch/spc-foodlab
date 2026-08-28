@@ -302,6 +302,24 @@ limite ne kadar yakın/uzak olunduğunu belirten bir duyarlılık cümlesi
 eşlik eder (örn. "%50 altında, 13.00 birim pay var"), ve sonuçlar bu
 oturuma özel bir geçmiş listesine eklenebilir.
 
+## v1.9 — Kullanıcı Tanımlı Özel Analiz Parametreleri
+
+Sidebar'daki **"➕ Yeni Analiz Ekle"** formundan, listede olmayan bir
+analizi (örn. "Ekstraksiyon Verimi") kendiniz tanımlayıp aynı SPC
+motoruyla (I-MR veya X-bar/R kontrol grafiği + Cpk/Cpu) takip
+edebilirsiniz — kod değişikliği gerekmez. Ad, birim, veri tipi
+(sürekli/sayım), ölçüm yapısı (bireysel/alt grup) ve isteğe bağlı
+LSL/USL girilir; parametre oluşturulduğu anda "Özel Parametreler"
+kategorisi altında sidebar'da görünür. Bu parametrelerin ölçümleri,
+built-in parametrelerin aksine (session-state-only), yerel bir SQLite
+dosyasında saklanır — uygulama yeniden başlatıldığında (örn. Streamlit
+Cloud'da uzun süreli inaktivite sonrası) bu kayıtlar sıfırlanabilir; bu
+bilinçli bir MVP kısıtıdır, formda kullanıcıya belirtilir.
+
+Mimari kararların (neden `PARAMETER_CONFIG`'e doğrudan mutasyon yerine
+ayrı bir registry katmanı seçildiği dahil) tam gerekçesi:
+[METHODOLOGY.md](METHODOLOGY.md) "v1.9" bölümü.
+
 ## Nasıl çalıştırılır
 
 **Local:**
@@ -323,7 +341,9 @@ Uygulama varsayılan olarak `http://localhost:8501` üzerinde açılır.
   uyarı kutularında fade-in) — arayüzü canlandırır, dikkat dağıtmaz
 - **Deploy:** Streamlit Community Cloud
 - Veri kalıcılığı: session-state (uygulama içi) + CSV import/export —
-  v1'de veritabanı entegrasyonu yok
+  built-in parametrelerde veritabanı entegrasyonu yok; v1.9'dan
+  itibaren yalnızca kullanıcı tanımlı özel parametreler için isteğe
+  bağlı SQLite kalıcılığı var (bkz. yukarı, "v1.9" bölümü)
 
 ## Proje yapısı
 
@@ -341,6 +361,8 @@ spc-foodlab/
 │   ├── pdf_report.py      # Tek sayfalık PDF analiz raporu üretimi
 │   ├── demo_data.py       # Kontrollü simülasyon veri üreteci (5 davranış deseni: iyi/kayan/değişken/trend/nokta-sıçrama)
 │   ├── microbiology.py    # log10-CFU: LOD/2 ikamesi + log10 dönüşümü (build_subgroup_entry - tek merkezi giriş noktası)
+│   ├── custom_parameters_db.py  # v1.9: kullanıcı tanımlı özel parametreler için SQLite CRUD (saf mantık)
+│   ├── parameter_registry.py    # v1.9: custom parametreleri built-in PARAMETER_CONFIG şekliyle birleştiren saf mantık
 │   └── constants.py       # Sabit yapılandırma (varsayılan n=4, parametre/ürün/kaynak tabloları)
 ├── tests/
 │   ├── test_validation.py        # X-bar/R formül doğrulama testi (pH örneği)
@@ -357,7 +379,9 @@ spc-foodlab/
 │   ├── test_pdf_report.py        # PDF rapor üretiminin otomatik doğrulanması
 │   ├── test_validation_suite.py  # validation/*.csv referans dosyalarını çalıştıran testler
 │   ├── test_microbiology.py      # LOD/2 ikamesi + log10 dönüşümü + 5 mikrobiyoloji parametresinin PARAMETER_CONFIG smoke testi
-│   └── test_food_quality_framework.py  # v1.4→v1.6 Parameter Framework semasi + kaynak dogrulama smoke testleri
+│   ├── test_food_quality_framework.py  # v1.4→v1.6 Parameter Framework semasi + kaynak dogrulama smoke testleri
+│   ├── test_custom_parameters_db.py    # v1.9: SQLite CRUD katmani testleri
+│   └── test_parameter_registry.py      # v1.9: custom+builtin birlesim mantigi testleri
 ├── validation/           # Formül doğrulama referans veri seti (bkz. validation/README.md)
 │   ├── shared/           # Parametre-bağımsız formül doğrulaması (X-bar/R, I-MR, Cpk, Ppk)
 │   ├── microbiology/     # v1.3 log10-CFU referansları
