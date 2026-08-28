@@ -1122,10 +1122,15 @@ def cpk_capability_badge(cpk: float, cpk_valid: bool) -> tuple[str, str, str]:
     return "\U0001F534", "Yetersiz", "#e03131"
 
 
-def render_capability_card(cpk: float, cpk_label: str, cpk_valid: bool) -> None:
+def render_capability_card(cpk: float, cpk_label: str, cpk_valid: bool, is_custom_no_spec: bool = False) -> None:
     """ADIM 4 'Process Capability' karti: buyuk Cpk/Cpu degeri + uc renkli
     rozet (bkz. cpk_capability_badge). X-bar/R ve I-MR'de AYNI - farklari
-    (etiket, gecerlilik) zaten parametre olarak aliniyor."""
+    (etiket, gecerlilik) zaten parametre olarak aliniyor.
+
+    is_custom_no_spec: ozel (custom) bir parametrenin BILEREK spesifikasyon
+    tanimlamadigi (has_specification=False) durum - bu durumda cpk_valid=False
+    olsa da mesaj metni "gecersiz veri girisi" yerine "spesifikasyon
+    tanimlanmadi (kasitli)" anlamina gelmelidir (bkz. Task 7)."""
     emoji, level_label, color = cpk_capability_badge(cpk, cpk_valid)
     st.markdown(f"##### \U0001F3AF Surec Yeterliligi")
     if cpk_valid:
@@ -1153,7 +1158,14 @@ def render_capability_card(cpk: float, cpk_label: str, cpk_valid: bool) -> None:
             f"<div style='color:{color}; font-weight:600;'>{emoji} {level_label}</div>",
             unsafe_allow_html=True,
         )
-        st.caption(f"{cpk_label} hesaplanamadi: spesifikasyon gecersiz (LSL >= USL).")
+        if is_custom_no_spec:
+            st.caption(
+                "ℹ️ Bu özel parametre için spesifikasyon limiti (LSL/USL) "
+                "tanımlanmamış — yalnızca UCL/LCL proses kontrol limitleri "
+                "geçerlidir, Cpk/Cpu/Ppk/Pp hesaplanmaz."
+            )
+        else:
+            st.caption(f"{cpk_label} hesaplanamadi: spesifikasyon gecersiz (LSL >= USL).")
 
 
 def build_cpk_vs_ppk_comment(cpk: float, ppk: float) -> str:
@@ -2825,12 +2837,28 @@ def render_generic_chart_tab() -> None:
             # uretir (orn. Cpk=-6.998), bu da yukaridaki hata mesajiyla celisen
             # yaniltici bir "sonuc" gostermis olurdu.
             spec_valid = is_spec_valid(one_sided, lsl, usl)
+            # Task 7: ozel (custom) bir parametrenin BILEREK spesifikasyon
+            # tanimlamadigi (has_specification=False) durumda lsl=usl=0.0
+            # gonderilir ve spec_valid dogal olarak False doner - ama bu bir
+            # veri girisi HATASI degil, kasitli bir tercihtir. Asagidaki VE
+            # bu fonksiyondaki diger tum "spec_valid=False" gosterim
+            # noktalarinda mesaj metni buna gore ayrilir (hesaplama davranisi
+            # -Cpk/Cpu gizlenmesi- zaten spec_valid=False'tan otomatik gelir,
+            # burada SADECE metin degisir).
+            is_custom_no_spec = param_config.get("is_custom", False) and not param_config.get("has_specification", True)
             if not spec_valid:
-                st.error(
-                    f"Gecersiz spesifikasyon: LSL ({lsl:.2f}) >= USL ({usl:.2f}). "
-                    "Alt limit ust limitten kucuk olmalidir - asagidaki Cpk/kontrol "
-                    "semasi sonuclari bu duzeltilene kadar anlamsizdir."
-                )
+                if is_custom_no_spec:
+                    st.info(
+                        "ℹ️ Bu özel parametre için spesifikasyon limiti (LSL/USL) "
+                        "tanımlanmamış — yalnızca UCL/LCL proses kontrol limitleri "
+                        "geçerlidir, Cpk/Cpu/Ppk/Pp hesaplanmaz."
+                    )
+                else:
+                    st.error(
+                        f"Gecersiz spesifikasyon: LSL ({lsl:.2f}) >= USL ({usl:.2f}). "
+                        "Alt limit ust limitten kucuk olmalidir - asagidaki Cpk/kontrol "
+                        "semasi sonuclari bu duzeltilene kadar anlamsizdir."
+                    )
 
         if is_microbio:
             # KRITIK: lsl/usl widget'lari (yukarida) HAM KOB/g olceginde
@@ -2984,7 +3012,7 @@ def render_generic_chart_tab() -> None:
 
             with col_cap:
                 with st.container(border=True, key="card-08"):
-                    render_capability_card(cpk, cpk_label, spec_valid)
+                    render_capability_card(cpk, cpk_label, spec_valid, is_custom_no_spec)
                     if spec_valid:
                         with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
                             render_calculation_steps_imr(x_bar, mr_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
@@ -3011,9 +3039,12 @@ def render_generic_chart_tab() -> None:
                 ) + build_trend_nelson_comment(compute_trend(values), bool(nelson_oot_i))
             else:
                 oot_text = "OOT (kontrol disi) nokta yok" if not oot_points else f"{len(oot_points)} OOT (kontrol disi) nokta var"
+                if is_custom_no_spec:
+                    spec_status_text = f"{cpk_label} hesaplanmadi (spesifikasyon tanimlanmamis)."
+                else:
+                    spec_status_text = f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
                 imr_quick_summary = (
-                    f"{len(values)} olcum analiz edildi, {oot_text}, "
-                    f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
+                    f"{len(values)} olcum analiz edildi, {oot_text}, {spec_status_text}"
                 )
             with st.container(border=True, key="card-10"):
                 st.markdown(f"**\U0001F4CB Ozet:** {imr_quick_summary}")
@@ -3135,6 +3166,13 @@ def render_generic_chart_tab() -> None:
                             ("Surec Yeterlilik Histogrami", imr_histogram_png),
                         ],
                         key="pdf_imr",
+                    )
+                elif is_custom_no_spec:
+                    st.info(
+                        "ℹ️ Bu özel parametre için spesifikasyon limiti (LSL/USL) "
+                        "tanımlanmamış — yalnızca UCL/LCL proses kontrol limitleri "
+                        "geçerlidir, Cpk/Cpu/Ppk/Pp hesaplanmaz; PDF raporu bu nedenle "
+                        "devre disi."
                     )
                 else:
                     st.info(
@@ -3279,7 +3317,7 @@ def render_generic_chart_tab() -> None:
 
             with col_cap:
                 with st.container(border=True, key="card-16"):
-                    render_capability_card(cpk, cpk_label, spec_valid)
+                    render_capability_card(cpk, cpk_label, spec_valid, is_custom_no_spec)
                     if spec_valid:
                         with st.expander("\U0001F9EE Hesaplama adimlarini goster"):
                             render_calculation_steps_xbar(x_double_bar, r_bar, limits, cpk, cpk_label, lsl, usl, one_sided, unit, decimal_places)
@@ -3311,9 +3349,12 @@ def render_generic_chart_tab() -> None:
                 ) + build_trend_nelson_comment(compute_trend(means), bool(nelson_oot_x))
             else:
                 oot_text = "OOT (kontrol disi) nokta yok" if not oot_groups else f"{len(oot_groups)} OOT (kontrol disi) nokta var"
+                if is_custom_no_spec:
+                    spec_status_text = f"{cpk_label} hesaplanmadi (spesifikasyon tanimlanmamis)."
+                else:
+                    spec_status_text = f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
                 xbar_quick_summary = (
-                    f"{len(means)} alt grup analiz edildi, {oot_text}, "
-                    f"{cpk_label} hesaplanamadi (spesifikasyon gecersiz: LSL >= USL)."
+                    f"{len(means)} alt grup analiz edildi, {oot_text}, {spec_status_text}"
                 )
             with st.container(border=True, key="card-18"):
                 st.markdown(f"**\U0001F4CB Ozet:** {xbar_quick_summary}")
@@ -3329,6 +3370,15 @@ def render_generic_chart_tab() -> None:
                 render_shift_comparison(
                     st.session_state.subgroups, subgroup_n, lsl, usl, one_sided, cpk_label, unit,
                 )
+            elif is_custom_no_spec:
+                with st.container(border=True, key="card-19"):
+                    st.subheader("Vardiya Karsilastirmasi")
+                    st.info(
+                        "ℹ️ Bu özel parametre için spesifikasyon limiti (LSL/USL) "
+                        "tanımlanmamış — yalnızca UCL/LCL proses kontrol limitleri "
+                        "geçerlidir, Cpk/Cpu/Ppk/Pp hesaplanmaz; vardiya bazinda "
+                        "karsilastirma bu nedenle gosterilmiyor."
+                    )
             else:
                 with st.container(border=True, key="card-19"):
                     st.subheader("Vardiya Karsilastirmasi")
@@ -3447,6 +3497,13 @@ def render_generic_chart_tab() -> None:
                             ("Surec Yeterlilik Histogrami", xbar_histogram_png),
                         ],
                         key="pdf_xbar",
+                    )
+                elif is_custom_no_spec:
+                    st.info(
+                        "ℹ️ Bu özel parametre için spesifikasyon limiti (LSL/USL) "
+                        "tanımlanmamış — yalnızca UCL/LCL proses kontrol limitleri "
+                        "geçerlidir, Cpk/Cpu/Ppk/Pp hesaplanmaz; PDF raporu bu nedenle "
+                        "devre disi."
                     )
                 else:
                     st.info(

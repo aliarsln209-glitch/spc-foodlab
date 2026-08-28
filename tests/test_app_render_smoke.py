@@ -280,3 +280,10 @@ def test_custom_measurement_persisted_on_submit():
         source = f.read()
     assert "insert_custom_measurement(" in source
     assert '"_custom_hydrated_for"' in source
+
+
+def test_has_specification_message_branch_exists():
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    assert 'param_config.get("has_specification", True)' in source
+    assert "yalnızca UCL/LCL proses kontrol limitleri" in source
