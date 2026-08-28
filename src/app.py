@@ -588,11 +588,22 @@ if param_config.get("is_custom", False) and not param_config["is_individual"]:
     # Custom X-bar/R parametrenin SQLite'a kaydedilmis subgroup_size'i,
     # global st.session_state.subgroup_size'a senkronize edilir - Nem/Kuru
     # Madde panelinin is_individual'i runtime'da set etmesiyle (yukaridaki
-    # blok) AYNI desen. Sadece parametre YENI aktif oldugunda (henuz veri
-    # girilmemisken) senkronize edilir - kullanici sidebar'daki "Alt grup
-    # buyuklugu" widget'iyla ELLE degistirdiyse (asagida) o tercih ezilmez.
-    if not st.session_state.subgroups and param_config.get("custom_subgroup_size"):
-        st.session_state.subgroup_size = param_config["custom_subgroup_size"]
+    # blok) AYNI desen. Senkronizasyon, parametre bu session'da YENI aktif
+    # oldugu ANDA (activation-transition) bir kez tetiklenir - "subgroups
+    # bos mu" kontrolune DAYANMAZ, cunku hydrate bloğu (yukarida) subgroups'i
+    # SQLite'taki gecmis olculerle doldurabilir ve bu durumda subgroups artik
+    # bos degildir; oysa dondurulen bir parametrenin subgroup_size'i YINE DE
+    # senkronize edilmelidir (aksi halde eski/varsayilan n ile yeni bir alt
+    # grup girilirse, ayni parametrenin gecmisiyle FARKLI genislikte bir alt
+    # grup eklenip SPC gecmisi sessizce karisir). "_custom_subgroup_synced_for"
+    # (hydrate'in "_custom_hydrated_for" izleyicisiyle AYNI desen) her
+    # activation'da SADECE BIR KEZ tetiklenmesini saglar - boylece kullanici
+    # sidebar'daki "Alt grup buyuklugu" widget'iyla bu activation icinde ELLE
+    # degistirdiyse (asagida), sonraki rerun'larda o tercih ezilmez.
+    if st.session_state.get("_custom_subgroup_synced_for") != st.session_state.active_parameter:
+        if param_config.get("custom_subgroup_size"):
+            st.session_state.subgroup_size = param_config["custom_subgroup_size"]
+        st.session_state._custom_subgroup_synced_for = st.session_state.active_parameter
 
 if not is_individual:
     with st.sidebar:
