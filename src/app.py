@@ -1909,61 +1909,61 @@ def render_generic_data_entry_tab() -> None:
                     "tanımlı değildir)."
                 )
         else:
-            demo_scenario_options = ["Genel (varsayilan)"] + [
-                p for p in param_config["products"] if p != "Ozel/Manuel gir"
-            ]
-            demo_scenario = st.selectbox(
-                "Demo senaryosu", demo_scenario_options,
-                key=f"demo_scenario_{st.session_state.active_parameter}",
-                help=(
-                    "'Genel (varsayilan)' parametrenin standart demo verisini uretir. "
-                    "Bir urun secersen, demo veri o urunun LSL/USL araligina gore "
-                    "ortalanmis olarak uretilir (orn. 'Bal' secilirse nem verisi "
-                    "Bal'in nem spesifikasyonu civarinda olusturulur)."
-                ),
-            )
-
-            # v1.2 Madde 12: Demo senaryo galerisi - "Demo senaryosu" (yukarida,
-            # HANGI URUNE gore ortalanacagini secer) ile BAGIMSIZ bir eksen: bu
-            # secim surecin NASIL DAVRANDIGINI (iyi/kayan/degisken/trend) belirler.
-            # Ikisi carpilarak (urun x davranis) kullanilabilir - orn. "Bal" +
-            # "Kayan ortalama" -> Bal'in spesifikasyonu civarinda kalici kayan veri.
-            demo_pattern_labels = {
-                "Ani sicrama (tek nokta)": "point_shift",
-                "Iyi surec (kontrol altinda)": "none",
-                "Kayan ortalama (kalici kayma)": "persistent_shift",
-                "Dusuk Cpk (yuksek degiskenlik)": "high_variation",
-                "Trend (dogrusal kayma)": "trend",
-            }
-            demo_pattern_choice = st.selectbox(
-                "Demo davranis deseni", list(demo_pattern_labels.keys()),
-                key=f"demo_pattern_{st.session_state.active_parameter}",
-                help=(
-                    "Surecin demo verisinde NASIL davranacagini secer - Nelson "
-                    "kurallarini/dusuk Cpk'yi/trendi gormek icin farkli desenler "
-                    "dener. 'Ani sicrama' onceki surumlerin varsayilan demosudur."
-                ),
-            )
-            demo_pattern = demo_pattern_labels[demo_pattern_choice]
-
-            if is_microbio:
-                # Ayri bir "Normal SPC Demo / Microbiology Demo" secici EKLENMEDI -
-                # is_microbio zaten parametre secimiyle otomatik belirlendigi icin
-                # (bu parametre TPC/TMAB ise demo HER ZAMAN log-normal uretilir,
-                # baska turlusu anlamsiz olurdu) boyle bir secici sadece TEK gecerli
-                # cevabi olan bir soru sorar - kafa karistirir. Bunun yerine burada
-                # NEDEN log-normal uretildigi aciklanir (bkz. asagidaki demo yukleme
-                # kodu: generate_demo_individual log10 uzayinda cagrilir, sonra
-                # 10**log_deger ile ham KOB/g'ye cevrilip build_subgroup_entry()'den
-                # gecirilir).
-                st.caption(
-                    "\U0001F9EA Bu parametre icin demo veri **log-normal dagilimdan** "
-                    "uretilir (once log10 olceginde normal dagilim uretilir, sonra ham "
-                    "KOB/g'ye cevrilir) - mikrobiyal sayimlarin gercek dagilimini "
-                    "yansitir, bu yuzden neden log10 donusumu kullanildigini gorsel "
-                    "olarak da gosterir."
-                )
             with col_a:
+                demo_scenario_options = ["Genel (varsayilan)"] + [
+                    p for p in param_config["products"] if p != "Ozel/Manuel gir"
+                ]
+                demo_scenario = st.selectbox(
+                    "Demo senaryosu", demo_scenario_options,
+                    key=f"demo_scenario_{st.session_state.active_parameter}",
+                    help=(
+                        "'Genel (varsayilan)' parametrenin standart demo verisini uretir. "
+                        "Bir urun secersen, demo veri o urunun LSL/USL araligina gore "
+                        "ortalanmis olarak uretilir (orn. 'Bal' secilirse nem verisi "
+                        "Bal'in nem spesifikasyonu civarinda olusturulur)."
+                    ),
+                )
+
+                # v1.2 Madde 12: Demo senaryo galerisi - "Demo senaryosu" (yukarida,
+                # HANGI URUNE gore ortalanacagini secer) ile BAGIMSIZ bir eksen: bu
+                # secim surecin NASIL DAVRANDIGINI (iyi/kayan/degisken/trend) belirler.
+                # Ikisi carpilarak (urun x davranis) kullanilabilir - orn. "Bal" +
+                # "Kayan ortalama" -> Bal'in spesifikasyonu civarinda kalici kayan veri.
+                demo_pattern_labels = {
+                    "Ani sicrama (tek nokta)": "point_shift",
+                    "Iyi surec (kontrol altinda)": "none",
+                    "Kayan ortalama (kalici kayma)": "persistent_shift",
+                    "Dusuk Cpk (yuksek degiskenlik)": "high_variation",
+                    "Trend (dogrusal kayma)": "trend",
+                }
+                demo_pattern_choice = st.selectbox(
+                    "Demo davranis deseni", list(demo_pattern_labels.keys()),
+                    key=f"demo_pattern_{st.session_state.active_parameter}",
+                    help=(
+                        "Surecin demo verisinde NASIL davranacagini secer - Nelson "
+                        "kurallarini/dusuk Cpk'yi/trendi gormek icin farkli desenler "
+                        "dener. 'Ani sicrama' onceki surumlerin varsayilan demosudur."
+                    ),
+                )
+                demo_pattern = demo_pattern_labels[demo_pattern_choice]
+
+                if is_microbio:
+                    # Ayri bir "Normal SPC Demo / Microbiology Demo" secici EKLENMEDI -
+                    # is_microbio zaten parametre secimiyle otomatik belirlendigi icin
+                    # (bu parametre TPC/TMAB ise demo HER ZAMAN log-normal uretilir,
+                    # baska turlusu anlamsiz olurdu) boyle bir secici sadece TEK gecerli
+                    # cevabi olan bir soru sorar - kafa karistirir. Bunun yerine burada
+                    # NEDEN log-normal uretildigi aciklanir (bkz. asagidaki demo yukleme
+                    # kodu: generate_demo_individual log10 uzayinda cagrilir, sonra
+                    # 10**log_deger ile ham KOB/g'ye cevrilip build_subgroup_entry()'den
+                    # gecirilir).
+                    st.caption(
+                        "\U0001F9EA Bu parametre icin demo veri **log-normal dagilimdan** "
+                        "uretilir (once log10 olceginde normal dagilim uretilir, sonra ham "
+                        "KOB/g'ye cevrilir) - mikrobiyal sayimlarin gercek dagilimini "
+                        "yansitir, bu yuzden neden log10 donusumu kullanildigini gorsel "
+                        "olarak da gosterir."
+                    )
                 if st.button("\U0001F9EA Demo veri yukle (24 olcum)" if is_individual else "\U0001F9EA Demo veri yukle (24 alt grup)", type="primary"):
                     scenario_product = None if demo_scenario == "Genel (varsayilan)" else demo_scenario
                     demo_mean, demo_spread, demo_shift_amount = demo_scenario_targets(param_config, scenario_product)

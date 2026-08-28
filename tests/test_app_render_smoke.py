@@ -238,7 +238,16 @@ def test_custom_parameter_branch_exists_before_microbio_else():
 def test_demo_section_guards_custom_parameters():
     with open(APP_PATH, encoding="utf-8") as f:
         source = f.read()
-    demo_guard_pos = source.index('if param_config.get("is_custom", False):')
+    # Line-start anchored regex: plain substring search on 'if param_config.get(...)'
+    # would also match inside the LATER 'elif param_config.get("is_custom", False):'
+    # (info-card chain, Step 2) since "elif ..." contains "if ..." as a substring -
+    # anchoring to the start of the line (only leading whitespace before "if")
+    # guarantees we find the demo-section's own "if", not that "elif".
+    demo_guard_match = re.search(
+        r'^[ \t]*if param_config\.get\("is_custom", False\):', source, re.MULTILINE
+    )
+    assert demo_guard_match is not None, "Demo bolumunde is_custom guard'i bulunamadi."
+    demo_guard_pos = demo_guard_match.start()
     products_read_pos = source.index('demo_scenario_options = ["Genel (varsayilan)"]')
     assert demo_guard_pos < products_read_pos, (
         "Demo bolumu, param_config['products'] okumadan ONCE is_custom "
