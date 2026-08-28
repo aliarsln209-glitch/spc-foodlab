@@ -381,6 +381,108 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
+    with st.expander("➕ Yeni Analiz Ekle", expanded=False):
+        st.caption(
+            "Listede olmayan bir analiz mi takip ediyorsunuz? Buradan "
+            "kendi parametrenizi tanımlayıp aynı SPC motoruyla (kontrol "
+            "grafiği + Cpk) takip edebilirsiniz. ℹ️ Bu kayıtlar yerel "
+            "SQLite dosyasında tutulur; uygulama yeniden başlatılırsa "
+            "(örn. Streamlit Cloud'da uzun süreli inaktivite sonrası) "
+            "kaybolabilir."
+        )
+        with st.form("new_custom_parameter_form", clear_on_submit=True):
+            new_name = st.text_input("Analiz adı")
+            new_unit = st.text_input("Birim")
+            new_data_type_label = st.radio(
+                "Veri tipi", ["Sürekli", "Sayım"], index=0, horizontal=True,
+                key="new_param_data_type",
+            )
+            new_spec_mode = st.radio(
+                "Spesifikasyon", ["LSL/USL gir", "Belirtilmiyor"], index=0,
+                key="new_param_spec_mode",
+            )
+            _spec_disabled = new_spec_mode == "Belirtilmiyor"
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                new_lsl_enabled = st.checkbox("LSL kullan", value=True, key="new_param_lsl_enabled", disabled=_spec_disabled)
+                new_lsl = st.number_input("LSL", value=0.0, key="new_param_lsl", disabled=_spec_disabled or not new_lsl_enabled)
+            with sc2:
+                new_usl_enabled = st.checkbox("USL kullan", value=True, key="new_param_usl_enabled", disabled=_spec_disabled)
+                new_usl = st.number_input("USL", value=0.0, key="new_param_usl", disabled=_spec_disabled or not new_usl_enabled)
+            new_structure = st.radio(
+                "Ölçüm yapısı", ["Bireysel (I-MR)", "Alt Grup (X-bar/R)"], index=0,
+                key="new_param_structure",
+            )
+            new_subgroup_n = None
+            if new_structure == "Alt Grup (X-bar/R)":
+                new_subgroup_n = st.number_input(
+                    "Alt grup büyüklüğü (n)", min_value=MIN_SUBGROUP_SIZE,
+                    max_value=MAX_SUBGROUP_SIZE, value=DEFAULT_SUBGROUP_SIZE,
+                    key="new_param_subgroup_n",
+                )
+            with st.expander("Gelişmiş ayarlar", expanded=False):
+                new_is_count = new_data_type_label == "Sayım"
+                new_decimal_places = 0
+                if not new_is_count:
+                    new_decimal_places = st.number_input(
+                        "Ondalık hane", min_value=0, max_value=6, value=2,
+                        key="new_param_decimal_places",
+                    )
+                else:
+                    st.caption("Sayım verisi için ondalık hane 0'a sabitlenir.")
+                new_log_scale = st.checkbox(
+                    "Veriler log ölçekte mi gösterilsin?", value=False,
+                    key="new_param_log_scale",
+                )
+                mc1, mc2 = st.columns(2)
+                with mc1:
+                    new_min_enabled = st.checkbox("Fiziksel min sınır", value=False, key="new_param_min_enabled")
+                    new_min_value = st.number_input("Min", value=0.0, key="new_param_min_value", disabled=not new_min_enabled)
+                with mc2:
+                    new_max_enabled = st.checkbox("Fiziksel max sınır", value=False, key="new_param_max_enabled")
+                    new_max_value = st.number_input("Max", value=100.0, key="new_param_max_value", disabled=not new_max_enabled)
+
+            new_submitted = st.form_submit_button("Parametreyi oluştur")
+
+        if new_submitted:
+            _combined = get_combined_parameter_config()
+            _name_clean = new_name.strip()
+            if not _name_clean:
+                st.error("Analiz adı boş olamaz.")
+            elif not new_unit.strip():
+                st.error("Birim boş olamaz.")
+            elif _name_clean in _combined:
+                st.error(f"'{_name_clean}' adında bir parametre zaten mevcut (built-in veya özel).")
+            else:
+                _has_spec = not _spec_disabled and (new_lsl_enabled or new_usl_enabled)
+                _lsl = new_lsl if (_has_spec and new_lsl_enabled) else None
+                _usl = new_usl if (_has_spec and new_usl_enabled) else None
+                _one_sided = _has_spec and (_lsl is None or _usl is None)
+                if _has_spec and _lsl is not None and _usl is not None and _lsl >= _usl:
+                    st.error("LSL, USL'den küçük olmalıdır.")
+                else:
+                    conn = get_custom_param_connection()
+                    try:
+                        insert_custom_parameter(
+                            conn, name=_name_clean, unit=new_unit.strip(),
+                            chart_type="I-MR" if new_structure == "Bireysel (I-MR)" else "Xbar-R",
+                            subgroup_size=new_subgroup_n,
+                            data_type="count" if new_is_count else "continuous",
+                            lsl=_lsl, usl=_usl, has_specification=_has_spec,
+                            one_sided=_one_sided, log_scale=new_log_scale,
+                            decimal_places=new_decimal_places,
+                            min_value=new_min_value if new_min_enabled else None,
+                            max_value=new_max_value if new_max_enabled else None,
+                        )
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        conn.close()
+                        invalidate_parameter_registry_cache()
+                        st.success(f"'{_name_clean}' eklendi. Sol menüden 'Özel Parametreler' altında bulabilirsiniz.")
+                        st.rerun()
+
+    st.divider()
     st.subheader("Gorunum Ayarlari")
     chart_theme = st.selectbox("Tema (grafik + arayuz)", ["Acik", "Koyu"], key="chart_theme")
     accent_color = st.color_picker(

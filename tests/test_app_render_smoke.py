@@ -265,3 +265,11 @@ def test_old_gravimetric_calculator_removed_from_tab_calc():
     body = source[start:end]
     assert "qc_moisture_tare" not in body
     assert "### ⚖️ Gravimetrik Nem / Kuru Madde" not in body
+
+
+def test_new_custom_parameter_form_exists():
+    with open(APP_PATH, encoding="utf-8") as f:
+        source = f.read()
+    assert 'st.form("new_custom_parameter_form"' in source
+    assert "insert_custom_parameter(" in source
+    assert "invalidate_parameter_registry_cache()" in source
